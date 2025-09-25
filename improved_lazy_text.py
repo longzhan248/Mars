@@ -30,56 +30,41 @@ class ImprovedLazyText(tk.Frame):
         container = tk.Frame(self)
         container.pack(fill=tk.BOTH, expand=True)
 
-        # 创建Canvas和滚动条
-        canvas = tk.Canvas(container, highlightthickness=0)
-        v_scrollbar = ttk.Scrollbar(container, orient=tk.VERTICAL, command=canvas.yview)
+        # 直接创建Text组件和滚动条，不使用Canvas
+        v_scrollbar = ttk.Scrollbar(container, orient=tk.VERTICAL)
 
-        # 创建Text组件
+        # 创建Text组件 - 使用系统默认背景色
         default_kwargs = {
             'wrap': tk.WORD,  # 自动换行
             'highlightthickness': 0,
-            'borderwidth': 0
+            'borderwidth': 0,
+            'yscrollcommand': v_scrollbar.set
         }
         default_kwargs.update(text_kwargs)
 
-        self.text = tk.Text(canvas, **default_kwargs)
+        self.text = tk.Text(container, **default_kwargs)
+        v_scrollbar.config(command=self.text.yview)
 
-        # 配置Canvas
-        canvas.configure(yscrollcommand=v_scrollbar.set)
-        canvas_frame = canvas.create_window(0, 0, anchor=tk.NW, window=self.text)
-
-        # 布局
+        # 布局 - 直接放置Text和滚动条
         v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-        # 更新Canvas滚动区域
-        def configure_scroll_region(event=None):
-            canvas.configure(scrollregion=canvas.bbox("all"))
-            # 设置Canvas窗口宽度
-            canvas_width = canvas.winfo_width()
-            if canvas_width > 1:
-                canvas.itemconfig(canvas_frame, width=canvas_width)
-
-        self.text.bind('<Configure>', configure_scroll_region)
-        canvas.bind('<Configure>', lambda e: canvas.itemconfig(canvas_frame, width=e.width))
+        self.text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         # 保存组件引用
-        self.canvas = canvas
         self.v_scrollbar = v_scrollbar
 
         # 绑定滚动检测
         v_scrollbar.bind('<ButtonRelease-1>', self.check_scroll_position)
-        canvas.bind('<MouseWheel>', self.on_mousewheel)
-        canvas.bind('<Button-4>', self.on_mousewheel)
-        canvas.bind('<Button-5>', self.on_mousewheel)
+        self.text.bind('<MouseWheel>', self.on_mousewheel)
+        self.text.bind('<Button-4>', self.on_mousewheel)
+        self.text.bind('<Button-5>', self.on_mousewheel)
 
     def on_mousewheel(self, event):
         """鼠标滚轮事件"""
-        # 滚动Canvas
+        # 滚动Text widget
         if event.num == 4 or event.delta > 0:
-            self.canvas.yview_scroll(-1, "units")
+            self.text.yview_scroll(-1, "units")
         elif event.num == 5 or event.delta < 0:
-            self.canvas.yview_scroll(1, "units")
+            self.text.yview_scroll(1, "units")
 
         # 检查是否需要加载更多
         self.after(10, self.check_scroll_position)
@@ -99,12 +84,17 @@ class ImprovedLazyText(tk.Frame):
         self.current_index = 0
 
         if clear:
+            self.text.config(state='normal')
             self.text.delete(1.0, tk.END)
+            self.text.config(state='disabled')
 
         # 加载初始数据（更多）
         initial_load = min(self.max_initial, len(self.data))
         self.current_index = 0
         self.load_batch(initial_load)
+
+        # 更新Canvas视图
+        self.after(10, self._update_canvas_view)
 
     def load_batch(self, count):
         """加载指定数量的数据"""
@@ -171,6 +161,11 @@ class ImprovedLazyText(tk.Frame):
         """配置标签样式"""
         self.text.tag_config(tag_name, **kwargs)
 
+    def _update_canvas_view(self):
+        """更新视图（不再需要Canvas特定操作）"""
+        # 确保Text widget更新显示
+        self.text.update_idletasks()
+
     def clear(self):
         """清空内容"""
         self.text.config(state='normal')
@@ -198,3 +193,35 @@ class ImprovedLazyText(tk.Frame):
     def search(self, pattern, start, stop=None, **kwargs):
         """搜索文本"""
         return self.text.search(pattern, start, stop, **kwargs)
+
+    def tag_add(self, tagname, start, end):
+        """添加标签"""
+        self.text.tag_add(tagname, start, end)
+
+    def tag_config(self, tagname, **kwargs):
+        """配置标签"""
+        self.text.tag_config(tagname, **kwargs)
+
+    def tag_remove(self, tagname, start, end):
+        """移除标签"""
+        self.text.tag_remove(tagname, start, end)
+
+    def tag_delete(self, tagname):
+        """删除标签"""
+        self.text.tag_delete(tagname)
+
+    def see(self, index):
+        """滚动到指定位置"""
+        self.text.see(index)
+
+    def mark_set(self, markname, index):
+        """设置标记"""
+        self.text.mark_set(markname, index)
+
+    def yview(self, *args):
+        """纵向滚动"""
+        return self.text.yview(*args)
+
+    def xview(self, *args):
+        """横向滚动"""
+        return self.text.xview(*args)
