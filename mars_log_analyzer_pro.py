@@ -1491,121 +1491,13 @@ class MarsLogAnalyzerPro:
 
     def update_statistics(self):
         """更新统计信息"""
-        if not self.analysis_results:
-            return
-
-        self.stats_text.delete(1.0, tk.END)
-
-        stats_text = "=" * 40 + "\n"
-        stats_text += "日志统计分析报告\n"
-        stats_text += "=" * 40 + "\n\n"
-
-        if self.current_group:
-            stats_text += f"当前文件组: {self.current_group.base_name}\n"
-            stats_text += f"包含文件数: {len(self.current_group.files)}\n"
-
-        stats_text += f"总日志行数: {self.analysis_results.get('total_lines', 0)}\n"
-        stats_text += f"模块总数: {len(self.analysis_results.get('modules', []))}\n\n"
-
-        stats_text += "日志级别分布:\n"
-        stats_text += "-" * 30 + "\n"
-        for level, count in sorted(self.analysis_results.get('log_levels', {}).items()):
-            percentage = count / self.analysis_results['total_lines'] * 100 if self.analysis_results['total_lines'] > 0 else 0
-            stats_text += f"{level:10s}: {count:6d} ({percentage:.1f}%)\n"
-
-        stats_text += "\n模块日志分布 (Top 10):\n"
-        stats_text += "-" * 30 + "\n"
-        module_stats = self.analysis_results.get('module_stats', {})
-        for module, count in sorted(module_stats.items(), key=lambda x: x[1], reverse=True)[:10]:
-            percentage = count / self.analysis_results['total_lines'] * 100 if self.analysis_results['total_lines'] > 0 else 0
-            stats_text += f"{module[:20]:20s}: {count:6d} ({percentage:.1f}%)\n"
-
-        self.stats_text.insert(1.0, stats_text)
+        # 统计信息已移除，此方法暂时保留为空以避免调用错误
+        pass
 
     def update_charts(self):
         """更新图表"""
-        if not self.analysis_results:
-            return
-
-        self.fig_stats.clear()
-
-        # 创建2x2子图
-        ax1 = self.fig_stats.add_subplot(221)  # 级别饼图
-        ax2 = self.fig_stats.add_subplot(222)  # 模块饼图
-        ax3 = self.fig_stats.add_subplot(212)  # 模块级别堆叠图
-
-        # 1. 日志级别饼图
-        log_levels = self.analysis_results.get('log_levels', {})
-        if log_levels:
-            labels = list(log_levels.keys())
-            sizes = list(log_levels.values())
-            colors = {
-                'FATAL': 'darkred',
-                'ERROR': 'red',
-                'WARNING': 'orange',
-                'INFO': 'blue',
-                'DEBUG': 'gray',
-                'VERBOSE': 'lightgray',
-                'OTHER': 'green'
-            }
-            pie_colors = [colors.get(label, 'gray') for label in labels]
-            ax1.pie(sizes, labels=labels, colors=pie_colors, autopct='%1.1f%%', startangle=90)
-            ax1.set_title('日志级别分布')
-
-        # 2. 模块分布饼图（Top 5）
-        module_stats = self.analysis_results.get('module_stats', {})
-        if module_stats:
-            sorted_modules = sorted(module_stats.items(), key=lambda x: x[1], reverse=True)[:5]
-            labels = [m[0][:10] for m in sorted_modules]
-            sizes = [m[1] for m in sorted_modules]
-            ax2.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
-            ax2.set_title('模块分布 (Top 5)')
-
-        # 3. 模块-级别堆叠条形图
-        module_level_stats = self.analysis_results.get('module_level_stats', {})
-        if module_level_stats:
-            top_modules = sorted(module_stats.items(), key=lambda x: x[1], reverse=True)[:10]
-            module_names = [m[0][:15] for m in top_modules]
-
-            levels = ['CRASH', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'OTHER']
-            level_colors = {'CRASH': '#8B0000', 'ERROR': 'red', 'WARNING': 'orange',
-                           'INFO': 'blue', 'DEBUG': 'gray', 'OTHER': 'green'}
-
-            bottom = [0] * len(module_names)
-            for level in levels:
-                values = [module_level_stats.get(m[0], {}).get(level, 0) for m in top_modules]
-                if any(values):
-                    ax3.bar(module_names, values, bottom=bottom, label=level,
-                           color=level_colors.get(level, 'gray'))
-                    bottom = [b + v for b, v in zip(bottom, values)]
-
-            ax3.set_xlabel('模块')
-            ax3.set_ylabel('日志数量')
-            ax3.set_title('模块日志级别分布 (Top 10)')
-            ax3.legend(loc='upper right')
-            ax3.tick_params(axis='x', rotation=45)
-
-        self.fig_stats.tight_layout()
-        self.canvas_stats.draw()
-
-        # 更新时间分布图
-        self.fig_time.clear()
-        ax4 = self.fig_time.add_subplot(111)
-
-        time_dist = self.analysis_results.get('time_distribution', {})
-        if time_dist:
-            sorted_times = sorted(time_dist.items())
-            hours = [item[0] for item in sorted_times]
-            counts = [item[1] for item in sorted_times]
-
-            ax4.bar(hours, counts, color='steelblue')
-            ax4.set_xlabel('时间（小时）')
-            ax4.set_ylabel('日志数量')
-            ax4.set_title(f'日志时间分布 - {self.current_group.base_name if self.current_group else "全部"}')
-            ax4.tick_params(axis='x', rotation=45)
-
-        self.fig_time.tight_layout()
-        self.canvas_time.draw()
+        # 图表功能已移除，此方法暂时保留为空以避免调用错误
+        pass
 
     def filter_logs(self, start_time=None, end_time=None):
         """过滤日志（支持时间范围）"""
