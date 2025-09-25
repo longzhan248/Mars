@@ -33,6 +33,22 @@ plt.rcParams['axes.unicode_minus'] = False
 
 class LogEntry:
     """日志条目类"""
+
+    # 级别映射表
+    LEVEL_MAP = {
+        'I': 'INFO',
+        'W': 'WARNING',
+        'E': 'ERROR',
+        'D': 'DEBUG',
+        'V': 'VERBOSE',
+        'F': 'FATAL'
+    }
+
+    # 崩溃关键词 - 必须是确定的崩溃标识
+    CRASH_KEYWORDS = [
+        '*** Terminating app due to uncaught exception'  # 只有这个才是真正的崩溃
+    ]
+
     def __init__(self, raw_line, source_file=""):
         self.raw_line = raw_line
         self.source_file = source_file  # 来源文件
@@ -45,28 +61,64 @@ class LogEntry:
         self.is_stacktrace = False  # 是否为堆栈信息
         self.parse()
 
+    def _is_crash_content(self, content, location=""):
+        """检测内容是否包含崩溃信息"""
+        if not content:
+            return False
+
+        # 只检查内容中是否包含确定的崩溃标识
+        for keyword in self.CRASH_KEYWORDS:
+            if keyword in content:  # 精确匹配，不转换大小写
+                return True
+
+        return False
+
+    def _mark_as_crash(self, location=None):
+        """标记为崩溃日志"""
+        self.is_crash = True
+        self.level = 'CRASH'
+        self.module = 'Crash'
+        if location and self.content:
+            self.content = f"[{location}] {self.content}"
+
     def parse(self):
         """解析日志行"""
-        # 日志格式: [级别][时间][线程ID][模块]内容
+        # 尝试匹配带有两个模块标签的格式（崩溃日志特殊格式）
+        # 格式: [级别][时间][线程ID][<标签1><标签2>][位置信息][内容]
+        crash_pattern = r'^\[([IWEDVF])\]\[([^\]]+)\]\[([^\]]+)\]\[<([^>]+)><([^>]+)>\]\[([^\]]+)\](.*)$'
+        crash_match = re.match(crash_pattern, self.raw_line)
+
+        if crash_match:
+            # 这是崩溃日志格式
+            self.level = self.LEVEL_MAP.get(crash_match.group(1), crash_match.group(1))
+            self.timestamp = crash_match.group(2)
+            self.thread_id = crash_match.group(3)
+            tag1 = crash_match.group(4)  # ERROR
+            tag2 = crash_match.group(5)  # HY-Default
+            location = crash_match.group(6)  # CrashReportManager.m, attachmentForException, 204
+            self.content = crash_match.group(7)  # *** Terminating app...
+
+            # 设置模块
+            self.module = tag2
+
+            # 检测是否为崩溃日志 - 必须是ERROR级别且包含特定崩溃信息
+            if (self.level == 'ERROR' and
+                tag1 == 'ERROR' and
+                tag2 == 'HY-Default' and
+                'CrashReportManager.m' in location and
+                self._is_crash_content(self.content)):
+                self._mark_as_crash(location)
+
+            return
+
+        # 标准日志格式: [级别][时间][线程ID][模块]内容
         pattern = r'^\[([IWEDVF])\]\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\](.*)$'
         match = re.match(pattern, self.raw_line)
 
         if match:
-            # 提取级别
-            level_map = {
-                'I': 'INFO',
-                'W': 'WARNING',
-                'E': 'ERROR',
-                'D': 'DEBUG',
-                'V': 'VERBOSE',
-                'F': 'FATAL'
-            }
-            self.level = level_map.get(match.group(1), match.group(1))
-
-            # 提取时间
+            # 提取基本信息
+            self.level = self.LEVEL_MAP.get(match.group(1), match.group(1))
             self.timestamp = match.group(2)
-
-            # 提取线程ID
             self.thread_id = match.group(3)
 
             # 提取模块
@@ -83,22 +135,10 @@ class LogEntry:
             # 提取内容
             self.content = match.group(5)
 
-            # 专门检测CrashReportManager格式的崩溃日志
-            # 包括两种情况：
-            # 1. [E][时间][线程][<ERROR><HY-Default>][CrashReportManager.m, attachmentForException, 204][*** Terminating app due to uncaught exception
-            # 2. [E][时间][线程][<ERROR><HY-Default>][CrashReportManager.m, attachmentForException, 204][*** Terminating app due to uncaught exception 'NSRangeException', reason: ...
-            is_crash_report = (
-                self.level == 'ERROR' and
-                self.module == 'HY-Default' and
-                'CrashReportManager.m' in self.content and
-                ('*** Terminating app due to uncaught exception' in self.content or
-                 ('*** Terminating app' in self.content and 'reason:' in self.content))
-            )
-
-            if is_crash_report:
-                self.is_crash = True
-                self.level = 'CRASH'  # 特殊级别
-                self.module = 'Crash'  # 归入Crash模块
+            # 标准格式日志一般不是崩溃日志，崩溃日志通常使用特殊格式
+            # 除非内容明确包含崩溃标识
+            if self.level == 'ERROR' and '*** Terminating app due to uncaught exception' in self.content:
+                self._mark_as_crash()
         else:
             # 检查特殊的崩溃相关行
             crash_related_patterns = [
@@ -640,43 +680,45 @@ class MarsLogAnalyzerPro:
                 break
 
     def post_process_crash_logs(self, group):
-        """后处理崩溃日志，正确识别CrashReportManager格式的崩溃上下文"""
+        """后处理崩溃日志，将相关堆栈信息归入Crash模块"""
         entries = group.entries
-
-        # 找出所有CrashReportManager崩溃日志的位置
         crash_indices = []
+
+        # 找出所有崩溃点
         for i, entry in enumerate(entries):
-            if (entry.is_crash and entry.level == 'CRASH' and
-                'CrashReportManager.m' in getattr(entry, 'content', '')):
+            if entry.is_crash or (entry.level == 'CRASH' and
+                                   ('*** First throw call stack' in getattr(entry, 'content', '') or
+                                    'CrashReportManager' in getattr(entry, 'content', ''))):
                 crash_indices.append(i)
 
-        # 为每个崩溃位置，将后续的堆栈信息归入Crash模块
+        # 处理每个崩溃点后的堆栈信息
+        processed_indices = set()
         for crash_idx in crash_indices:
-            # 向后查找崩溃相关的信息
-            i = crash_idx + 1
-            while i < len(entries):
+            for i in range(crash_idx + 1, len(entries)):
+                if i in processed_indices:
+                    continue
+
                 entry = entries[i]
 
-                # 如果是"*** First throw call stack:"或iOS堆栈格式，归入Crash
-                if (entry.module == 'Crash-Stack' or
-                    (entry.level == 'CRASH' and '*** First throw call stack' in entry.content)):
-                    entry.module = 'Crash'
-                    i += 1
-                # 如果是OTHER类型且内容为空或只有少量字符，可能是堆栈的一部分
-                elif entry.level == 'OTHER' and len(entry.content.strip()) < 5:
+                # 判断是否为堆栈信息
+                is_stack_entry = (
+                    entry.module == 'Crash-Stack' or
+                    (entry.level == 'OTHER' and len(entry.content.strip()) < 5) or
+                    (entry.is_stacktrace and entry.level in ['STACKTRACE', 'OTHER'])
+                )
+
+                if is_stack_entry:
                     entry.module = 'Crash'
                     entry.level = 'CRASH'
-                    i += 1
-                # 如果遇到下一条格式化的日志（有时间戳的），停止
-                elif entry.level in ['ERROR', 'WARNING', 'INFO', 'DEBUG']:
+                    entry.is_crash = True
+                    processed_indices.add(i)
+                # 遇到新的格式化日志，停止处理
+                elif entry.timestamp and entry.level in ['ERROR', 'WARNING', 'INFO', 'DEBUG']:
                     break
-                else:
-                    i += 1
 
-        # 清理非崩溃上下文的Crash-Stack标记
-        for entry in entries:
-            if entry.module == 'Crash-Stack':
-                # 如果没有被处理为Crash，说明不是真正的崩溃堆栈
+        # 清理未处理的临时标记
+        for i, entry in enumerate(entries):
+            if i not in processed_indices and entry.module == 'Crash-Stack':
                 entry.module = 'System'
                 entry.level = 'INFO'
                 entry.is_stacktrace = False
@@ -1233,30 +1275,61 @@ class MarsLogAnalyzerPro:
                     i = 0
                     while i < len(lines):
                         line = lines[i].strip()
-                        if line:
-                            # 检查是否为标准日志格式开头
-                            if re.match(r'^\[[IWEDVF]\]\[', line):
-                                # 标准格式日志，检查后续是否有续行
-                                full_line = line
-                                j = i + 1
-                                # 收集后续的非标准格式行作为续行
-                                while j < len(lines) and lines[j].strip():
-                                    next_line = lines[j].strip()
-                                    # 如果下一行是新的日志条目，停止
-                                    if re.match(r'^\[[IWEDVF]\]\[', next_line):
-                                        break
+                        if not line:
+                            i += 1
+                            continue
+
+                        # 检查是否为标准日志格式
+                        if re.match(r'^\[[IWEDVF]\]\[', line):
+                            full_line = line
+                            j = i + 1
+
+                            # 判断是否可能是崩溃日志 - 只检查确定的崩溃标识
+                            is_potential_crash = '*** Terminating app due to uncaught exception' in line
+
+                            # 收集续行
+                            while j < len(lines):
+                                next_line = lines[j].strip()
+                                if not next_line:
+                                    j += 1
+                                    continue
+
+                                # 新的日志条目开始
+                                if re.match(r'^\[[IWEDVF]\]\[', next_line):
+                                    break
+
+                                # 崩溃日志特殊处理
+                                if is_potential_crash:
+                                    # 崩溃相关内容的模式
+                                    is_crash_content = (
+                                        '*** First throw call stack' in next_line or
+                                        re.match(r'^\s*\d+\s+\S+\s+0x[0-9a-fA-F]+', next_line) or
+                                        next_line.startswith('***') or
+                                        'Thread' in next_line and 'crashed' in next_line.lower()
+                                    )
+
+                                    if is_crash_content:
+                                        full_line += '\n' + next_line
+                                        j += 1
+                                    else:
+                                        # 非崩溃内容，但可能是多行日志的一部分
+                                        if j == i + 1:  # 紧邻的下一行
+                                            full_line += '\n' + next_line
+                                            j += 1
+                                        else:
+                                            break
+                                else:
+                                    # 普通多行日志
                                     full_line += '\n' + next_line
                                     j += 1
 
-                                entry = LogEntry(full_line, os.path.basename(filepath))
-                                group.entries.append(entry)
-                                i = j
-                            else:
-                                # 非标准格式行，作为独立条目
-                                entry = LogEntry(line, os.path.basename(filepath))
-                                group.entries.append(entry)
-                                i += 1
+                            entry = LogEntry(full_line, os.path.basename(filepath))
+                            group.entries.append(entry)
+                            i = j
                         else:
+                            # 非标准格式
+                            entry = LogEntry(line, os.path.basename(filepath))
+                            group.entries.append(entry)
                             i += 1
 
             # 后处理：优化崩溃日志的识别
@@ -1289,6 +1362,9 @@ class MarsLogAnalyzerPro:
         module_level_stats = defaultdict(Counter)
         self.modules_data.clear()
 
+        # 遇到崩溃日志自动创建Crash模块
+        crash_entries = []
+
         for entry in self.log_entries:
             # 统计级别
             log_levels[entry.level] += 1
@@ -1296,6 +1372,10 @@ class MarsLogAnalyzerPro:
             # 统计模块
             module_stats[entry.module] += 1
             self.modules_data[entry.module].append(entry)
+
+            # 收集崩溃日志
+            if entry.is_crash or entry.level == 'CRASH':
+                crash_entries.append(entry)
 
             # 统计模块-级别
             module_level_stats[entry.module][entry.level] += 1
@@ -1306,6 +1386,13 @@ class MarsLogAnalyzerPro:
                 if hour_match:
                     hour = hour_match.group(1)
                     time_distribution[f"{hour}:00"] += 1
+
+        # 确保Crash模块存在（如果有崩溃日志）
+        if crash_entries and 'Crash' not in self.modules_data:
+            self.modules_data['Crash'] = crash_entries
+            module_stats['Crash'] = len(crash_entries)
+            for entry in crash_entries:
+                module_level_stats['Crash'][entry.level] += 1
 
         self.analysis_results = {
             'total_lines': len(self.log_entries),
@@ -1328,17 +1415,24 @@ class MarsLogAnalyzerPro:
         # 更新模块列表框
         self.module_listbox.delete(0, tk.END)
         for module, entries in sorted(self.modules_data.items()):
-            count = len(entries)
-            error_count = sum(1 for e in entries if e.level == 'ERROR')
-            warning_count = sum(1 for e in entries if e.level == 'WARNING')
+            # 统计各级别数量
+            count_stats = Counter(e.level for e in entries)
+            total_count = len(entries)
 
-            display_text = f"{module} ({count}条"
-            if error_count > 0:
-                display_text += f", {error_count}E"
-            if warning_count > 0:
-                display_text += f", {warning_count}W"
+            # 构建显示文本
+            display_text = f"{module} ({total_count}条"
+
+            # 优先显示崩溃数
+            if count_stats.get('CRASH', 0) > 0:
+                display_text += f", {count_stats['CRASH']}崩溃"
+            # 其次是错误数
+            elif count_stats.get('ERROR', 0) > 0:
+                display_text += f", {count_stats['ERROR']}E"
+            # 最后是警告数
+            if count_stats.get('WARNING', 0) > 0:
+                display_text += f", {count_stats['WARNING']}W"
+
             display_text += ")"
-
             self.module_listbox.insert(tk.END, display_text)
 
         # 恢复之前选中的模块
@@ -1445,24 +1539,30 @@ class MarsLogAnalyzerPro:
             entry = entries[i]
             item = {}
 
-            # 如果是崩溃日志，收集后续的堆栈信息
+            # 如果是崩溃日志，显示完整内容
             if entry.is_crash:
                 item['prefix'] = "🔴 [CRASH] "
                 item['prefix_tag'] = "CRASH"
-                item['text'] = entry.raw_line + '\n'
+                # 崩溃日志可能包含多行，确保完整显示
+                if '\n' in entry.raw_line:
+                    # 多行崩溃日志，保持格式
+                    item['text'] = entry.raw_line + '\n'
+                else:
+                    item['text'] = entry.raw_line + '\n'
                 item['tag'] = 'CRASH'
                 log_data.append(item)
 
-                # 查找后续的堆栈信息
+                # 查找后续的独立堆栈信息条目
                 i += 1
-                while i < len(entries) and entries[i].is_stacktrace:
-                    stack_item = {
-                        'prefix': "  ↳ ",
-                        'prefix_tag': "STACKTRACE",
-                        'text': entries[i].raw_line + '\n',
-                        'tag': 'STACKTRACE'
-                    }
-                    log_data.append(stack_item)
+                while i < len(entries) and (entries[i].is_stacktrace or entries[i].module == 'Crash'):
+                    if entries[i].level == 'CRASH' or entries[i].is_stacktrace:
+                        stack_item = {
+                            'prefix': "  ↳ ",
+                            'prefix_tag': "STACKTRACE",
+                            'text': entries[i].raw_line + '\n',
+                            'tag': 'STACKTRACE'
+                        }
+                        log_data.append(stack_item)
                     i += 1
                 continue
 
