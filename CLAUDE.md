@@ -3,72 +3,175 @@
 此文件为 Claude Code (claude.ai/code) 在此代码库中工作时提供指导。
 
 ## 项目用途
-此代码库包含用于解码 Mars xlog 文件的工具 - Mars 是腾讯的日志框架，xlog 是其使用的压缩和加密日志文件格式。
-现已包含完整的GUI日志分析系统，支持批量解析、统计分析和可视化。
+此代码库包含用于解码和分析 Mars xlog 文件的完整工具套件 - Mars 是腾讯的日志框架，xlog 是其使用的压缩和加密日志文件格式。
+项目提供了从基础解码到高级分析的全方位解决方案，包括命令行工具和专业级GUI应用。
 
 ## 核心组件
 
-### 解码脚本
+### 解码器系列
 - `decode_mars_nocrypt_log_file.py` - 原始 Python 2 版本解码脚本
 - `decode_mars_nocrypt_log_file_py3.py` - Python 3 兼容版本
   - 支持多种压缩格式（MAGIC_COMPRESS_START、MAGIC_NO_COMPRESS_START 等）
   - 支持加密（4字节或64字节密钥）和非加密日志格式
   - 使用 zlib 进行解压缩
   - 验证日志缓冲区完整性并优雅处理损坏的数据
+- `fast_decoder.py` - 高性能解码器
+  - 优化的解码算法，提升解析速度
+  - 减少内存占用
+  - 适合批量处理大文件
+- `optimized_decoder.py` - 优化版解码器
+  - 改进的错误处理机制
+  - 更好的内存管理
+  - 支持流式处理
 
 ### GUI分析系统
-- `mars_log_analyzer.py` - 主GUI应用程序
-  - 基于tkinter的图形界面
-  - 支持批量解析多个xlog文件
-  - 日志级别统计（ERROR、WARNING、INFO、DEBUG）
-  - 时间分布分析和可视化
-  - 关键词搜索和过滤功能
-  - 导出TXT/JSON格式报告
+- `mars_log_analyzer_pro.py` - 专业版GUI应用程序（最新版）
+  - 高性能文本渲染组件
+  - 支持百万级日志条目的流畅浏览
+  - 高级搜索和过滤功能
+  - 实时统计分析
+  - 多标签页界面
+  - 导出多种格式（TXT/JSON/CSV）
+  - 时间线可视化
+  - 日志级别分布图表
+  - 支持大文件懒加载
 
-### 辅助文件
+### UI组件
+- `scrolled_text_with_lazy_load.py` - 懒加载滚动文本组件
+  - 虚拟滚动技术
+  - 仅渲染可见区域
+  - 支持百万级数据行
+- `improved_lazy_text.py` - 改进版懒加载文本组件
+  - 优化的滚动性能
+  - 智能缓存策略
+  - 减少内存占用
+
+### 辅助工具
+- `ips_parser.py` - IPS崩溃日志解析器
+  - 解析iOS崩溃报告
+  - 符号化堆栈跟踪
+  - 提取关键崩溃信息
 - `run_analyzer.sh` - 启动脚本（自动创建虚拟环境和安装依赖）
 - `setup.py` - py2app打包配置（可选，用于创建Mac应用）
+
+### 文档
+- `README_CN.md` - 中文说明文档
+- `README_EN.md` - 英文说明文档
 
 ## 使用命令
 
 ### 启动GUI分析系统（推荐）：
 ```bash
+# 启动专业版GUI（最新，推荐）
+python3 mars_log_analyzer_pro.py
+
 # 使用启动脚本（自动处理依赖）
 ./run_analyzer.sh
-
-# 或直接运行（需手动安装matplotlib）
-python3 mars_log_analyzer.py
 ```
 
-### 命令行解码单个 xlog 文件：
+### 命令行解码：
+
+#### 基础解码
 ```bash
-# Python 3版本
+# Python 3版本解码单个文件
 python3 decode_mars_nocrypt_log_file_py3.py mizhua_20250915.xlog
 
-# Python 2版本（如果需要）
-python2 decode_mars_nocrypt_log_file.py mizhua_20250915.xlog
-```
-
-### 命令行批量解码：
-```bash
-# 解码当前目录下所有xlog文件
+# 批量解码当前目录所有xlog文件
 python3 decode_mars_nocrypt_log_file_py3.py
 
 # 解码指定目录
 python3 decode_mars_nocrypt_log_file_py3.py /path/to/xlog/directory/
 ```
 
+#### 高性能解码
+```bash
+# 使用快速解码器（大文件推荐）
+python3 fast_decoder.py input.xlog
+
+# 使用优化解码器（内存优化）
+python3 optimized_decoder.py input.xlog
+```
+
+### IPS崩溃日志分析：
+```bash
+# 解析iOS崩溃报告
+python3 ips_parser.py crash.ips
+```
+
 ## 重要说明
-- GUI系统需要 Python 3.6+和matplotlib库
-- 原始脚本需要 Python 2，已提供Python 3兼容版本
-- 脚本会验证序列号以检测丢失的日志条目
-- 支持不同魔数字节的各种 Mars 日志格式版本
-- 对于真正加密（而非仅压缩）的日志，需要使用不同的解码器
-- GUI系统会在首次运行时自动创建虚拟环境并安装依赖
+
+### 系统要求
+- Python 3.6+ （推荐3.8+）
+- GUI系统需要 tkinter 和 matplotlib 库
+- 原始脚本支持 Python 2，但推荐使用 Python 3 版本
+
+### 性能建议
+- 小文件（<10MB）：使用基础解码器即可
+- 大文件（>10MB）：推荐使用 `fast_decoder.py` 或 `optimized_decoder.py`
+- 批量处理：使用 `mars_log_analyzer_pro.py` GUI工具
+- 内存限制环境：使用 `optimized_decoder.py` 的流式处理
+
+### 技术特性
+- 自动检测并处理各种 Mars 日志格式版本
+- 验证序列号以检测丢失的日志条目
+- 支持压缩和加密日志的解码
+- GUI系统采用懒加载技术，可处理GB级日志文件
+- 所有解码器都具有完善的错误处理机制
 
 ## 日志格式详情
+
+### Mars xlog 格式规范
 - 魔数字节表示压缩和加密状态：
   - 0x03, 0x04, 0x05：4字节密钥格式
   - 0x06, 0x07, 0x08, 0x09：64字节密钥格式
 - 头部结构：magic_start (1字节) + seq (2字节) + begin_hour (1字节) + end_hour (1字节) + length (4字节) + crypt_key
 - 每个日志条目以 MAGIC_END (0x00) 结尾
+
+### 支持的日志级别
+- ERROR: 错误日志
+- WARNING: 警告日志
+- INFO: 信息日志
+- DEBUG: 调试日志
+- VERBOSE: 详细日志
+
+## 开发指南
+
+### 项目结构
+```
+.
+├── 解码器核心/
+│   ├── decode_mars_nocrypt_log_file_py3.py  # 基础解码器
+│   ├── fast_decoder.py                       # 高性能解码器
+│   └── optimized_decoder.py                  # 优化解码器
+├── GUI应用/
+│   ├── mars_log_analyzer_pro.py              # 专业版GUI主程序
+│   ├── scrolled_text_with_lazy_load.py       # UI组件
+│   └── improved_lazy_text.py                 # UI组件增强版
+├── 工具脚本/
+│   ├── ips_parser.py                         # IPS解析器
+│   └── run_analyzer.sh                       # 启动脚本
+└── 文档/
+    ├── README_CN.md                          # 中文文档
+    ├── README_EN.md                          # 英文文档
+    └── CLAUDE.md                              # 本文件
+```
+
+### 贡献指南
+1. 保持代码风格一致性
+2. 添加适当的错误处理
+3. 新功能需要更新相应文档
+4. 性能优化需要提供基准测试结果
+
+## 常见问题
+
+### Q: 解码后的文件在哪里？
+A: 默认保存在原xlog文件同目录，文件名添加.log后缀
+
+### Q: 如何处理加密的日志？
+A: 当前工具主要处理非加密或标准加密格式，特殊加密需要提供密钥
+
+### Q: GUI程序打不开怎么办？
+A: 使用 run_analyzer.sh 脚本，它会自动安装所需依赖
+
+### Q: 支持哪些操作系统？
+A: macOS、Linux、Windows（需要Python环境）
