@@ -2,211 +2,266 @@
 # -*- coding: utf-8 -*-
 
 """
-改进的懒加载文本组件 - 解决灰色蒙层问题
+改进的懒加载文本组件 - 优化版本
+支持大量日志的高效显示和滚动加载
 """
 
 import tkinter as tk
 from tkinter import ttk
+from typing import List, Union, Dict, Tuple, Any, Optional
 
 
 class ImprovedLazyText(tk.Frame):
-    """改进的懒加载文本组件"""
+    """
+    懒加载文本组件
+    支持大量数据的高效展示，通过滚动动态加载内容
+    """
 
-    def __init__(self, parent, batch_size=100, max_initial=500, **kwargs):
+    # 默认配置
+    DEFAULT_BATCH_SIZE = 100
+    DEFAULT_MAX_INITIAL = 500
+    SCROLL_THRESHOLD = 0.95  # 滚动到95%位置时触发加载
+
+    def __init__(self, parent, batch_size: int = DEFAULT_BATCH_SIZE,
+                 max_initial: int = DEFAULT_MAX_INITIAL, **text_kwargs):
+        """
+        初始化懒加载文本组件
+
+        Args:
+            parent: 父组件
+            batch_size: 每批加载的数据量
+            max_initial: 初始加载的最大数据量
+            **text_kwargs: 传递给Text组件的额外参数
+        """
         super().__init__(parent)
 
+        # 配置参数
         self.batch_size = batch_size
         self.max_initial = max_initial
+
+        # 状态变量
         self.current_index = 0
-        self.data = []
+        self.data: List[Any] = []
         self.is_loading = False
+        self._pending_load = False
 
-        # 创建组件
-        self.create_widgets(**kwargs)
+        # 创建UI组件
+        self._create_widgets(**text_kwargs)
+        self._setup_bindings()
 
-    def create_widgets(self, **text_kwargs):
-        """创建组件"""
-        # 创建Frame容器
+    def _create_widgets(self, **text_kwargs):
+        """创建UI组件"""
+        # 创建容器
         container = tk.Frame(self)
         container.pack(fill=tk.BOTH, expand=True)
 
-        # 直接创建Text组件和滚动条，不使用Canvas
-        v_scrollbar = ttk.Scrollbar(container, orient=tk.VERTICAL)
+        # 创建滚动条
+        self.v_scrollbar = ttk.Scrollbar(container, orient=tk.VERTICAL)
 
-        # 创建Text组件 - 使用系统默认背景色
+        # 配置Text组件默认参数
         default_kwargs = {
-            'wrap': tk.WORD,  # 自动换行
+            'wrap': tk.WORD,
             'highlightthickness': 0,
             'borderwidth': 0,
-            'yscrollcommand': v_scrollbar.set
+            'yscrollcommand': self.v_scrollbar.set,
+            'state': 'disabled'  # 默认只读
         }
         default_kwargs.update(text_kwargs)
 
+        # 创建Text组件
         self.text = tk.Text(container, **default_kwargs)
-        v_scrollbar.config(command=self.text.yview)
+        self.v_scrollbar.config(command=self.text.yview)
 
-        # 布局 - 直接放置Text和滚动条
-        v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        # 布局
+        self.v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        # 保存组件引用
-        self.v_scrollbar = v_scrollbar
+        # 配置提示标签样式
+        self.text.tag_config("HINT", foreground="gray", font=("Arial", 10, "italic"))
 
-        # 绑定滚动检测
-        v_scrollbar.bind('<ButtonRelease-1>', self.check_scroll_position)
-        self.text.bind('<MouseWheel>', self.on_mousewheel)
-        self.text.bind('<Button-4>', self.on_mousewheel)
-        self.text.bind('<Button-5>', self.on_mousewheel)
+    def _setup_bindings(self):
+        """设置事件绑定"""
+        # 滚动条事件
+        self.v_scrollbar.bind('<ButtonRelease-1>', self._on_scrollbar_release)
 
-    def on_mousewheel(self, event):
-        """鼠标滚轮事件"""
-        # 滚动Text widget
-        if event.num == 4 or event.delta > 0:
-            self.text.yview_scroll(-1, "units")
-        elif event.num == 5 or event.delta < 0:
-            self.text.yview_scroll(1, "units")
+        # 鼠标滚轮事件
+        self.text.bind('<MouseWheel>', self._on_mousewheel)  # Windows/Mac
+        self.text.bind('<Button-4>', self._on_mousewheel)    # Linux向上
+        self.text.bind('<Button-5>', self._on_mousewheel)    # Linux向下
 
-        # 检查是否需要加载更多
-        self.after(10, self.check_scroll_position)
+    def _on_mousewheel(self, event):
+        """处理鼠标滚轮事件"""
+        # 计算滚动方向和距离
+        if event.num == 4 or (event.delta and event.delta > 0):
+            self.text.yview_scroll(-3, "units")
+        elif event.num == 5 or (event.delta and event.delta < 0):
+            self.text.yview_scroll(3, "units")
 
-    def check_scroll_position(self, event=None):
-        """检查滚动位置并加载更多数据"""
-        if self.is_loading:
+        # 延迟检查是否需要加载更多
+        if not self._pending_load:
+            self._pending_load = True
+            self.after(100, self._check_and_load)
+
+    def _on_scrollbar_release(self, event):
+        """滚动条释放事件"""
+        self._check_scroll_position()
+
+    def _check_and_load(self):
+        """检查并加载数据"""
+        self._pending_load = False
+        self._check_scroll_position()
+
+    def _check_scroll_position(self):
+        """检查滚动位置，决定是否加载更多数据"""
+        if self.is_loading or self.current_index >= len(self.data):
             return
 
-        # 获取滚动位置
-        if self.v_scrollbar.get()[1] >= 0.95:
+        # 获取滚动位置 (top, bottom)
+        scroll_pos = self.v_scrollbar.get()
+        if len(scroll_pos) >= 2 and scroll_pos[1] >= self.SCROLL_THRESHOLD:
             self.load_more()
 
-    def set_data(self, data_list, clear=True):
-        """设置数据"""
+    def set_data(self, data_list: List[Any], clear: bool = True):
+        """
+        设置要显示的数据
+
+        Args:
+            data_list: 数据列表，支持以下格式：
+                - str: 纯文本
+                - tuple: (text, tag)
+                - dict: {'text': str, 'tag': str, 'prefix': str, 'prefix_tag': str}
+            clear: 是否清空现有内容
+        """
         self.data = data_list
         self.current_index = 0
 
         if clear:
-            self.text.config(state='normal')
-            self.text.delete(1.0, tk.END)
-            self.text.config(state='disabled')
+            self._clear_text()
 
-        # 加载初始数据（更多）
-        initial_load = min(self.max_initial, len(self.data))
-        self.current_index = 0
-        self.load_batch(initial_load)
+        # 加载初始数据
+        if self.data:
+            initial_count = min(self.max_initial, len(self.data))
+            self._load_batch(initial_count)
 
-        # 更新Canvas视图
-        self.after(10, self._update_canvas_view)
-
-    def load_batch(self, count):
-        """加载指定数量的数据"""
-        if self.current_index >= len(self.data):
-            return
-
-        self.is_loading = True
-
-        # 暂时允许编辑
-        self.text.config(state='normal')
-
-        # 计算加载范围
-        end_index = min(self.current_index + count, len(self.data))
-
-        # 批量插入数据
-        for i in range(self.current_index, end_index):
-            item = self.data[i]
-
-            if isinstance(item, dict):
-                # {'text': ..., 'tag': ..., 'prefix': ...} 格式
-                if 'prefix' in item:
-                    self.text.insert(tk.END, item['prefix'], item.get('prefix_tag'))
-                self.text.insert(tk.END, item['text'], item.get('tag'))
-            elif isinstance(item, tuple):
-                # (text, tag) 格式
-                self.text.insert(tk.END, item[0], item[1])
-            else:
-                # 纯文本
-                self.text.insert(tk.END, str(item))
-
-        self.current_index = end_index
-
-        # 显示加载状态
-        remaining = len(self.data) - self.current_index
-        if remaining > 0:
-            self.text.insert(tk.END, f"\n... 还有 {remaining} 条数据 ...\n", "HINT")
-
-        # 恢复只读
-        self.text.config(state='disabled')
-
-        self.is_loading = False
-
-    def load_more(self):
-        """加载更多数据"""
-        if self.current_index >= len(self.data):
-            return
-
-        # 删除加载提示
-        content = self.text.get("end-100c", tk.END)
-        if "... 还有" in content:
-            self.text.config(state='normal')
-            # 查找并删除提示行
-            lines = self.text.get(1.0, tk.END).split('\n')
-            for i in range(len(lines) - 1, max(0, len(lines) - 10), -1):
-                if "... 还有" in lines[i]:
-                    self.text.delete(f"{i+1}.0", f"{i+2}.0")
-                    break
-            self.text.config(state='disabled')
-
-        # 加载下一批
-        self.load_batch(self.batch_size)
-
-    def tag_config(self, tag_name, **kwargs):
-        """配置标签样式"""
-        self.text.tag_config(tag_name, **kwargs)
-
-    def _update_canvas_view(self):
-        """更新视图（不再需要Canvas特定操作）"""
-        # 确保Text widget更新显示
-        self.text.update_idletasks()
-
-    def clear(self):
-        """清空内容"""
+    def _clear_text(self):
+        """清空文本内容"""
         self.text.config(state='normal')
         self.text.delete(1.0, tk.END)
         self.text.config(state='disabled')
+
+    def _load_batch(self, count: int):
+        """
+        加载一批数据
+
+        Args:
+            count: 要加载的数据数量
+        """
+        if self.current_index >= len(self.data) or count <= 0:
+            return
+
+        self.is_loading = True
+        self.text.config(state='normal')
+
+        try:
+            # 删除加载提示（如果存在）
+            self._remove_load_hint()
+
+            # 计算加载范围
+            end_index = min(self.current_index + count, len(self.data))
+
+            # 批量插入数据，优化性能
+            self._insert_items(self.current_index, end_index)
+
+            self.current_index = end_index
+
+            # 添加加载提示（如果还有数据）
+            self._add_load_hint()
+
+        finally:
+            self.text.config(state='disabled')
+            self.is_loading = False
+
+    def _insert_items(self, start_idx: int, end_idx: int):
+        """批量插入数据项"""
+        for i in range(start_idx, end_idx):
+            item = self.data[i]
+
+            if isinstance(item, dict):
+                # 字典格式：支持前缀和主文本
+                if 'prefix' in item:
+                    self.text.insert(tk.END, item['prefix'], item.get('prefix_tag'))
+                self.text.insert(tk.END, item['text'], item.get('tag'))
+            elif isinstance(item, tuple) and len(item) == 2:
+                # 元组格式：(文本, 标签)
+                self.text.insert(tk.END, item[0], item[1] if item[1] else None)
+            else:
+                # 纯文本格式
+                self.text.insert(tk.END, str(item))
+
+    def _add_load_hint(self):
+        """添加加载提示"""
+        remaining = len(self.data) - self.current_index
+        if remaining > 0:
+            hint = f"\n━━━ 还有 {remaining} 条数据，滚动加载更多 ━━━\n"
+            self.text.insert(tk.END, hint, "HINT")
+
+    def _remove_load_hint(self):
+        """移除加载提示"""
+        # 搜索并删除提示文本
+        search_start = "end-200c"  # 从末尾前200个字符开始搜索
+        pos = self.text.search("━━━ 还有", search_start, tk.END)
+        if pos:
+            # 找到提示行的结束位置
+            line_end = self.text.search("\n", f"{pos}+1c", tk.END)
+            if line_end:
+                self.text.delete(f"{pos}-1c", f"{line_end}+1c")
+
+    def load_more(self):
+        """加载更多数据"""
+        if self.current_index < len(self.data):
+            self._load_batch(self.batch_size)
+
+    def clear(self):
+        """清空所有内容和数据"""
+        self._clear_text()
         self.data = []
         self.current_index = 0
 
-    def get(self, start, end):
+    # ========== 代理Text组件的方法 ==========
+
+    def get(self, start, end) -> str:
         """获取文本内容"""
         return self.text.get(start, end)
 
-    def insert(self, index, text, tags=None):
-        """插入文本"""
+    def insert(self, index, text: str, tags=None):
+        """插入文本（临时启用编辑）"""
         self.text.config(state='normal')
         self.text.insert(index, text, tags)
         self.text.config(state='disabled')
 
     def delete(self, start, end):
-        """删除文本"""
+        """删除文本（临时启用编辑）"""
         self.text.config(state='normal')
         self.text.delete(start, end)
         self.text.config(state='disabled')
 
-    def search(self, pattern, start, stop=None, **kwargs):
+    def search(self, pattern: str, start, stop=None, **kwargs) -> Optional[str]:
         """搜索文本"""
         return self.text.search(pattern, start, stop, **kwargs)
 
-    def tag_add(self, tagname, start, end):
+    def tag_add(self, tagname: str, start, end):
         """添加标签"""
         self.text.tag_add(tagname, start, end)
 
-    def tag_config(self, tagname, **kwargs):
-        """配置标签"""
+    def tag_config(self, tagname: str, **kwargs):
+        """配置标签样式"""
         self.text.tag_config(tagname, **kwargs)
 
-    def tag_remove(self, tagname, start, end):
+    def tag_remove(self, tagname: str, start, end):
         """移除标签"""
         self.text.tag_remove(tagname, start, end)
 
-    def tag_delete(self, tagname):
+    def tag_delete(self, tagname: str):
         """删除标签"""
         self.text.tag_delete(tagname)
 
@@ -214,7 +269,7 @@ class ImprovedLazyText(tk.Frame):
         """滚动到指定位置"""
         self.text.see(index)
 
-    def mark_set(self, markname, index):
+    def mark_set(self, markname: str, index):
         """设置标记"""
         self.text.mark_set(markname, index)
 
@@ -225,3 +280,39 @@ class ImprovedLazyText(tk.Frame):
     def xview(self, *args):
         """横向滚动"""
         return self.text.xview(*args)
+
+    def index(self, index):
+        """获取索引"""
+        return self.text.index(index)
+
+    def bbox(self, index):
+        """获取边界框"""
+        return self.text.bbox(index)
+
+
+# 测试代码
+if __name__ == "__main__":
+    root = tk.Tk()
+    root.title("懒加载文本组件测试")
+    root.geometry("800x600")
+
+    # 创建懒加载文本组件
+    lazy_text = ImprovedLazyText(root, batch_size=50, max_initial=100)
+    lazy_text.pack(fill=tk.BOTH, expand=True)
+
+    # 配置一些标签样式
+    lazy_text.tag_config("ERROR", foreground="red", font=("Courier", 11, "bold"))
+    lazy_text.tag_config("INFO", foreground="blue")
+    lazy_text.tag_config("DEBUG", foreground="gray")
+
+    # 生成测试数据
+    test_data = []
+    for i in range(1000):
+        level = ["INFO", "DEBUG", "ERROR"][i % 3]
+        text = f"[{level}] Line {i+1}: This is a test log message\n"
+        test_data.append((text, level))
+
+    # 设置数据
+    lazy_text.set_data(test_data)
+
+    root.mainloop()
