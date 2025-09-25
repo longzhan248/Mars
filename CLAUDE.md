@@ -63,10 +63,10 @@
 ### 启动GUI分析系统（推荐）：
 ```bash
 # 启动专业版GUI（最新，推荐）
-python3 mars_log_analyzer_pro.py
+python3 gui/mars_log_analyzer_pro.py
 
 # 使用启动脚本（自动处理依赖）
-./run_analyzer.sh
+./scripts/run_analyzer.sh
 ```
 
 ### 命令行解码：
@@ -74,28 +74,28 @@ python3 mars_log_analyzer_pro.py
 #### 基础解码
 ```bash
 # Python 3版本解码单个文件
-python3 decode_mars_nocrypt_log_file_py3.py mizhua_20250915.xlog
+python3 decoders/decode_mars_nocrypt_log_file_py3.py mizhua_20250915.xlog
 
 # 批量解码当前目录所有xlog文件
-python3 decode_mars_nocrypt_log_file_py3.py
+python3 decoders/decode_mars_nocrypt_log_file_py3.py
 
 # 解码指定目录
-python3 decode_mars_nocrypt_log_file_py3.py /path/to/xlog/directory/
+python3 decoders/decode_mars_nocrypt_log_file_py3.py /path/to/xlog/directory/
 ```
 
 #### 高性能解码
 ```bash
 # 使用快速解码器（大文件推荐）
-python3 fast_decoder.py input.xlog
+python3 decoders/fast_decoder.py input.xlog
 
 # 使用优化解码器（内存优化）
-python3 optimized_decoder.py input.xlog
+python3 decoders/optimized_decoder.py input.xlog
 ```
 
 ### IPS崩溃日志分析：
 ```bash
 # 解析iOS崩溃报告
-python3 ips_parser.py crash.ips
+python3 tools/ips_parser.py crash.ips
 ```
 
 ## 重要说明
@@ -139,21 +139,26 @@ python3 ips_parser.py crash.ips
 ### 项目结构
 ```
 .
-├── 解码器核心/
+├── decoders/                                 # 解码器核心模块
 │   ├── decode_mars_nocrypt_log_file_py3.py  # 基础解码器
+│   ├── decode_mars_nocrypt_log_file.py      # Python 2版解码器
 │   ├── fast_decoder.py                       # 高性能解码器
 │   └── optimized_decoder.py                  # 优化解码器
-├── GUI应用/
+├── gui/                                      # GUI应用程序
 │   ├── mars_log_analyzer_pro.py              # 专业版GUI主程序
-│   ├── scrolled_text_with_lazy_load.py       # UI组件
-│   └── improved_lazy_text.py                 # UI组件增强版
-├── 工具脚本/
-│   ├── ips_parser.py                         # IPS解析器
-│   └── run_analyzer.sh                       # 启动脚本
-└── 文档/
-    ├── README_CN.md                          # 中文文档
-    ├── README_EN.md                          # 英文文档
-    └── CLAUDE.md                              # 本文件
+│   └── components/                           # GUI组件
+│       ├── scrolled_text_with_lazy_load.py   # 懒加载滚动文本组件
+│       └── improved_lazy_text.py             # 改进版懒加载文本组件
+├── tools/                                    # 工具脚本
+│   └── ips_parser.py                         # IPS崩溃日志解析器
+├── scripts/                                  # 启动和打包脚本
+│   ├── run_analyzer.sh                       # 启动脚本
+│   └── setup.py                              # py2app打包配置
+├── docs/                                     # 文档目录
+│   ├── README_CN.md                          # 中文文档
+│   ├── README_EN.md                          # 英文文档
+│   └── CLAUDE.md                              # 项目指南（本文件）
+└── venv/                                     # Python虚拟环境（自动生成）
 ```
 
 ### 贡献指南

@@ -20,6 +20,11 @@ import matplotlib.pyplot as plt
 from matplotlib import font_manager
 
 # 导入解码模块
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'decoders'))
+sys.path.append(os.path.join(os.path.dirname(__file__), 'components'))
+
 from decode_mars_nocrypt_log_file_py3 import ParseFile, GetLogStartPos, DecodeBuffer
 from fast_decoder import FastXLogDecoder
 try:
@@ -2266,6 +2271,9 @@ class MarsLogAnalyzerPro:
         """在后台线程中解析IPS崩溃日志"""
         try:
             # 使用新的IPS解析器
+            import sys
+            import os
+            sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tools'))
             from ips_parser import IPSParser, IPSSymbolicator
 
             # 解析IPS文件

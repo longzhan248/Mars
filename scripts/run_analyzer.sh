@@ -4,9 +4,11 @@
 
 # 获取脚本所在目录
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# 获取项目根目录
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-# 切换到脚本目录
-cd "$SCRIPT_DIR"
+# 切换到项目根目录
+cd "$PROJECT_ROOT"
 
 # 检查Python 3是否安装
 if ! command -v python3 &> /dev/null; then
@@ -34,7 +36,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # 检查虚拟环境是否存在
-VENV_DIR="$SCRIPT_DIR/venv"
+VENV_DIR="$PROJECT_ROOT/venv"
 
 if [ ! -d "$VENV_DIR" ]; then
     echo "创建虚拟环境..."
@@ -74,7 +76,7 @@ echo "========================================="
 echo "Mars日志分析系统 - 专业版"
 echo "========================================="
 echo "正在启动..."
-"$PYTHON_CMD" mars_log_analyzer_pro.py
+"$PYTHON_CMD" "$PROJECT_ROOT/gui/mars_log_analyzer_pro.py"
 
 # 如果程序异常退出，等待用户按键
 if [ $? -ne 0 ]; then

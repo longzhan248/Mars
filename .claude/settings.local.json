@@ -4,7 +4,11 @@
       "Bash(xxd:*)",
       "Bash(chmod:*)",
       "Bash(python3:*)",
-      "Bash(pip3 install:*)"
+      "Bash(pip3 install:*)",
+      "Bash(grep:*)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)",
+      "Bash(tree -L 3 -I \"venv|__pycache__|*.pyc|*.log|*.xlog\" --dirsfirst)"
     ],
     "deny": [],
     "ask": []
