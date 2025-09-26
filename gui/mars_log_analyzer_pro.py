@@ -24,6 +24,7 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'decoders'))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'components'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'push_tools'))
 
 from decode_mars_nocrypt_log_file_py3 import ParseFile, GetLogStartPos, DecodeBuffer
 from fast_decoder import FastXLogDecoder
@@ -389,6 +390,9 @@ class MarsLogAnalyzerPro:
 
         # ============ IPS崩溃解析标签页 ============
         self.create_ips_analyzer_tab()
+
+        # ============ iOS推送测试标签页 ============
+        self.create_push_test_tab()
 
     def create_log_viewer(self):
         """创建日志查看器"""
@@ -3672,6 +3676,65 @@ except Exception as e:
                 messagebox.showinfo("成功", "报告导出成功")
             except Exception as e:
                 messagebox.showerror("错误", f"导出失败: {str(e)}")
+
+    def create_push_test_tab(self):
+        """创建iOS推送测试标签页"""
+        # 创建标签页框架
+        push_frame = ttk.Frame(self.main_notebook, padding="10")
+        self.main_notebook.add(push_frame, text="iOS推送测试")
+
+        # 延迟导入，避免启动时依赖检查
+        try:
+            from apns_gui import APNSPushGUI
+            # 创建推送GUI实例（嵌入到标签页中）
+            self.push_gui = APNSPushGUI(push_frame)
+            self.push_gui.pack(fill=tk.BOTH, expand=True)
+        except ImportError as e:
+            # 如果导入失败，显示提示信息
+            error_frame = ttk.Frame(push_frame)
+            error_frame.pack(fill=tk.BOTH, expand=True)
+
+            ttk.Label(error_frame,
+                     text="iOS推送测试功能需要安装额外依赖",
+                     font=('', 14, 'bold')).pack(pady=20)
+
+            ttk.Label(error_frame,
+                     text="请运行以下命令安装依赖：",
+                     font=('', 11)).pack(pady=10)
+
+            cmd_frame = ttk.Frame(error_frame)
+            cmd_frame.pack(pady=10)
+
+            cmd_text = tk.Text(cmd_frame, height=3, width=60, font=('Courier', 10))
+            cmd_text.pack()
+            cmd_text.insert('1.0',
+                           "source venv/bin/activate\n"
+                           "pip install cryptography httpx pyjwt h2")
+            cmd_text.config(state='disabled')
+
+            ttk.Label(error_frame,
+                     text=f"错误详情: {str(e)}",
+                     font=('', 10),
+                     foreground='red').pack(pady=20)
+
+            def retry_load():
+                """重试加载推送模块"""
+                try:
+                    # 清除之前的错误界面
+                    for widget in push_frame.winfo_children():
+                        widget.destroy()
+
+                    # 重新尝试导入
+                    from apns_gui import APNSPushGUI
+                    self.push_gui = APNSPushGUI(push_frame)
+                    self.push_gui.pack(fill=tk.BOTH, expand=True)
+                    messagebox.showinfo("成功", "推送模块加载成功！")
+                except ImportError as e:
+                    messagebox.showerror("错误", f"仍无法加载推送模块：\n{str(e)}")
+
+            ttk.Button(error_frame,
+                      text="重试加载",
+                      command=retry_load).pack(pady=10)
 
 
 def main():

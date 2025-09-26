@@ -35,6 +35,8 @@
   - 时间线可视化
   - 日志级别分布图表
   - 支持大文件懒加载
+  - **集成iOS推送测试功能**（新增）
+  - **IPS崩溃日志解析功能**
 
 ### UI组件
 - `scrolled_text_with_lazy_load.py` - 懒加载滚动文本组件
@@ -54,6 +56,21 @@
 - `run_analyzer.sh` - 启动脚本（自动创建虚拟环境和安装依赖）
 - `setup.py` - py2app打包配置（可选，用于创建Mac应用）
 
+### iOS推送测试工具
+- `push_tools/` - iOS APNS推送测试模块（**已集成到主程序**）
+  - `apns_push.py` - 推送核心逻辑实现
+    - 证书管理（支持.p12/.pem/.cer格式）
+    - HTTP/2推送发送
+    - 推送历史记录
+  - `apns_gui.py` - 推送测试GUI界面
+    - 友好的图形界面
+    - Payload模板快速选择
+    - 实时日志和历史记录
+    - **可独立运行或嵌入主程序标签页**
+  - `test_push.py` - 功能测试脚本
+  - `requirements.txt` - 推送工具依赖
+- `scripts/run_push_tool.sh` - iOS推送工具独立启动脚本
+
 ### 文档
 - `README_CN.md` - 中文说明文档
 - `README_EN.md` - 英文说明文档
@@ -62,11 +79,23 @@
 
 ### 启动GUI分析系统（推荐）：
 ```bash
-# 启动专业版GUI（最新，推荐）
+# 启动专业版GUI（包含日志分析、IPS崩溃解析、iOS推送测试）
 python3 gui/mars_log_analyzer_pro.py
 
 # 使用启动脚本（自动处理依赖）
 ./scripts/run_analyzer.sh
+```
+
+### 独立启动iOS推送工具：
+```bash
+# 独立启动推送工具GUI
+./scripts/run_push_tool.sh
+
+# 或直接运行
+python3 push_tools/apns_gui.py
+
+# 命令行使用
+python3 push_tools/apns_push.py --cert cert.p12 --token "device_token" --message "测试消息" --sandbox
 ```
 
 ### 命令行解码：
@@ -145,14 +174,22 @@ python3 tools/ips_parser.py crash.ips
 │   ├── fast_decoder.py                       # 高性能解码器
 │   └── optimized_decoder.py                  # 优化解码器
 ├── gui/                                      # GUI应用程序
-│   ├── mars_log_analyzer_pro.py              # 专业版GUI主程序
+│   ├── mars_log_analyzer_pro.py              # 专业版GUI主程序（集成所有功能）
 │   └── components/                           # GUI组件
 │       ├── scrolled_text_with_lazy_load.py   # 懒加载滚动文本组件
 │       └── improved_lazy_text.py             # 改进版懒加载文本组件
+├── push_tools/                               # iOS推送测试工具（新增）
+│   ├── __init__.py                           # 模块初始化
+│   ├── apns_push.py                          # 推送核心逻辑
+│   ├── apns_gui.py                           # 推送GUI界面
+│   ├── test_push.py                          # 功能测试脚本
+│   ├── requirements.txt                      # 推送工具依赖
+│   └── README.md                             # 推送工具文档
 ├── tools/                                    # 工具脚本
 │   └── ips_parser.py                         # IPS崩溃日志解析器
 ├── scripts/                                  # 启动和打包脚本
-│   ├── run_analyzer.sh                       # 启动脚本
+│   ├── run_analyzer.sh                       # 主程序启动脚本
+│   ├── run_push_tool.sh                      # 推送工具启动脚本
 │   └── setup.py                              # py2app打包配置
 ├── docs/                                     # 文档目录
 │   ├── README_CN.md                          # 中文文档

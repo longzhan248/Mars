@@ -1,14 +1,15 @@
 {
   "permissions": {
     "allow": [
-      "Bash(xxd:*)",
+      "Read(//Volumes/long/心娱/Github/SmartPush/SmartPush/**)",
+      "Read(//Volumes/long/心娱/Github/SmartPush/**)",
+      "Bash(xcodebuild:*)",
+      "Bash(open:*)",
+      "Bash(mkdir:*)",
       "Bash(chmod:*)",
       "Bash(python3:*)",
-      "Bash(pip3 install:*)",
-      "Bash(grep:*)",
-      "Bash(mkdir:*)",
-      "Bash(mv:*)",
-      "Bash(tree -L 3 -I \"venv|__pycache__|*.pyc|*.log|*.xlog\" --dirsfirst)"
+      "Bash(source:*)",
+      "Bash(pip install:*)"
     ],
     "deny": [],
     "ask": []
