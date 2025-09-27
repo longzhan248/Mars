@@ -10,7 +10,7 @@
       "Bash(python3:*)",
       "Bash(source:*)",
       "Bash(pip install:*)",
-      "Read(//Users/zhanlong/Desktop/log/**)"
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

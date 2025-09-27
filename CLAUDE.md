@@ -4,7 +4,7 @@
 
 ## 项目用途
 此代码库包含用于解码和分析 Mars xlog 文件的完整工具套件 - Mars 是腾讯的日志框架，xlog 是其使用的压缩和加密日志文件格式。
-项目提供了从基础解码到高级分析的全方位解决方案，包括命令行工具、专业级GUI应用、IPS崩溃分析和iOS推送测试工具。
+项目提供了从基础解码到高级分析的全方位解决方案，包括命令行工具、模块化GUI应用、IPS崩溃分析和iOS推送测试工具。
 
 ## 快速开始
 
@@ -24,6 +24,7 @@ cd /path/to/project
 - ✅ 启动主程序
 
 ## 最新更新 (2025-09-27)
+- **模块化重构完成** - 将3784行单文件拆分为清晰的模块结构
 - **集成iOS推送测试功能** - 完整的APNS推送测试工具已集成到主程序
 - **统一的GUI界面** - Mars日志分析、IPS崩溃解析、iOS推送测试三合一
 - **智能依赖管理** - 自动检测和安装所有必要的依赖包
@@ -32,7 +33,7 @@ cd /path/to/project
 
 ## 核心组件
 
-### 解码器系列
+### 解码器系列 (decoders/)
 - `decode_mars_nocrypt_log_file.py` - 原始 Python 2 版本解码脚本
 - `decode_mars_nocrypt_log_file_py3.py` - Python 3 兼容版本
   - 支持多种压缩格式（MAGIC_COMPRESS_START、MAGIC_NO_COMPRESS_START 等）
@@ -48,45 +49,58 @@ cd /path/to/project
   - 更好的内存管理
   - 支持流式处理
 
-### GUI分析系统
-- `mars_log_analyzer_pro.py` - 专业版GUI应用程序（最新版）
-  - 高性能文本渲染组件
-  - 支持百万级日志条目的流畅浏览
-  - 高级搜索和过滤功能（支持正则表达式）
-  - 实时统计分析
-  - 多标签页界面
-  - 导出多种格式（TXT/JSON/CSV）
-  - 时间线可视化
-  - 日志级别分布图表
-  - 支持大文件懒加载
-  - **集成iOS推送测试功能**（新增）
-  - **IPS崩溃日志解析功能**
-  - **增强的时间过滤**
-    - 支持多种时间格式（YYYY-MM-DD HH:MM:SS、HH:MM等）
-    - 支持带时区的日志格式（如 2025-09-21 +8.0 13:09:49.038）
-    - Enter键快速应用过滤
-    - 级别和模块选择自动触发过滤
+### GUI分析系统 (gui/)
 
-### UI组件
-- `scrolled_text_with_lazy_load.py` - 懒加载滚动文本组件
-  - 虚拟滚动技术
-  - 仅渲染可见区域
-  - 支持百万级数据行
+#### 主程序
+- `mars_log_analyzer_modular.py` - 模块化版本（当前使用）
+  - 继承自原始版本，逐步重构
+  - 使用模块化组件
+  - 保持100%功能兼容
+- `mars_log_analyzer_pro.py` - 原始专业版（作为基类保留）
+  - 完整功能实现
+  - 单文件3784行
+  - 作为模块化版本的基类
+
+#### 模块化组件 (gui/modules/)
+- `data_models.py` - 数据模型
+  - LogEntry: 日志条目类
+  - FileGroup: 文件分组类
+- `file_operations.py` - 文件操作
+  - 文件加载和解码
+  - 多格式导出（TXT/JSON/CSV）
+- `filter_search.py` - 过滤搜索
+  - 统一的过滤逻辑
+  - 时间解析和比较
+  - 正则表达式支持
+- `ips_tab.py` - IPS崩溃分析标签页
+  - iOS崩溃报告解析
+  - 符号化支持
+- `push_tab.py` - iOS推送测试标签页
+  - APNS推送发送
+  - 证书管理
+
+#### UI组件 (gui/components/)
 - `improved_lazy_text.py` - 改进版懒加载文本组件
-  - 优化的滚动性能
-  - 智能缓存策略
-  - 减少内存占用
+  - 虚拟滚动实现
+  - LRU缓存策略
+  - 支持百万级数据
+- `scrolled_text_with_lazy_load.py` - 懒加载滚动文本组件
+  - 基础懒加载实现
+  - 作为备用方案
 
-### 辅助工具
+### 辅助工具 (tools/)
 - `ips_parser.py` - IPS崩溃日志解析器
   - 解析iOS崩溃报告
   - 符号化堆栈跟踪
   - 提取关键崩溃信息
-- `run_analyzer.sh` - 启动脚本（自动创建虚拟环境和安装依赖）
+
+### 启动脚本 (scripts/)
+- `run_analyzer.sh` - 主程序启动脚本（自动创建虚拟环境和安装依赖）
+- `run_push_tool.sh` - iOS推送工具独立启动脚本
 - `setup.py` - py2app打包配置（可选，用于创建Mac应用）
 
-### iOS推送测试工具
-- `push_tools/` - iOS APNS推送测试模块（**已集成到主程序**）
+### iOS推送测试工具 (push_tools/)
+- iOS APNS推送测试模块（**已集成到主程序**）
   - `apns_push.py` - 推送核心逻辑实现
     - 证书管理（支持.p12/.pem/.cer格式）
     - HTTP/2推送发送
@@ -99,7 +113,6 @@ cd /path/to/project
     - **可独立运行或嵌入主程序标签页**
   - `test_push.py` - 功能测试脚本
   - `requirements.txt` - 推送工具依赖
-- `scripts/run_push_tool.sh` - iOS推送工具独立启动脚本
 
 ### 文档
 - `README_CN.md` - 中文说明文档
@@ -114,7 +127,7 @@ cd /path/to/project
 
 # 或手动启动（需要先激活虚拟环境）
 source venv/bin/activate
-python3 gui/mars_log_analyzer_pro.py
+python3 gui/mars_log_analyzer_modular.py
 ```
 
 #### 功能说明
@@ -265,10 +278,17 @@ pip install -r requirements.txt
 │   ├── fast_decoder.py                       # 高性能解码器
 │   └── optimized_decoder.py                  # 优化解码器
 ├── gui/                                      # GUI应用程序
-│   ├── mars_log_analyzer_pro.py              # 专业版GUI主程序（集成所有功能）
-│   └── components/                           # GUI组件
-│       ├── scrolled_text_with_lazy_load.py   # 懒加载滚动文本组件
-│       └── improved_lazy_text.py             # 改进版懒加载文本组件
+│   ├── mars_log_analyzer_modular.py          # 模块化版本（当前使用）
+│   ├── mars_log_analyzer_pro.py              # 原始专业版（基类）
+│   ├── modules/                              # 模块化组件
+│   │   ├── data_models.py                    # 数据模型
+│   │   ├── file_operations.py                # 文件操作
+│   │   ├── filter_search.py                  # 过滤搜索
+│   │   ├── ips_tab.py                        # IPS标签页
+│   │   └── push_tab.py                       # 推送标签页
+│   └── components/                           # UI组件
+│       ├── improved_lazy_text.py             # 改进版懒加载文本
+│       └── scrolled_text_with_lazy_load.py   # 懒加载滚动文本
 ├── push_tools/                               # iOS推送测试工具（新增）
 │   ├── __init__.py                           # 模块初始化
 │   ├── apns_push.py                          # 推送核心逻辑
@@ -350,15 +370,18 @@ A: 从Apple开发者中心下载，导出为.p12格式（包含私钥）
 项目采用模块化设计，各功能模块可独立运行或集成使用：
 
 ```
-mars_log_analyzer_pro.py (主程序)
-    ├── Mars日志分析模块
-    │   ├── 解码器 (decoders/)
-    │   └── 日志分析引擎
-    ├── IPS崩溃解析模块
-    │   └── ips_parser.py
-    └── iOS推送测试模块
-        ├── apns_push.py (核心)
-        └── apns_gui.py (界面)
+mars_log_analyzer_modular.py (主程序)
+    ├── 继承 mars_log_analyzer_pro.py
+    └── 使用模块化组件
+        ├── modules/
+        │   ├── data_models.py      # 数据结构
+        │   ├── file_operations.py  # 文件处理
+        │   ├── filter_search.py    # 过滤逻辑
+        │   ├── ips_tab.py          # IPS界面
+        │   └── push_tab.py         # 推送界面
+        └── components/
+            ├── improved_lazy_text.py
+            └── scrolled_text_with_lazy_load.py
 ```
 
 ### 集成优势

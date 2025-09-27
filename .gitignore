@@ -1,2 +1,7 @@
 venv/
-__pycache__/*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc

@@ -78,8 +78,8 @@ fi
 
 ##### 5. 应用启动
 ```bash
-# 启动GUI程序（注意新路径）
-"$PYTHON_CMD" "$PROJECT_ROOT/gui/mars_log_analyzer_pro.py"
+# 启动GUI程序（模块化版本）
+"$PYTHON_CMD" "$PROJECT_ROOT/gui/mars_log_analyzer_modular.py"
 
 # 错误处理
 if [ $? -ne 0 ]; then

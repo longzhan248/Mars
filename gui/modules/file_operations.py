@@ -1,0 +1,294 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+文件操作模块
+处理文件加载、解码、导出等操作
+"""
+
+import os
+import sys
+import json
+import subprocess
+import threading
+from pathlib import Path
+from datetime import datetime
+from tkinter import messagebox
+from collections import defaultdict
+
+# 添加解码器路径
+decoders_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'decoders')
+if decoders_path not in sys.path:
+    sys.path.insert(0, decoders_path)
+
+from .data_models import LogEntry, FileGroup
+
+
+class FileOperations:
+    """文件操作类"""
+
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def group_files(files):
+        """将多个文件按基础名称分组"""
+        groups = defaultdict(list)
+
+        # 支持多种日志文件命名模式
+        # 1. mizhua_20250915_123456.xlog -> mizhua
+        # 2. app_2025-09-15_12-34-56.log -> app
+        # 3. debug.1.log, debug.2.log -> debug
+        # 4. system_1.xlog.log -> system
+
+        for filepath in files:
+            filename = os.path.basename(filepath)
+
+            # 移除所有扩展名
+            base = filename
+            for ext in ['.xlog.log', '.xlog', '.log', '.txt']:
+                if base.endswith(ext):
+                    base = base[:-len(ext)]
+                    break
+
+            # 提取基础名称（移除日期、时间、序号等后缀）
+            import re
+
+            # 模式1: name_20250915 或 name_20250915_123456
+            pattern1 = r'^(.+?)_\d{8}(?:_\d+)?$'
+            # 模式2: name_2025-09-15 或 name_2025-09-15_12-34-56
+            pattern2 = r'^(.+?)_\d{4}-\d{2}-\d{2}(?:_[\d-]+)?$'
+            # 模式3: name.数字 (如 debug.1)
+            pattern3 = r'^(.+?)\.\d+$'
+            # 模式4: name_数字 (如 system_1)
+            pattern4 = r'^(.+?)_\d+$'
+
+            for pattern in [pattern1, pattern2, pattern3, pattern4]:
+                match = re.match(pattern, base)
+                if match:
+                    base = match.group(1)
+                    break
+
+            groups[base].append(filepath)
+
+        # 创建FileGroup对象
+        file_groups = []
+        for base_name, filepaths in groups.items():
+            group = FileGroup(base_name)
+            # 按文件名排序，确保顺序一致
+            for filepath in sorted(filepaths):
+                group.add_file(filepath)
+            file_groups.append(group)
+
+        return file_groups
+
+    @staticmethod
+    def decode_xlog_files(files, callback=None):
+        """解码多个xlog文件
+
+        Args:
+            files: 文件路径列表
+            callback: 进度回调函数 callback(current, total, message)
+
+        Returns:
+            解码后的文件路径列表
+        """
+        decoded_files = []
+        total = len(files)
+
+        for i, filepath in enumerate(files):
+            if callback:
+                callback(i, total, f"正在解码: {os.path.basename(filepath)}")
+
+            # 检查是否是xlog文件
+            if not filepath.endswith('.xlog'):
+                decoded_files.append(filepath)
+                continue
+
+            # 解码xlog文件
+            try:
+                decoded_path = FileOperations.decode_single_xlog(filepath)
+                if decoded_path:
+                    decoded_files.append(decoded_path)
+            except Exception as e:
+                print(f"解码失败 {filepath}: {e}")
+                # 解码失败时仍然添加原始文件，让后续处理决定
+                decoded_files.append(filepath)
+
+        if callback:
+            callback(total, total, "解码完成")
+
+        return decoded_files
+
+    @staticmethod
+    def decode_single_xlog(xlog_path):
+        """解码单个xlog文件"""
+        try:
+            # 优先使用快速解码器
+            from fast_decoder import FastMarsDecoder
+
+            output_path = xlog_path + '.log'
+            decoder = FastMarsDecoder()
+
+            if decoder.decode_file(xlog_path, output_path):
+                return output_path
+            else:
+                # 快速解码器失败，尝试标准解码器
+                return FileOperations.decode_with_standard(xlog_path)
+
+        except ImportError:
+            # 快速解码器不可用，使用标准解码器
+            return FileOperations.decode_with_standard(xlog_path)
+        except Exception as e:
+            print(f"快速解码器失败: {e}")
+            return FileOperations.decode_with_standard(xlog_path)
+
+    @staticmethod
+    def decode_with_standard(xlog_path):
+        """使用标准解码器"""
+        try:
+            # 使用标准Python 3解码器
+            from decode_mars_nocrypt_log_file_py3 import ParseMarsFile
+
+            output_path = xlog_path + '.log'
+            parser = ParseMarsFile(xlog_path, output_path)
+            parser.decode()
+
+            if os.path.exists(output_path):
+                return output_path
+        except Exception as e:
+            print(f"标准解码器失败: {e}")
+
+        return None
+
+    @staticmethod
+    def load_log_file(filepath):
+        """加载日志文件内容
+
+        Returns:
+            日志行列表
+        """
+        try:
+            # 自动检测编码
+            encodings = ['utf-8', 'gb2312', 'gbk', 'gb18030', 'latin-1']
+
+            for encoding in encodings:
+                try:
+                    with open(filepath, 'r', encoding=encoding) as f:
+                        lines = f.readlines()
+                    return lines
+                except UnicodeDecodeError:
+                    continue
+
+            # 如果所有编码都失败，使用二进制模式
+            with open(filepath, 'rb') as f:
+                content = f.read()
+                # 尝试忽略错误解码
+                lines = content.decode('utf-8', errors='ignore').splitlines(keepends=True)
+            return lines
+
+        except Exception as e:
+            print(f"加载文件失败 {filepath}: {e}")
+            return []
+
+    @staticmethod
+    def parse_log_lines(lines, source_file=""):
+        """解析日志行为LogEntry对象
+
+        Args:
+            lines: 日志行列表
+            source_file: 来源文件名
+
+        Returns:
+            LogEntry对象列表
+        """
+        entries = []
+
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            entry = LogEntry(line, source_file)
+            entries.append(entry)
+
+        return entries
+
+    @staticmethod
+    def export_to_file(entries, filepath, format='txt'):
+        """导出日志条目到文件
+
+        Args:
+            entries: LogEntry对象列表
+            filepath: 输出文件路径
+            format: 导出格式 (txt, json, csv)
+        """
+        try:
+            if format == 'json':
+                FileOperations.export_to_json(entries, filepath)
+            elif format == 'csv':
+                FileOperations.export_to_csv(entries, filepath)
+            else:  # txt
+                FileOperations.export_to_txt(entries, filepath)
+            return True
+        except Exception as e:
+            print(f"导出失败: {e}")
+            return False
+
+    @staticmethod
+    def export_to_txt(entries, filepath):
+        """导出为文本格式"""
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(f"# Mars日志导出\n")
+            f.write(f"# 导出时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"# 总计: {len(entries)} 条日志\n")
+            f.write("-" * 80 + "\n\n")
+
+            for entry in entries:
+                f.write(entry.raw_line + '\n')
+
+    @staticmethod
+    def export_to_json(entries, filepath):
+        """导出为JSON格式"""
+        data = {
+            'export_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'total_count': len(entries),
+            'entries': []
+        }
+
+        for entry in entries:
+            data['entries'].append({
+                'level': entry.level,
+                'timestamp': entry.timestamp,
+                'module': entry.module,
+                'thread_id': entry.thread_id,
+                'content': entry.content,
+                'raw': entry.raw_line,
+                'source_file': entry.source_file,
+                'is_crash': entry.is_crash
+            })
+
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def export_to_csv(entries, filepath):
+        """导出为CSV格式"""
+        import csv
+
+        with open(filepath, 'w', encoding='utf-8', newline='') as f:
+            writer = csv.writer(f)
+
+            # 写入头部
+            writer.writerow(['时间戳', '级别', '模块', '线程ID', '内容', '来源文件', '是否崩溃'])
+
+            # 写入数据
+            for entry in entries:
+                writer.writerow([
+                    entry.timestamp or '',
+                    entry.level or '',
+                    entry.module or '',
+                    entry.thread_id or '',
+                    entry.content or entry.raw_line,
+                    entry.source_file or '',
+                    '是' if entry.is_crash else '否'
+                ])

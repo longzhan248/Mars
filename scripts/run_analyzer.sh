@@ -115,10 +115,11 @@ fi
 
 # 启动日志分析系统
 echo "========================================="
-echo "Mars日志分析系统 - 专业版"
+echo "Mars日志分析系统 - 专业版（模块化版本）"
 echo "========================================="
 echo "正在启动..."
-"$PYTHON_CMD" "$PROJECT_ROOT/gui/mars_log_analyzer_pro.py"
+# 使用模块化版本（已修复filter_logs问题）
+"$PYTHON_CMD" "$PROJECT_ROOT/gui/mars_log_analyzer_modular.py"
 
 # 如果程序异常退出，等待用户按键
 if [ $? -ne 0 ]; then
