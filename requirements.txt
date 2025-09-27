@@ -1,0 +1,16 @@
+# Mars日志分析系统依赖
+
+# 核心依赖
+matplotlib>=3.5.0          # 图表绘制
+# tkinter                  # GUI框架（Python自带）
+
+# iOS推送工具依赖
+cryptography>=41.0.0       # 证书处理
+httpx[http2]>=0.24.0       # HTTP/2客户端
+pyjwt>=2.8.0              # JWT处理
+h2>=4.0.0                 # HTTP/2协议
+
+# 可选依赖（开发环境）
+# pytest>=7.0.0           # 测试框架
+# black>=22.0.0           # 代码格式化
+# pylint>=2.12.0          # 代码检查

@@ -59,15 +59,44 @@ PIP_CMD="$VENV_DIR/bin/pip3"
 # 升级pip到最新版本
 "$PIP_CMD" install --upgrade pip 2>/dev/null
 
-# 检查matplotlib是否安装
-"$PYTHON_CMD" -c "import matplotlib" 2>/dev/null
-if [ $? -ne 0 ]; then
-    echo "正在安装matplotlib..."
-    "$PIP_CMD" install matplotlib
+# 检查是否有requirements.txt文件
+REQUIREMENTS_FILE="$PROJECT_ROOT/requirements.txt"
+DEPS_CHECK_FILE="$VENV_DIR/.deps_installed"
+
+# 如果requirements.txt存在且比依赖检查标记文件新，则安装/更新依赖
+if [ -f "$REQUIREMENTS_FILE" ]; then
+    if [ ! -f "$DEPS_CHECK_FILE" ] || [ "$REQUIREMENTS_FILE" -nt "$DEPS_CHECK_FILE" ]; then
+        echo "检查并安装项目依赖..."
+        "$PIP_CMD" install -r "$REQUIREMENTS_FILE" 2>/dev/null
+        if [ $? -eq 0 ]; then
+            echo "项目依赖安装成功"
+            touch "$DEPS_CHECK_FILE"
+        else
+            echo "警告: 部分依赖安装失败，某些功能可能不可用"
+        fi
+    else
+        echo "项目依赖已是最新"
+    fi
+else
+    # 旧版兼容：如果没有requirements.txt，手动检查关键依赖
+    echo "检查关键依赖..."
+
+    # 检查matplotlib
+    "$PYTHON_CMD" -c "import matplotlib" 2>/dev/null
     if [ $? -ne 0 ]; then
-        echo "错误: matplotlib安装失败"
-        echo "请尝试手动安装: pip3 install matplotlib"
-        exit 1
+        echo "正在安装matplotlib..."
+        "$PIP_CMD" install matplotlib
+    fi
+
+    # 检查iOS推送工具依赖
+    PUSH_DEPS_MISSING=0
+    "$PYTHON_CMD" -c "import cryptography" 2>/dev/null || PUSH_DEPS_MISSING=1
+    "$PYTHON_CMD" -c "import httpx" 2>/dev/null || PUSH_DEPS_MISSING=1
+    "$PYTHON_CMD" -c "import jwt" 2>/dev/null || PUSH_DEPS_MISSING=1
+
+    if [ $PUSH_DEPS_MISSING -ne 0 ]; then
+        echo "安装iOS推送工具依赖..."
+        "$PIP_CMD" install cryptography httpx pyjwt h2 2>/dev/null
     fi
 fi
 

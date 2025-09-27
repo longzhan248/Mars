@@ -4,7 +4,12 @@
 
 ## 项目用途
 此代码库包含用于解码和分析 Mars xlog 文件的完整工具套件 - Mars 是腾讯的日志框架，xlog 是其使用的压缩和加密日志文件格式。
-项目提供了从基础解码到高级分析的全方位解决方案，包括命令行工具和专业级GUI应用。
+项目提供了从基础解码到高级分析的全方位解决方案，包括命令行工具、专业级GUI应用、IPS崩溃分析和iOS推送测试工具。
+
+## 最新更新 (2024-09-27)
+- **集成iOS推送测试功能** - 完整的APNS推送测试工具已集成到主程序
+- **统一的GUI界面** - Mars日志分析、IPS崩溃解析、iOS推送测试三合一
+- **智能依赖管理** - 自动检测和安装所有必要的依赖包
 
 ## 核心组件
 
@@ -79,12 +84,19 @@
 
 ### 启动GUI分析系统（推荐）：
 ```bash
-# 启动专业版GUI（包含日志分析、IPS崩溃解析、iOS推送测试）
-python3 gui/mars_log_analyzer_pro.py
-
-# 使用启动脚本（自动处理依赖）
+# 使用启动脚本（推荐，自动处理依赖和环境）
 ./scripts/run_analyzer.sh
+
+# 或手动启动（需要先激活虚拟环境）
+source venv/bin/activate
+python3 gui/mars_log_analyzer_pro.py
 ```
+
+#### 功能说明
+主程序包含三个标签页：
+1. **Mars日志分析** - 解码和分析xlog文件
+2. **IPS崩溃解析** - 解析iOS崩溃报告
+3. **iOS推送测试** - APNS推送测试工具
 
 ### 独立启动iOS推送工具：
 ```bash
@@ -163,6 +175,55 @@ python3 tools/ips_parser.py crash.ips
 - DEBUG: 调试日志
 - VERBOSE: 详细日志
 
+## 环境管理
+
+### 虚拟环境
+项目使用Python虚拟环境隔离依赖：
+```bash
+# 创建虚拟环境
+python3 -m venv venv
+
+# 激活虚拟环境
+source venv/bin/activate
+
+# 安装依赖
+pip install -r requirements.txt
+```
+
+### 依赖管理
+所有项目依赖都在`requirements.txt`中定义：
+- **matplotlib** - 图表绘制
+- **cryptography** - 证书处理
+- **httpx** - HTTP/2客户端
+- **pyjwt** - JWT处理
+- **h2** - HTTP/2协议
+
+### 常见问题
+
+#### Q: 提示"No module named 'cryptography'"？
+**解决方案**：
+1. 确保在正确的项目目录：`/Volumes/long/心娱/log`
+2. 激活虚拟环境：`source venv/bin/activate`
+3. 重新安装依赖：`pip install -r requirements.txt`
+
+#### Q: 虚拟环境路径混乱？
+**解决方案**：
+```bash
+# 删除旧的虚拟环境
+rm -rf venv
+
+# 重新创建
+python3 -m venv venv
+
+# 安装依赖
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+#### Q: iOS推送功能无法加载？
+**解决方案**：
+使用`./scripts/run_analyzer.sh`启动，它会自动处理所有依赖。
+
 ## 开发指南
 
 ### 项目结构
@@ -217,3 +278,41 @@ A: 使用 run_analyzer.sh 脚本，它会自动安装所需依赖
 
 ### Q: 支持哪些操作系统？
 A: macOS、Linux、Windows（需要Python环境）
+
+### Q: iOS推送功能如何使用？
+A: 有两种方式：
+1. 在主程序中点击"iOS推送测试"标签页
+2. 独立运行`./scripts/run_push_tool.sh`
+
+### Q: 推送证书如何获取？
+A: 从Apple开发者中心下载，导出为.p12格式（包含私钥）
+
+## 集成架构说明
+
+### 模块化设计
+项目采用模块化设计，各功能模块可独立运行或集成使用：
+
+```
+mars_log_analyzer_pro.py (主程序)
+    ├── Mars日志分析模块
+    │   ├── 解码器 (decoders/)
+    │   └── 日志分析引擎
+    ├── IPS崩溃解析模块
+    │   └── ips_parser.py
+    └── iOS推送测试模块
+        ├── apns_push.py (核心)
+        └── apns_gui.py (界面)
+```
+
+### 集成优势
+1. **统一界面** - 所有iOS开发工具在一个窗口
+2. **共享环境** - 统一的虚拟环境和依赖管理
+3. **灵活使用** - 既可集成使用，也可独立运行
+4. **易于维护** - 模块分离，便于单独更新
+
+### 扩展开发
+如需添加新功能模块：
+1. 在独立目录创建模块（如`new_tool/`）
+2. 在主程序中添加新标签页
+3. 使用延迟导入避免启动依赖
+4. 更新requirements.txt添加新依赖

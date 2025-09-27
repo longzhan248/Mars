@@ -9,7 +9,8 @@
       "Bash(chmod:*)",
       "Bash(python3:*)",
       "Bash(source:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Read(//Users/zhanlong/Desktop/log/**)"
     ],
     "deny": [],
     "ask": []
