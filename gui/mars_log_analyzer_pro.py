@@ -351,7 +351,7 @@ class MarsLogAnalyzerPro:
         level_combo['values'] = ('全部', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'VERBOSE', 'FATAL')
         level_combo.current(0)
         level_combo.grid(row=0, column=4, padx=5)
-        level_combo.bind('<<ComboboxSelected>>', lambda e: self.filter_logs())
+        level_combo.bind('<<ComboboxSelected>>', lambda e: self.apply_global_filter())
 
         # 第二行：时间范围过滤
         ttk.Label(search_frame, text="时间范围:").grid(row=1, column=0, sticky=tk.W, pady=5)
@@ -361,12 +361,14 @@ class MarsLogAnalyzerPro:
         global_time_start = ttk.Entry(search_frame, textvariable=self.global_time_start_var, width=20)
         global_time_start.grid(row=1, column=1, padx=5, pady=5)
         global_time_start.bind('<FocusIn>', lambda e: self.on_time_focus_in(e, self.global_time_start_var))
+        global_time_start.bind('<Return>', lambda e: self.apply_global_filter())
 
         ttk.Label(search_frame, text="至").grid(row=1, column=2, padx=5, pady=5)
 
         global_time_end = ttk.Entry(search_frame, textvariable=self.global_time_end_var, width=20)
         global_time_end.grid(row=1, column=3, padx=5, pady=5)
         global_time_end.bind('<FocusIn>', lambda e: self.on_time_focus_in(e, self.global_time_end_var))
+        global_time_end.bind('<Return>', lambda e: self.apply_global_filter())
 
         ttk.Label(search_frame, text="格式: YYYY-MM-DD HH:MM:SS", font=('Arial', 9)).grid(row=1, column=4, padx=5, pady=5)
 
@@ -377,7 +379,7 @@ class MarsLogAnalyzerPro:
         self.module_combo['values'] = ('全部',)
         self.module_combo.current(0)
         self.module_combo.grid(row=2, column=1, columnspan=2, padx=5, pady=5)
-        self.module_combo.bind('<<ComboboxSelected>>', lambda e: self.filter_logs())
+        self.module_combo.bind('<<ComboboxSelected>>', lambda e: self.apply_global_filter())
 
         ttk.Button(search_frame, text="搜索", command=self.search_logs).grid(row=0, column=5, padx=5)
         ttk.Button(search_frame, text="清除过滤", command=self.clear_filter).grid(row=0, column=6, padx=5)
@@ -798,9 +800,10 @@ class MarsLogAnalyzerPro:
         支持格式：
         - YYYY-MM-DD HH:MM:SS
         - YYYY-MM-DD HH:MM:SS.mmm
+        - YYYY-MM-DD
         - HH:MM:SS
         - HH:MM:SS.mmm
-        - YYYY-MM-DD
+        - HH:MM
         返回标准化的时间字符串用于比较
         """
         import re
@@ -817,6 +820,12 @@ class MarsLogAnalyzerPro:
         if match:
             return time_str
 
+        # 只有日期：YYYY-MM-DD
+        date_only_pattern = r'^(\d{4})-(\d{2})-(\d{2})$'
+        match = re.match(date_only_pattern, time_str)
+        if match:
+            return f"{time_str} 00:00:00"
+
         # 只有时间：HH:MM:SS 或 HH:MM:SS.mmm
         time_only_pattern = r'^(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$'
         match = re.match(time_only_pattern, time_str)
@@ -824,11 +833,11 @@ class MarsLogAnalyzerPro:
             # 对于只有时间的，需要从日志中提取日期部分
             return f"TIME_ONLY:{time_str}"
 
-        # 只有日期：YYYY-MM-DD
-        date_only_pattern = r'^(\d{4})-(\d{2})-(\d{2})$'
-        match = re.match(date_only_pattern, time_str)
+        # 只有时间：HH:MM（补充秒）
+        time_short_pattern = r'^(\d{2}):(\d{2})$'
+        match = re.match(time_short_pattern, time_str)
         if match:
-            return f"{time_str} 00:00:00"
+            return f"TIME_ONLY:{time_str}:00"
 
         return None
 
@@ -837,9 +846,20 @@ class MarsLogAnalyzerPro:
         import re
 
         # 从日志时间戳提取时间信息
-        # 格式示例：2025-09-15 +8.0 11:05:43.995
+        # 支持的格式：
+        # 1. 2025-09-15 +8.0 11:05:43.995
+        # 2. 2025-09-21 +8.0 13:09:49.038
+        # 3. 2025-09-21 13:09:49.038 (无时区)
+
+        # 尝试带时区的格式
         log_pattern = r'^(\d{4}-\d{2}-\d{2})\s+[+\-]?\d+\.?\d*\s+(\d{2}:\d{2}:\d{2}(?:\.\d+)?)'
         match = re.match(log_pattern, log_timestamp)
+
+        if not match:
+            # 尝试不带时区的格式
+            log_pattern_simple = r'^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2}(?:\.\d+)?)'
+            match = re.match(log_pattern_simple, log_timestamp)
+
         if not match:
             return True  # 无法解析的时间戳，默认包含
 
@@ -921,9 +941,21 @@ class MarsLogAnalyzerPro:
                     continue
 
             # 时间范围过滤
-            if (start_time or end_time) and entry.timestamp:
-                if not self.compare_log_time(entry.timestamp, start_time, end_time):
-                    continue
+            if start_time or end_time:
+                # 优先使用entry.timestamp
+                if entry.timestamp:
+                    if not self.compare_log_time(entry.timestamp, start_time, end_time):
+                        continue
+                else:
+                    # 如果没有timestamp，尝试从raw_line提取
+                    import re
+                    # 支持格式：[I][2025-09-21 +8.0 13:09:49.038]
+                    time_pattern = r'\[(\d{4}-\d{2}-\d{2}\s+[+\-]?\d+\.?\d*\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\]'
+                    match = re.search(time_pattern, entry.raw_line)
+                    if match:
+                        timestamp = match.group(1)
+                        if not self.compare_log_time(timestamp, start_time, end_time):
+                            continue
 
             filtered.append(entry)
 
@@ -1626,15 +1658,21 @@ class MarsLogAnalyzerPro:
 
             # 时间过滤
             if start_time or end_time:
-                # 从日志中提取时间
-                time_match = re.search(r'(\d{2}:\d{2}:\d{2})', entry.timestamp if entry.timestamp else entry.raw_line)
-                if time_match:
-                    log_time = time_match.group(1)
-                    # 比较时间
-                    if start_time and log_time < start_time:
+                # 使用entry.timestamp（如果存在）或从raw_line提取
+                if entry.timestamp:
+                    # 使用已解析的时间戳
+                    if not self.compare_log_time(entry.timestamp, start_time, end_time):
                         continue
-                    if end_time and log_time > end_time:
-                        continue
+                else:
+                    # 尝试从原始日志中提取时间戳
+                    # 支持格式：[I][2025-09-21 +8.0 13:09:49.038]
+                    import re
+                    time_pattern = r'\[(\d{4}-\d{2}-\d{2}\s+[+\-]?\d+\.?\d*\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\]'
+                    match = re.search(time_pattern, entry.raw_line)
+                    if match:
+                        timestamp = match.group(1)
+                        if not self.compare_log_time(timestamp, start_time, end_time):
+                            continue
 
             self.filtered_entries.append(entry)
 

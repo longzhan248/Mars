@@ -1,14 +1,20 @@
 #!/bin/bash
 
-# Mars日志分析系统启动脚本
+# Mars日志分析系统启动脚本 - macOS版本
 
-# 获取脚本所在目录
+# 获取脚本所在目录的绝对路径
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-# 获取项目根目录
+
+# 获取项目根目录（脚本在scripts子目录中）
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 # 切换到项目根目录
 cd "$PROJECT_ROOT"
+
+echo "========================================="
+echo "Mars日志分析系统 - 专业版"
+echo "========================================="
+echo "项目路径: $PROJECT_ROOT"
 
 # 检查Python 3是否安装
 if ! command -v python3 &> /dev/null; then
@@ -52,9 +58,16 @@ fi
 # 激活虚拟环境
 source "$VENV_DIR/bin/activate"
 
-# 确保使用虚拟环境中的python3和pip3
+# 确保使用虚拟环境中的python3和pip3（使用完整路径）
 PYTHON_CMD="$VENV_DIR/bin/python3"
 PIP_CMD="$VENV_DIR/bin/pip3"
+
+# 如果虚拟环境的Python不存在，使用系统Python
+if [ ! -f "$PYTHON_CMD" ]; then
+    echo "警告: 虚拟环境Python不存在，使用系统Python"
+    PYTHON_CMD="python3"
+    PIP_CMD="pip3"
+fi
 
 # 升级pip到最新版本
 "$PIP_CMD" install --upgrade pip 2>/dev/null
