@@ -1,7 +1,43 @@
+# Virtual Environment
 venv/
+env/
+
+# PyInstaller
+build/
+dist/
+*.spec.backup
 
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.pyc
+*.pyo
+*.pyd
+
+# Egg
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+.cache/

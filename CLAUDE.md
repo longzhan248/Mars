@@ -23,7 +23,15 @@ cd /path/to/project
 - ✅ 安装所有必要依赖
 - ✅ 启动主程序
 
-## 最新更新 (2025-09-27)
+## 最新更新
+
+### 2025-09-28
+- **PyInstaller打包支持** - 使用PyInstaller替代py2app创建独立应用
+- **一键打包脚本** - `./scripts/build_app.sh` 自动化打包流程
+- **完整打包文档** - 详细的打包、分发和故障排除指南
+- **独立运行** - 生成的.app文件无需Python环境即可运行
+
+### 2025-09-27
 - **模块化重构完成** - 将3784行单文件拆分为清晰的模块结构
 - **集成iOS推送测试功能** - 完整的APNS推送测试工具已集成到主程序
 - **统一的GUI界面** - Mars日志分析、IPS崩溃解析、iOS推送测试三合一
@@ -94,10 +102,11 @@ cd /path/to/project
   - 符号化堆栈跟踪
   - 提取关键崩溃信息
 
-### 启动脚本 (scripts/)
+### 启动和打包脚本 (scripts/)
 - `run_analyzer.sh` - 主程序启动脚本（自动创建虚拟环境和安装依赖）
 - `run_push_tool.sh` - iOS推送工具独立启动脚本
-- `setup.py` - py2app打包配置（可选，用于创建Mac应用）
+- `build_app.sh` - PyInstaller一键打包脚本（创建独立应用）
+- `setup.py` - py2app打包配置（已弃用，保留作参考）
 
 ### iOS推送测试工具 (push_tools/)
 - iOS APNS推送测试模块（**已集成到主程序**）
@@ -114,9 +123,10 @@ cd /path/to/project
   - `test_push.py` - 功能测试脚本
   - `requirements.txt` - 推送工具依赖
 
-### 文档
+### 文档 (docs/)
 - `README_CN.md` - 中文说明文档
 - `README_EN.md` - 英文说明文档
+- `BUILD.md` - 打包和分发指南
 
 ## 使用命令
 
@@ -176,6 +186,21 @@ python3 decoders/optimized_decoder.py input.xlog
 # 解析iOS崩溃报告
 python3 tools/ips_parser.py crash.ips
 ```
+
+### 打包成独立应用：
+```bash
+# 一键打包（推荐）
+./scripts/build_app.sh
+
+# 手动打包
+source venv/bin/activate
+pyinstaller --clean MarsLogAnalyzer.spec
+
+# 打包结果
+# dist/MarsLogAnalyzer.app - 可在任何Mac上运行的独立应用
+```
+
+详细的打包和分发说明请参考 [BUILD.md](docs/BUILD.md)
 
 ## 重要说明
 
@@ -240,6 +265,7 @@ pip install -r requirements.txt
 - **httpx** - HTTP/2客户端
 - **pyjwt** - JWT处理
 - **h2** - HTTP/2协议
+- **pyinstaller** - 应用打包工具（可选，仅打包时需要）
 
 ### 常见问题
 
@@ -301,11 +327,16 @@ pip install -r requirements.txt
 ├── scripts/                                  # 启动和打包脚本
 │   ├── run_analyzer.sh                       # 主程序启动脚本
 │   ├── run_push_tool.sh                      # 推送工具启动脚本
-│   └── setup.py                              # py2app打包配置
+│   ├── build_app.sh                          # PyInstaller打包脚本
+│   └── setup.py                              # py2app打包配置（已弃用）
 ├── docs/                                     # 文档目录
 │   ├── README_CN.md                          # 中文文档
 │   ├── README_EN.md                          # 英文文档
+│   ├── BUILD.md                              # 打包分发指南
 │   └── CLAUDE.md                              # 项目指南（本文件）
+├── MarsLogAnalyzer.spec                      # PyInstaller配置文件
+├── build/                                    # 构建临时文件（自动生成）
+├── dist/                                     # 打包输出目录（自动生成）
 └── venv/                                     # Python虚拟环境（自动生成）
 ```
 
