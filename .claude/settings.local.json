@@ -1,8 +1,6 @@
 {
   "permissions": {
     "allow": [
-      "Read(//Volumes/long/心娱/Github/SmartPush/SmartPush/**)",
-      "Read(//Volumes/long/心娱/Github/SmartPush/**)",
       "Bash(xcodebuild:*)",
       "Bash(open:*)",
       "Bash(mkdir:*)",

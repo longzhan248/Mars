@@ -13,7 +13,8 @@ modules/
 ├── file_operations.py       # 文件操作封装
 ├── filter_search.py         # 过滤搜索管理
 ├── ips_tab.py              # IPS崩溃分析标签页
-└── push_tab.py             # iOS推送测试标签页
+├── push_tab.py             # iOS推送测试标签页
+└── sandbox_tab.py          # iOS沙盒浏览标签页 🆕
 ```
 
 ## 核心模块详解
@@ -192,6 +193,54 @@ def load_certificate(self):
 - **Token**: 设备令牌
 - **Payload**: JSON推送内容
 
+### 6. sandbox_tab.py - iOS沙盒浏览标签页 🆕
+
+#### SandboxBrowserTab类
+iOS应用沙盒文件浏览器。
+
+**核心功能**：
+- **设备管理**: 自动检测iOS设备，显示设备名称和型号
+- **应用列表**: 列出所有用户应用
+- **文件浏览**: 树形结构展示应用沙盒文件系统
+- **文件预览**: 支持文本、图片、十六进制等多种格式
+- **文件操作**: 预览、导出、打开、删除文件
+
+**界面组件**：
+```python
+def __init__(self, parent, main_app):
+    """初始化沙盒浏览标签页"""
+
+def create_widgets(self):
+    """创建UI组件"""
+
+def refresh_devices(self):
+    """刷新设备列表"""
+
+def on_tree_expand(self, event):
+    """树形节点展开事件"""
+
+def preview_selected(self):
+    """预览选中的文件"""
+```
+
+**文件预览支持**：
+- 📝 **文本文件**: .txt, .log, .json, .xml, .plist, .html, .css, .js, .py, .md, .sh, .h, .m, .swift, .c, .cpp
+- 🖼️ **图片文件**: .png, .jpg, .jpeg, .gif, .bmp, .ico（需要Pillow库）
+- 🔢 **十六进制**: 其他未识别格式显示hex dump
+- 💾 **数据库**: 识别SQLite数据库文件
+
+**技术实现**：
+- 使用pymobiledevice3库进行iOS设备通信
+- HouseArrestService访问应用沙盒
+- AfcService进行文件系统操作
+- 异步加载防止UI阻塞
+- 占位符机制实现懒加载目录
+
+**事件处理**：
+- `<<TreeviewOpen>>`: 展开目录时加载子目录
+- 双击文件：打开预览窗口
+- 右键菜单：显示操作选项
+
 ## 模块间交互
 
 ### 依赖关系
@@ -201,7 +250,8 @@ mars_log_analyzer_modular.py
     ├── file_operations.py (文件处理)
     ├── filter_search.py (过滤逻辑)
     ├── ips_tab.py (IPS界面)
-    └── push_tab.py (推送界面)
+    ├── push_tab.py (推送界面)
+    └── sandbox_tab.py (沙盒浏览界面) 🆕
 ```
 
 ### 数据流向

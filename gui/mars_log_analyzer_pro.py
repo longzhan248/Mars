@@ -396,6 +396,9 @@ class MarsLogAnalyzerPro:
         # ============ iOS推送测试标签页 ============
         self.create_push_test_tab()
 
+        # ============ iOS沙盒浏览标签页 ============
+        self.create_sandbox_browser_tab()
+
     def create_log_viewer(self):
         """创建日志查看器"""
         viewer_frame = ttk.Frame(self.log_frame)
@@ -3769,6 +3772,58 @@ except Exception as e:
                     messagebox.showinfo("成功", "推送模块加载成功！")
                 except ImportError as e:
                     messagebox.showerror("错误", f"仍无法加载推送模块：\n{str(e)}")
+
+            ttk.Button(error_frame,
+                      text="重试加载",
+                      command=retry_load).pack(pady=10)
+
+    def create_sandbox_browser_tab(self):
+        """创建iOS沙盒浏览标签页"""
+        sandbox_frame = ttk.Frame(self.main_notebook, padding="10")
+        self.main_notebook.add(sandbox_frame, text="iOS沙盒浏览")
+
+        try:
+            sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'gui', 'modules'))
+            from sandbox_tab import SandboxBrowserTab
+            self.sandbox_tab = SandboxBrowserTab(sandbox_frame, self)
+        except ImportError as e:
+            error_frame = ttk.Frame(sandbox_frame)
+            error_frame.pack(fill=tk.BOTH, expand=True)
+
+            ttk.Label(error_frame,
+                     text="iOS沙盒浏览功能需要安装额外依赖",
+                     font=('', 14, 'bold')).pack(pady=20)
+
+            ttk.Label(error_frame,
+                     text="请运行以下命令安装依赖：",
+                     font=('', 11)).pack(pady=10)
+
+            cmd_frame = ttk.Frame(error_frame)
+            cmd_frame.pack(pady=10)
+
+            cmd_text = tk.Text(cmd_frame, height=3, width=60, font=('Courier', 10))
+            cmd_text.pack()
+            cmd_text.insert('1.0',
+                           "source venv/bin/activate\n"
+                           "pip install pymobiledevice3")
+            cmd_text.config(state='disabled')
+
+            ttk.Label(error_frame,
+                     text=f"错误详情: {str(e)}",
+                     font=('', 10),
+                     foreground='red').pack(pady=20)
+
+            def retry_load():
+                """重试加载沙盒浏览模块"""
+                try:
+                    for widget in sandbox_frame.winfo_children():
+                        widget.destroy()
+
+                    from sandbox_tab import SandboxBrowserTab
+                    self.sandbox_tab = SandboxBrowserTab(sandbox_frame, self)
+                    messagebox.showinfo("成功", "沙盒浏览模块加载成功！")
+                except ImportError as e:
+                    messagebox.showerror("错误", f"仍无法加载沙盒浏览模块：\n{str(e)}")
 
             ttk.Button(error_frame,
                       text="重试加载",

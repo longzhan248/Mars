@@ -10,6 +10,10 @@ httpx[http2]>=0.24.0       # HTTP/2客户端
 pyjwt>=2.8.0              # JWT处理
 h2>=4.0.0                 # HTTP/2协议
 
+# iOS沙盒浏览依赖
+pymobiledevice3>=3.0.0     # iOS设备通信库
+Pillow>=10.0.0             # 图片预览支持
+
 # 打包工具依赖（可选）
 pyinstaller>=6.0.0      # 应用打包工具
 

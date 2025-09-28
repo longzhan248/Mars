@@ -36,6 +36,7 @@ try:
     from modules.filter_search import FilterSearchManager
     from modules.ips_tab import IPSAnalysisTab
     from modules.push_tab import PushTestTab
+    from modules.sandbox_tab import SandboxBrowserTab
 except ImportError:
     # 绝对导入（从项目根目录运行时）
     from gui.modules.data_models import LogEntry, FileGroup
@@ -43,6 +44,7 @@ except ImportError:
     from gui.modules.filter_search import FilterSearchManager
     from gui.modules.ips_tab import IPSAnalysisTab
     from gui.modules.push_tab import PushTestTab
+    from gui.modules.sandbox_tab import SandboxBrowserTab
 
 # 导入原有组件
 try:
@@ -149,6 +151,14 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
 
         # 使用模块化的推送标签页
         self.push_tab = PushTestTab(push_frame, self)
+
+    def create_sandbox_browser_tab(self):
+        """创建iOS沙盒浏览标签页 - 使用模块化组件"""
+        sandbox_frame = ttk.Frame(self.main_notebook, padding="10")
+        self.main_notebook.add(sandbox_frame, text="iOS沙盒浏览")
+
+        # 使用模块化的沙盒浏览标签页
+        self.sandbox_tab = SandboxBrowserTab(sandbox_frame, self)
 
     def filter_logs(self, start_time=None, end_time=None):
         """重写filter_logs方法以使用模块化的过滤逻辑
