@@ -6,6 +6,9 @@ iOS沙盒浏览标签页模块
 
 import os
 import sys
+import re
+import platform
+import subprocess
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import threading
@@ -27,6 +30,8 @@ class SandboxBrowserTab:
         self.device_id = None
         self.current_app_id = None
         self.afc_client = None
+        self.search_results = []
+        self.current_search_text = ""
         self.create_widgets()
 
     def create_widgets(self):
@@ -93,6 +98,29 @@ class SandboxBrowserTab:
         self.context_menu.add_separator()
         self.context_menu.add_command(label="删除", command=self.delete_selected)
         self.context_menu.add_command(label="刷新", command=self.refresh_current_dir)
+
+        # 搜索框
+        search_frame = ttk.Frame(main_frame)
+        search_frame.pack(fill=tk.X, pady=(5, 0))
+
+        ttk.Label(search_frame, text="搜索:").pack(side=tk.LEFT, padx=(0, 5))
+        self.search_var = tk.StringVar()
+        self.search_entry = ttk.Entry(search_frame, textvariable=self.search_var, width=30)
+        self.search_entry.pack(side=tk.LEFT, padx=(0, 5))
+        self.search_entry.bind("<Return>", lambda e: self.search_files())
+
+        self.search_type_var = tk.StringVar(value="文件名")
+        search_type_combo = ttk.Combobox(search_frame, textvariable=self.search_type_var,
+                                         values=["文件名", "文件内容", "所有"],
+                                         state="readonly", width=10)
+        search_type_combo.pack(side=tk.LEFT, padx=(0, 5))
+
+        self.search_button = ttk.Button(search_frame, text="搜索", command=self.search_files)
+        self.search_button.pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(search_frame, text="清除", command=self.clear_search).pack(side=tk.LEFT, padx=(0, 5))
+
+        self.search_status = ttk.Label(search_frame, text="")
+        self.search_status.pack(side=tk.LEFT, padx=(10, 0))
 
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(fill=tk.X, pady=(10, 0))
@@ -395,7 +423,13 @@ pip install -r requirements.txt
             messagebox.showwarning("提示", "无效的路径")
             return
 
-        name = self.tree.item(item_id, "text").replace("📁 ", "").replace("📄 ", "")
+        # 清理文件名，移除图标和搜索标记
+        name = self.tree.item(item_id, "text")
+        name = name.replace("📁 ", "").replace("📄 ", "")
+        # 如果是搜索结果，移除匹配类型标记
+        if "search_result" in tags:
+            # 移除 [文件名] 或 [文件内容] 标记
+            name = re.sub(r'\s*\[.*?\]$', '', name)
 
         if "directory" in tags:
             save_path = filedialog.askdirectory(title="选择保存目录")
@@ -498,7 +532,12 @@ pip install -r requirements.txt
             messagebox.showwarning("提示", "无效的文件路径")
             return
 
+        # 清理文件名，移除图标和搜索标记
         name = self.tree.item(item_id, "text").replace("📄 ", "")
+        if "search_result" in tags:
+            # 移除 [文件名] 或 [文件内容] 标记
+            import re
+            name = re.sub(r'\s*\[.*?\]$', '', name)
 
         import tempfile
         temp_dir = tempfile.gettempdir()
@@ -517,13 +556,28 @@ pip install -r requirements.txt
             with open(local_path, 'wb') as f:
                 f.write(data)
 
-            import platform
-            if platform.system() == 'Darwin':
-                os.system(f'open "{local_path}"')
-            elif platform.system() == 'Windows':
-                os.startfile(local_path)
+            # 获取文件扩展名
+            file_ext = os.path.splitext(local_path)[1].lower()
+
+            # 对于特殊文件类型，使用预览功能而不是系统打开
+            if file_ext in ['.db', '.sqlite', '.sqlite3', '.realm']:
+                # 数据库文件，显示提示
+                self.parent.after(0, lambda: messagebox.showinfo("提示",
+                    f"数据库文件已下载到:\n{local_path}\n\n"
+                    "您可以使用专门的数据库工具（如SQLiteStudio、DB Browser等）打开此文件"))
+                self.parent.after(0, lambda: self.update_status("数据库文件已下载"))
+                return
+            elif file_ext in ['.plist']:
+                # plist文件，尝试用文本编辑器打开
+                if platform.system() == 'Darwin':
+                    # macOS上用TextEdit打开
+                    os.system(f'open -a TextEdit "{local_path}"')
+                else:
+                    # 其他系统使用默认方式
+                    self._try_open_file(local_path)
             else:
-                os.system(f'xdg-open "{local_path}"')
+                # 其他文件类型，使用系统默认程序打开
+                self._try_open_file(local_path)
 
             self.parent.after(0, lambda: self.update_status("文件已打开"))
 
@@ -531,6 +585,27 @@ pip install -r requirements.txt
             error_msg = str(e)
             self.parent.after(0, lambda msg=error_msg: messagebox.showerror("错误", f"打开失败: {msg}"))
             self.parent.after(0, lambda msg=error_msg: self.update_status(f"打开失败: {msg}"))
+
+    def _try_open_file(self, file_path):
+        """尝试打开文件"""
+        try:
+            if platform.system() == 'Darwin':
+                # macOS
+                result = subprocess.run(['open', file_path], capture_output=True, text=True)
+                if result.returncode != 0:
+                    # 如果打开失败，显示文件位置
+                    subprocess.run(['open', '-R', file_path])  # 在Finder中显示文件
+                    self.parent.after(0, lambda: messagebox.showinfo("提示",
+                        f"文件已下载到:\n{file_path}\n\n系统无法自动打开此文件类型"))
+            elif platform.system() == 'Windows':
+                os.startfile(file_path)
+            else:
+                # Linux
+                subprocess.run(['xdg-open', file_path])
+        except Exception as e:
+            # 如果无法打开，至少显示文件位置
+            self.parent.after(0, lambda: messagebox.showinfo("提示",
+                f"文件已下载到:\n{file_path}\n\n错误: {str(e)}"))
 
     def delete_selected(self):
         """删除选中的文件/目录"""
@@ -607,7 +682,12 @@ pip install -r requirements.txt
             messagebox.showwarning("提示", "无效的文件路径")
             return
 
+        # 清理文件名，移除图标和搜索标记
         name = self.tree.item(item_id, "text").replace("📄 ", "")
+        if "search_result" in tags:
+            # 移除 [文件名] 或 [文件内容] 标记
+            import re
+            name = re.sub(r'\s*\[.*?\]$', '', name)
 
         threading.Thread(target=self._preview_file_async, args=(path, name), daemon=True).start()
 
@@ -786,6 +866,188 @@ pip install -r requirements.txt
             ascii_part = ''.join(chr(b) if 32 <= b < 127 else '.' for b in chunk)
             lines.append(f"{i:08X}  {hex_part:<48}  {ascii_part}")
         return '\n'.join(lines)
+
+    def search_files(self):
+        """搜索文件"""
+        if not self.afc_client:
+            messagebox.showwarning("提示", "请先选择应用")
+            return
+
+        search_text = self.search_entry.get().strip()
+        if not search_text:
+            messagebox.showwarning("提示", "请输入搜索内容")
+            return
+
+        search_type = self.search_type_var.get()
+        self.search_results = []
+        self.search_status.config(text="正在搜索...")
+
+        # 禁用搜索按钮
+        self.search_button.config(state=tk.DISABLED)
+
+        # 在新线程中执行搜索
+        threading.Thread(target=self._do_search,
+                        args=(search_text, search_type),
+                        daemon=True).start()
+
+    def _do_search(self, search_text, search_type):
+        """执行搜索"""
+        try:
+            results = []
+            total_files = 0
+            searched_files = 0
+
+            # 递归搜索所有文件
+            def search_directory(path):
+                nonlocal total_files, searched_files
+                try:
+                    items = self.afc_client.listdir(path)
+
+                    for item in items:
+                        if item in ['.', '..']:
+                            continue
+
+                        # 构建完整路径
+                        if path == '.':
+                            item_path = item
+                        else:
+                            item_path = f"{path}/{item}"
+
+                        # 搜索文件名
+                        if search_type in ["文件名", "所有"]:
+                            if search_text.lower() in item.lower():
+                                try:
+                                    stat = self.afc_client.stat(item_path)
+                                    is_dir = stat.get('st_ifmt') == 'S_IFDIR'
+                                    result = {
+                                        'path': item_path,
+                                        'name': item,
+                                        'type': 'directory' if is_dir else 'file',
+                                        'size': stat.get('st_size', 0) if not is_dir else 0,
+                                        'match_type': '文件名'
+                                    }
+                                    results.append(result)
+                                except Exception:
+                                    pass
+
+                        # 检查是否为目录，递归搜索
+                        try:
+                            stat = self.afc_client.stat(item_path)
+                            # 检查是否为目录
+                            is_dir = stat.get('st_ifmt') == 'S_IFDIR'
+                            if is_dir:  # 是目录
+                                search_directory(item_path)
+                            elif search_type in ["文件内容", "所有"]:
+                                # 搜索文件内容（仅文本文件）
+                                file_ext = os.path.splitext(item.lower())[1]
+                                if file_ext in ['.txt', '.log', '.json', '.xml', '.plist', '.html',
+                                              '.css', '.js', '.py', '.md', '.sh', '.h', '.m',
+                                              '.swift', '.c', '.cpp', '.yml', '.yaml', '.ini',
+                                              '.cfg', '.conf', '.properties']:
+                                    try:
+                                        # 读取文件前512KB
+                                        with self.afc_client.open(item_path, 'rb') as f:
+                                            content = f.read(524288)  # 512KB
+                                            text_content = content.decode('utf-8', errors='ignore')
+                                            if search_text.lower() in text_content.lower():
+                                                results.append({
+                                                    'path': item_path,
+                                                    'name': item,
+                                                    'type': 'file',
+                                                    'size': stat.get('st_size', 0),
+                                                    'match_type': '文件内容'
+                                                })
+                                    except Exception:
+                                        # 忽略无法读取的文件
+                                        pass
+
+                            searched_files += 1
+                            total_files += 1
+
+                            # 更新搜索状态
+                            if searched_files % 20 == 0:
+                                self.parent.after(0, lambda count=searched_files:
+                                                 self.search_status.config(
+                                    text=f"正在搜索... (已搜索 {count} 个文件)"))
+
+                        except Exception:
+                            # 忽略无法访问的项目
+                            pass
+
+                except Exception:
+                    pass
+
+            # 从根目录开始搜索
+            search_directory('.')
+
+            # 在主线程中更新结果
+            self.parent.after(0, lambda: self._show_search_results(results, search_text))
+
+        except Exception as e:
+            self.parent.after(0, lambda msg=str(e): messagebox.showerror("搜索错误", f"搜索失败: {msg}"))
+        finally:
+            # 重新启用搜索按钮
+            self.parent.after(0, lambda: self.search_button.config(state=tk.NORMAL))
+
+    def _show_search_results(self, results, search_text):
+        """显示搜索结果"""
+        # 清空树形控件
+        self.tree.delete(*self.tree.get_children())
+
+        if not results:
+            self.search_status.config(text=f"未找到 '{search_text}' 相关的文件")
+            return
+
+        # 保存搜索结果和原始搜索词
+        self.search_results = results
+        self.current_search_text = search_text
+
+        # 按路径排序
+        results.sort(key=lambda x: x['path'])
+
+        # 添加搜索结果到树形控件
+        for result in results:
+            icon = "📁" if result['type'] == 'directory' else "📄"
+            size = "" if result['type'] == 'directory' else self._format_size(result['size'])
+
+            # 高亮显示匹配类型
+            match_info = f" [{result['match_type']}]"
+
+            item = self.tree.insert('', 'end',
+                                   text=f"{icon} {result['name']}{match_info}",
+                                   values=(size, "", result['path']))  # 添加空的date值
+
+            # 标记搜索结果项和类型
+            tags = ['search_result']
+            if result['type'] == 'directory':
+                tags.append('directory')
+            else:
+                tags.append('file')
+            self.tree.item(item, tags=tuple(tags))
+
+            # 如果是目录，添加占位符（允许展开）
+            if result['type'] == 'directory':
+                self.tree.insert(item, 'end', text='', values=('', '', ''), tags=('placeholder',))
+
+        # 配置搜索结果标签样式（可选）
+        self.tree.tag_configure('search_result', foreground='blue')
+
+        self.search_status.config(
+            text=f"找到 {len(results)} 个匹配项 (搜索: '{search_text}')")
+
+    def clear_search(self):
+        """清除搜索结果"""
+        self.search_entry.delete(0, tk.END)
+        self.search_results = []
+        self.current_search_text = ""
+        self.search_status.config(text="")
+
+        # 刷新应用内容（恢复正常浏览）
+        if self.afc_client:
+            # 清空树形控件
+            self.tree.delete(*self.tree.get_children())
+            # 重新加载根目录
+            self._list_directory('.', '')
 
     def update_status(self, message):
         """更新状态栏"""
