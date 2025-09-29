@@ -160,6 +160,28 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
         # 使用模块化的沙盒浏览标签页
         self.sandbox_tab = SandboxBrowserTab(sandbox_frame, self)
 
+    def create_dsym_analysis_tab(self):
+        """创建dSYM文件分析标签页"""
+        from modules.dsym_tab import DSYMTab
+
+        dsym_frame = ttk.Frame(self.main_notebook, padding="10")
+        self.main_notebook.add(dsym_frame, text="dSYM分析")
+
+        # 使用模块化的dSYM标签页
+        self.dsym_tab = DSYMTab(dsym_frame)
+        self.dsym_tab.frame.pack(fill=tk.BOTH, expand=True)
+
+    def create_linkmap_analysis_tab(self):
+        """创建LinkMap文件分析标签页"""
+        from modules.linkmap_tab import LinkMapTab
+
+        linkmap_frame = ttk.Frame(self.main_notebook, padding="10")
+        self.main_notebook.add(linkmap_frame, text="LinkMap分析")
+
+        # 使用模块化的LinkMap标签页
+        self.linkmap_tab = LinkMapTab(linkmap_frame)
+        self.linkmap_tab.frame.pack(fill=tk.BOTH, expand=True)
+
     def filter_logs(self, start_time=None, end_time=None):
         """重写filter_logs方法以使用模块化的过滤逻辑
 

@@ -25,6 +25,22 @@ cd /path/to/project
 
 ## 最新更新
 
+### 2025-09-29
+- **dSYM文件分析功能** 🆕 - iOS崩溃符号化和代码定位工具
+  - 自动加载本地Xcode Archives文件
+  - 支持手动加载.dSYM文件（macOS原生文件选择器）
+  - 使用dwarfdump获取UUID信息
+  - 使用atos进行崩溃地址符号化
+  - 支持多架构（armv7/arm64等）
+  - 导出IPA功能
+- **LinkMap文件分析功能** 🆕 - iOS应用二进制大小分析工具
+  - 解析Link Map文件，统计代码大小
+  - 符号大小统计和排序
+  - 未使用代码（Dead Code）分析
+  - 按库分组统计功能
+  - 搜索和过滤功能
+  - 格式化输出和导出报告
+
 ### 2025-09-28
 - **iOS沙盒浏览功能** 🆕 - 完整的iOS应用沙盒文件浏览器
   - 设备管理：自动检测iOS设备，显示设备名称和型号
@@ -92,10 +108,18 @@ cd /path/to/project
 - `push_tab.py` - iOS推送测试标签页
   - APNS推送发送
   - 证书管理
-- `sandbox_tab.py` - iOS沙盒浏览标签页 🆕
+- `sandbox_tab.py` - iOS沙盒浏览标签页
   - 设备和应用管理
   - 文件系统浏览
   - 文件预览和操作
+- `dsym_tab.py` - dSYM文件分析标签页 🆕
+  - 崩溃符号化
+  - 代码定位
+  - UUID管理
+- `linkmap_tab.py` - LinkMap分析标签页 🆕
+  - 二进制大小分析
+  - 符号统计
+  - Dead Code检测
 
 #### UI组件 (gui/components/)
 - `improved_lazy_text.py` - 改进版懒加载文本组件
@@ -151,11 +175,13 @@ python3 gui/mars_log_analyzer_modular.py
 ```
 
 #### 功能说明
-主程序包含四个标签页：
+主程序包含六个标签页：
 1. **Mars日志分析** - 解码和分析xlog文件
 2. **IPS崩溃解析** - 解析iOS崩溃报告
 3. **iOS推送测试** - APNS推送测试工具
-4. **iOS沙盒浏览** - iOS应用沙盒文件浏览器 🆕
+4. **iOS沙盒浏览** - iOS应用沙盒文件浏览器
+5. **dSYM分析** - iOS崩溃符号化和代码定位 🆕
+6. **LinkMap分析** - iOS应用二进制大小分析 🆕
 
 ### 独立启动iOS推送工具：
 ```bash

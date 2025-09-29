@@ -399,6 +399,12 @@ class MarsLogAnalyzerPro:
         # ============ iOS沙盒浏览标签页 ============
         self.create_sandbox_browser_tab()
 
+        # ============ dSYM分析标签页 ============
+        self.create_dsym_analysis_tab()
+
+        # ============ LinkMap分析标签页 ============
+        self.create_linkmap_analysis_tab()
+
     def create_log_viewer(self):
         """创建日志查看器"""
         viewer_frame = ttk.Frame(self.log_frame)
@@ -3824,6 +3830,86 @@ except Exception as e:
                     messagebox.showinfo("成功", "沙盒浏览模块加载成功！")
                 except ImportError as e:
                     messagebox.showerror("错误", f"仍无法加载沙盒浏览模块：\n{str(e)}")
+
+            ttk.Button(error_frame,
+                      text="重试加载",
+                      command=retry_load).pack(pady=10)
+
+    def create_dsym_analysis_tab(self):
+        """创建dSYM文件分析标签页"""
+        dsym_frame = ttk.Frame(self.main_notebook, padding="10")
+        self.main_notebook.add(dsym_frame, text="dSYM分析")
+
+        try:
+            sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'gui', 'modules'))
+            from dsym_tab import DSYMTab
+            self.dsym_tab = DSYMTab(dsym_frame)
+            self.dsym_tab.frame.pack(fill=tk.BOTH, expand=True)
+        except ImportError as e:
+            error_frame = ttk.Frame(dsym_frame)
+            error_frame.pack(fill=tk.BOTH, expand=True)
+
+            ttk.Label(error_frame,
+                     text="无法加载dSYM分析模块",
+                     font=('', 14, 'bold')).pack(pady=20)
+
+            ttk.Label(error_frame,
+                     text=f"错误详情: {str(e)}",
+                     font=('', 10),
+                     foreground='red').pack(pady=20)
+
+            def retry_load():
+                """重试加载dSYM分析模块"""
+                try:
+                    for widget in dsym_frame.winfo_children():
+                        widget.destroy()
+
+                    from dsym_tab import DSYMTab
+                    self.dsym_tab = DSYMTab(dsym_frame)
+                    self.dsym_tab.frame.pack(fill=tk.BOTH, expand=True)
+                    messagebox.showinfo("成功", "dSYM分析模块加载成功！")
+                except ImportError as e:
+                    messagebox.showerror("错误", f"仍无法加载dSYM分析模块：\n{str(e)}")
+
+            ttk.Button(error_frame,
+                      text="重试加载",
+                      command=retry_load).pack(pady=10)
+
+    def create_linkmap_analysis_tab(self):
+        """创建LinkMap文件分析标签页"""
+        linkmap_frame = ttk.Frame(self.main_notebook, padding="10")
+        self.main_notebook.add(linkmap_frame, text="LinkMap分析")
+
+        try:
+            sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'gui', 'modules'))
+            from linkmap_tab import LinkMapTab
+            self.linkmap_tab = LinkMapTab(linkmap_frame)
+            self.linkmap_tab.frame.pack(fill=tk.BOTH, expand=True)
+        except ImportError as e:
+            error_frame = ttk.Frame(linkmap_frame)
+            error_frame.pack(fill=tk.BOTH, expand=True)
+
+            ttk.Label(error_frame,
+                     text="无法加载LinkMap分析模块",
+                     font=('', 14, 'bold')).pack(pady=20)
+
+            ttk.Label(error_frame,
+                     text=f"错误详情: {str(e)}",
+                     font=('', 10),
+                     foreground='red').pack(pady=20)
+
+            def retry_load():
+                """重试加载LinkMap分析模块"""
+                try:
+                    for widget in linkmap_frame.winfo_children():
+                        widget.destroy()
+
+                    from linkmap_tab import LinkMapTab
+                    self.linkmap_tab = LinkMapTab(linkmap_frame)
+                    self.linkmap_tab.frame.pack(fill=tk.BOTH, expand=True)
+                    messagebox.showinfo("成功", "LinkMap分析模块加载成功！")
+                except ImportError as e:
+                    messagebox.showerror("错误", f"仍无法加载LinkMap分析模块：\n{str(e)}")
 
             ttk.Button(error_frame,
                       text="重试加载",
