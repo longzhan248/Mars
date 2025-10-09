@@ -167,9 +167,13 @@ class MarsLogAnalyzerPro:
         self.progress_bar = ttk.Progressbar(file_frame, mode='indeterminate')
         self.progress_bar.grid(row=2, column=1, columnspan=4, sticky=(tk.W, tk.E), pady=5)
 
+        # 搜索过滤区域（移到顶部，紧凑布局）
+        search_frame = ttk.LabelFrame(main_frame, text="搜索与过滤", padding="5")
+        search_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
+
         # 创建Notebook（标签页）
         self.notebook = ttk.Notebook(main_frame)
-        self.notebook.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
+        self.notebook.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
 
         # 日志查看标签页
         self.log_frame = ttk.Frame(self.notebook)
@@ -181,67 +185,58 @@ class MarsLogAnalyzerPro:
         self.notebook.add(self.module_frame, text="模块分组")
         self.create_module_viewer()
 
-        # 搜索过滤区域
-        search_frame = ttk.LabelFrame(main_frame, text="搜索与过滤", padding="10")
-        search_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
-
-        # 第一行：关键词和日志级别
-        ttk.Label(search_frame, text="关键词:").grid(row=0, column=0, sticky=tk.W)
+        # 第一行：关键词、搜索模式、级别、模块、按钮
+        ttk.Label(search_frame, text="关键词:").grid(row=0, column=0, sticky=tk.W, padx=2)
         self.search_var = tk.StringVar()
-        search_entry = ttk.Entry(search_frame, textvariable=self.search_var, width=25)
-        search_entry.grid(row=0, column=1, padx=5)
+        search_entry = ttk.Entry(search_frame, textvariable=self.search_var, width=20)
+        search_entry.grid(row=0, column=1, padx=2)
         search_entry.bind('<Return>', lambda e: self.search_logs())
 
         # 搜索模式
         self.search_mode_var = tk.StringVar(value="字符串")
-        search_mode = ttk.Combobox(search_frame, textvariable=self.search_mode_var, width=8, state='readonly')
+        search_mode = ttk.Combobox(search_frame, textvariable=self.search_mode_var, width=6, state='readonly')
         search_mode['values'] = ('字符串', '正则')
-        search_mode.grid(row=0, column=2, padx=5)
+        search_mode.grid(row=0, column=2, padx=2)
 
-        ttk.Label(search_frame, text="日志级别:").grid(row=0, column=3, padx=10)
+        ttk.Label(search_frame, text="级别:").grid(row=0, column=3, padx=2)
         self.level_var = tk.StringVar()
-        level_combo = ttk.Combobox(search_frame, textvariable=self.level_var, width=15)
+        level_combo = ttk.Combobox(search_frame, textvariable=self.level_var, width=10)
         level_combo['values'] = ('全部', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'VERBOSE', 'FATAL')
         level_combo.current(0)
-        level_combo.grid(row=0, column=4, padx=5)
+        level_combo.grid(row=0, column=4, padx=2)
         level_combo.bind('<<ComboboxSelected>>', lambda e: self.apply_global_filter())
 
-        # 第二行：时间范围过滤
-        ttk.Label(search_frame, text="时间范围:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        ttk.Label(search_frame, text="模块:").grid(row=0, column=5, padx=2)
+        self.module_var = tk.StringVar()
+        self.module_combo = ttk.Combobox(search_frame, textvariable=self.module_var, width=20)
+        self.module_combo['values'] = ('全部',)
+        self.module_combo.current(0)
+        self.module_combo.grid(row=0, column=6, padx=2)
+        self.module_combo.bind('<<ComboboxSelected>>', lambda e: self.apply_global_filter())
+
+        ttk.Button(search_frame, text="搜索", command=self.search_logs).grid(row=0, column=7, padx=2)
+        ttk.Button(search_frame, text="清除", command=self.clear_filter).grid(row=0, column=8, padx=2)
+
+        # 第二行：时间范围、导出按钮
+        ttk.Label(search_frame, text="时间:").grid(row=1, column=0, sticky=tk.W, padx=2, pady=3)
         self.global_time_start_var = tk.StringVar(value="")
         self.global_time_end_var = tk.StringVar(value="")
 
-        global_time_start = ttk.Entry(search_frame, textvariable=self.global_time_start_var, width=20)
-        global_time_start.grid(row=1, column=1, padx=5, pady=5)
+        global_time_start = ttk.Entry(search_frame, textvariable=self.global_time_start_var, width=18)
+        global_time_start.grid(row=1, column=1, columnspan=2, padx=2, pady=3, sticky=tk.W)
         global_time_start.bind('<FocusIn>', lambda e: self.on_time_focus_in(e, self.global_time_start_var))
         global_time_start.bind('<Return>', lambda e: self.apply_global_filter())
 
-        ttk.Label(search_frame, text="至").grid(row=1, column=2, padx=5, pady=5)
+        ttk.Label(search_frame, text="至").grid(row=1, column=3, padx=2, pady=3)
 
-        global_time_end = ttk.Entry(search_frame, textvariable=self.global_time_end_var, width=20)
-        global_time_end.grid(row=1, column=3, padx=5, pady=5)
+        global_time_end = ttk.Entry(search_frame, textvariable=self.global_time_end_var, width=18)
+        global_time_end.grid(row=1, column=4, columnspan=2, padx=2, pady=3, sticky=tk.W)
         global_time_end.bind('<FocusIn>', lambda e: self.on_time_focus_in(e, self.global_time_end_var))
         global_time_end.bind('<Return>', lambda e: self.apply_global_filter())
 
-        ttk.Label(search_frame, text="格式: YYYY-MM-DD HH:MM:SS", font=('Arial', 9)).grid(row=1, column=4, padx=5, pady=5)
-
-        # 第三行：模块过滤和操作按钮
-        ttk.Label(search_frame, text="模块:").grid(row=2, column=0, sticky=tk.W, pady=5)
-        self.module_var = tk.StringVar()
-        self.module_combo = ttk.Combobox(search_frame, textvariable=self.module_var, width=30)
-        self.module_combo['values'] = ('全部',)
-        self.module_combo.current(0)
-        self.module_combo.grid(row=2, column=1, columnspan=2, padx=5, pady=5)
-        self.module_combo.bind('<<ComboboxSelected>>', lambda e: self.apply_global_filter())
-
-        ttk.Button(search_frame, text="搜索", command=self.search_logs).grid(row=0, column=5, padx=5)
-        ttk.Button(search_frame, text="清除过滤", command=self.clear_filter).grid(row=0, column=6, padx=5)
-        ttk.Button(search_frame, text="应用过滤", command=self.apply_global_filter).grid(row=1, column=5, padx=5, pady=5)
-
-        # 第四行：导出按钮
-        ttk.Button(search_frame, text="导出当前视图", command=self.export_current_view).grid(row=3, column=0, padx=5, pady=5)
-        ttk.Button(search_frame, text="导出分组报告", command=self.export_grouped_report).grid(row=3, column=1, padx=5, pady=5)
-        ttk.Button(search_frame, text="导出完整报告", command=self.export_full_report).grid(row=3, column=2, padx=5, pady=5)
+        ttk.Button(search_frame, text="应用过滤", command=self.apply_global_filter).grid(row=1, column=6, padx=2, pady=3)
+        ttk.Button(search_frame, text="导出视图", command=self.export_current_view).grid(row=1, column=7, padx=2, pady=3)
+        ttk.Button(search_frame, text="导出报告", command=self.export_full_report).grid(row=1, column=8, padx=2, pady=3)
 
         # ============ IPS崩溃解析标签页 ============
         self.create_ips_analyzer_tab()

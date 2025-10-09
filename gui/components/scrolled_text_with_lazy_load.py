@@ -45,10 +45,34 @@ class LazyLoadText(tk.Frame):
         self.text = tk.Text(self, **default_kwargs)
         self.text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        # 设置为只读但可选择（通过绑定阻止输入）
-        self.text.bind('<Key>', lambda e: 'break')  # 阻止键盘输入
-        self.text.bind('<Button-2>', lambda e: 'break')  # 阻止中键粘贴（Linux）
-        self.text.bind('<Button-3>', lambda e: None)  # 允许右键（可用于复制菜单）
+        # 设置为只读但可选择和复制
+        # 阻止所有会修改文本的操作
+        def block_edit(event):
+            return 'break'
+
+        # 绑定所有会修改内容的事件
+        for event_type in ['<BackSpace>', '<Delete>', '<Insert>', '<Return>', '<Tab>']:
+            self.text.bind(event_type, block_edit)
+
+        # 阻止粘贴操作
+        self.text.bind('<<Paste>>', block_edit)
+        self.text.bind('<Control-v>', block_edit)
+        self.text.bind('<Command-v>', block_edit)
+
+        # 阻止中键粘贴（Linux）
+        self.text.bind('<Button-2>', block_edit)
+
+        # 阻止普通字符输入（但不阻止Cmd+C等快捷键）
+        def block_char_input(event):
+            # 如果是修饰键组合（Ctrl/Cmd + 其他键），允许通过
+            if event.state & (0x4 | 0x8 | 0x10000):  # Control/Alt/Command
+                return None
+            # 如果是可打印字符，阻止
+            if len(event.char) > 0 and event.char.isprintable():
+                return 'break'
+            return None
+
+        self.text.bind('<Key>', block_char_input)
 
         v_scrollbar.config(command=self.on_scroll)
 
