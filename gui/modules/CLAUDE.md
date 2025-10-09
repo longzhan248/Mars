@@ -49,8 +49,22 @@ def _is_crash_content(self, content, location=""):
 
 **支持的日志格式**：
 1. Mars标准格式：`[级别][时间戳][模块][线程ID] 内容`
-2. iOS崩溃格式：`*** Terminating app due to uncaught exception`
-3. 堆栈格式：`0 CoreFoundation 0x00000001897c92ec`
+2. Mars扩展格式：`[级别][时间戳][线程ID][<标签1><标签2>][位置]内容`
+3. iOS崩溃格式：`*** Terminating app due to uncaught exception`
+4. iOS堆栈格式：`0 CoreFoundation 0x00000001897c92ec`
+
+**模块分组增强（2025-10-09）**：
+- 支持 `<Chair>` 格式：内容开头为 `[<Chair> ...`，自动归类到Chair模块
+- 支持 `[Plugin]` 格式：内容开头为 `[[Plugin] ...`，自动归类到Plugin模块
+- 支持原有 `<AnimationCenter>` 格式：`[标签][<AnimationCenter>]`
+- 优先级：额外模块标识 > 标准模块标签
+- 自动提取模块名并清理内容前缀
+
+**崩溃检测优化（2025-10-09）**：
+- 精确检测：仅 `*** Terminating app due to uncaught exception` 标识为真正崩溃
+- 堆栈识别：支持 `*** First throw call stack` 和iOS地址格式
+- 单行处理：每个堆栈行单独创建LogEntry，避免多行合并导致的检测失败
+- Crash模块置顶：在模块列表中自动排在第一位，方便快速定位
 
 #### FileGroup类
 文件分组管理，支持多文件合并处理。
@@ -353,6 +367,12 @@ assert all(e.level == "ERROR" for e in filtered)
 - 及时清理临时数据
 
 ## 版本历史
+
+### v2.1.0 (2025-10-09)
+- **模块分组增强**: 支持`<Chair>`和`[Plugin]`格式
+- **崩溃检测优化**: 修复懒加载导致的堆栈检测失败
+- **代码架构优化**: 统一LogEntry数据模型，移除重复定义
+- **UI优化**: Crash模块自动置顶显示
 
 ### v2.0.0 (2025-09-27)
 - 完成模块化重构

@@ -37,8 +37,11 @@ except ImportError:
 # 导入模块化的数据模型（统一使用，避免重复定义）
 try:
     from modules.data_models import LogEntry, FileGroup
+    _import_source = "modules.data_models"
 except ImportError:
     from gui.modules.data_models import LogEntry, FileGroup
+    _import_source = "gui.modules.data_models"
+
 
 # 设置中文字体
 plt.rcParams['font.sans-serif'] = ['Arial Unicode MS', 'Hiragino Sans GB', 'DejaVu Sans']
@@ -1192,6 +1195,7 @@ class MarsLogAnalyzerPro:
                             is_potential_crash = '*** Terminating app due to uncaught exception' in line
 
                             # 收集续行
+                            crash_stack_lines = []  # 存储崩溃堆栈行，不合并
                             while j < len(lines):
                                 next_line = lines[j].strip()
                                 if not next_line:
@@ -1213,7 +1217,8 @@ class MarsLogAnalyzerPro:
                                     )
 
                                     if is_crash_content:
-                                        full_line += '\n' + next_line
+                                        # 不合并，单独保存堆栈行
+                                        crash_stack_lines.append(next_line)
                                         j += 1
                                     else:
                                         # 非崩溃内容，但可能是多行日志的一部分
@@ -1227,8 +1232,15 @@ class MarsLogAnalyzerPro:
                                     full_line += '\n' + next_line
                                     j += 1
 
+                            # 创建主日志条目
                             entry = LogEntry(full_line, os.path.basename(filepath))
                             group.entries.append(entry)
+
+                            # 如果有崩溃堆栈，为每一行单独创建LogEntry
+                            for stack_line in crash_stack_lines:
+                                stack_entry = LogEntry(stack_line, os.path.basename(filepath))
+                                group.entries.append(stack_entry)
+
                             i = j
                         else:
                             # 非标准格式
@@ -1313,12 +1325,26 @@ class MarsLogAnalyzerPro:
 
     def update_module_list(self):
         """更新模块列表"""
-        modules = ['全部'] + sorted(list(self.modules_data.keys()))
+        # Crash模块置顶，其他模块按字母排序
+        module_list = list(self.modules_data.keys())
+        sorted_modules = []
+
+        # 先添加Crash模块（如果存在）
+        if 'Crash' in module_list:
+            sorted_modules.append('Crash')
+            module_list.remove('Crash')
+
+        # 再添加其他模块（按字母排序）
+        sorted_modules.extend(sorted(module_list))
+
+        # 更新下拉框
+        modules = ['全部'] + sorted_modules
         self.module_combo['values'] = modules
 
         # 更新模块列表框
         self.module_listbox.delete(0, tk.END)
-        for module, entries in sorted(self.modules_data.items()):
+        for module in sorted_modules:
+            entries = self.modules_data[module]
             # 统计各级别数量
             count_stats = Counter(e.level for e in entries)
             total_count = len(entries)
