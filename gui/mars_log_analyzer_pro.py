@@ -279,8 +279,8 @@ class MarsLogAnalyzerPro:
         self.log_text.tag_config("INFO", foreground="#0066CC", font=("Courier", 12), lmargin2=20)  # 深蓝色
         self.log_text.tag_config("DEBUG", foreground="#00A86B", font=("Courier", 12), lmargin2=20)  # 翡翠绿
         self.log_text.tag_config("VERBOSE", foreground="#8B4789", font=("Courier", 12), lmargin2=20)  # 紫色
-        self.log_text.tag_config("CRASH", foreground="white", background="#8B0000", font=("Courier", 12, "bold"), lmargin2=20)  # 崩溃日志：暗红背景
-        self.log_text.tag_config("STACKTRACE", foreground="#FFD700", background="#2F4F4F", font=("Courier", 11), lmargin2=40)  # 堆栈信息：金色文字暗灰背景
+        self.log_text.tag_config("CRASH", foreground="#DC143C", font=("Courier", 12, "bold"), lmargin2=20)  # 崩溃日志：红色文字加粗
+        self.log_text.tag_config("STACKTRACE", foreground="#8B0000", font=("Courier", 11), lmargin2=40)  # 堆栈信息：暗红文字
         self.log_text.tag_config("HIGHLIGHT", background="yellow")
         self.log_text.tag_config("MODULE_MARS", foreground="#2E7D32", font=("Courier", 12, "italic"))  # 深绿色
         self.log_text.tag_config("MODULE_DEFAULT", foreground="#7B1FA2", font=("Courier", 12, "italic"))  # 深紫色
@@ -393,8 +393,8 @@ class MarsLogAnalyzerPro:
         self.module_log_text.tag_config("INFO", foreground="#0066CC", font=("Arial", 10), lmargin2=15)  # 深蓝色
         self.module_log_text.tag_config("DEBUG", foreground="#00A86B", font=("Arial", 10), lmargin2=15)  # 翡翠绿
         self.module_log_text.tag_config("VERBOSE", foreground="#8B4789", font=("Arial", 10), lmargin2=15)  # 紫色
-        self.module_log_text.tag_config("CRASH", foreground="white", background="#8B0000", font=("Arial", 10, "bold"), lmargin2=15)  # 崩溃日志
-        self.module_log_text.tag_config("STACKTRACE", foreground="#FFD700", background="#2F4F4F", font=("Arial", 9), lmargin2=30)  # 堆栈信息
+        self.module_log_text.tag_config("CRASH", foreground="#DC143C", font=("Arial", 10, "bold"), lmargin2=15)  # 崩溃日志：红色文字加粗
+        self.module_log_text.tag_config("STACKTRACE", foreground="#8B0000", font=("Arial", 9), lmargin2=30)  # 堆栈信息：暗红文字
 
     def extract_file_base_name(self, filename):
         """提取文件基础名称用于分组"""

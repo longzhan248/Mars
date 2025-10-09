@@ -31,11 +31,24 @@ class LazyLoadText(tk.Frame):
         v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         # 文本组件
-        default_kwargs = {'wrap': tk.WORD, 'yscrollcommand': v_scrollbar.set}  # 保持自动换行
+        default_kwargs = {
+            'wrap': tk.WORD,
+            'yscrollcommand': v_scrollbar.set,
+            'selectbackground': '#4A90E2',  # 选中背景色（蓝色）
+            'selectforeground': 'white',     # 选中文字颜色（白色）
+            'inactiveselectbackground': '#B0D4F1',  # 失去焦点时的选中背景色（浅蓝色）
+            'exportselection': True,  # 允许导出选择到系统剪贴板
+            'cursor': 'xterm'  # 使用文本光标
+        }
         default_kwargs.update(text_kwargs)
 
         self.text = tk.Text(self, **default_kwargs)
         self.text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # 设置为只读但可选择（通过绑定阻止输入）
+        self.text.bind('<Key>', lambda e: 'break')  # 阻止键盘输入
+        self.text.bind('<Button-2>', lambda e: 'break')  # 阻止中键粘贴（Linux）
+        self.text.bind('<Button-3>', lambda e: None)  # 允许右键（可用于复制菜单）
 
         v_scrollbar.config(command=self.on_scroll)
 
@@ -104,11 +117,9 @@ class LazyLoadText(tk.Frame):
                 last_visible = self.text.index(f'@0,{self.text.winfo_height()}')
 
                 # 强制重绘：通过修改和恢复状态
-                current_state = str(self.text.cget('state'))
-                if current_state == 'normal':
-                    # 插入并立即删除一个不可见字符
-                    self.text.insert(first_visible, '\u200b')  # 零宽空格
-                    self.text.delete(first_visible)
+                # 插入并立即删除一个不可见字符
+                self.text.insert(first_visible, '\u200b')  # 零宽空格
+                self.text.delete(first_visible)
 
                 # 强制更新所有待处理的事件
                 self.text.update()
@@ -144,11 +155,6 @@ class LazyLoadText(tk.Frame):
         # 保存当前滚动位置
         current_pos = self.text.yview()
 
-        # 临时允许编辑
-        state = self.text.cget('state')
-        if state != 'normal':
-            self.text.config(state='normal')
-
         # 加载下一批数据
         end_index = min(self.current_index + self.batch_size, len(self.data))
 
@@ -179,10 +185,6 @@ class LazyLoadText(tk.Frame):
         else:
             self.text.insert(tk.END, f"\n--- 已加载全部 {len(self.data)} 条 ---\n", "HINT")
             self.remove_old_hint()
-
-        # 恢复原状态
-        if state != 'normal':
-            self.text.config(state=state)
 
         # 强制刷新显示
         self.text.update_idletasks()

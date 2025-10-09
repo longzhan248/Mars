@@ -64,12 +64,21 @@ class ImprovedLazyText(tk.Frame):
             'highlightthickness': 0,
             'borderwidth': 0,
             'yscrollcommand': self.v_scrollbar.set,
-            'state': 'disabled'  # 默认只读
+            'selectbackground': '#4A90E2',  # 选中背景色（蓝色）
+            'selectforeground': 'white',     # 选中文字颜色（白色）
+            'inactiveselectbackground': '#B0D4F1',  # 失去焦点时的选中背景色（浅蓝色）
+            'exportselection': True,  # 允许导出选择到系统剪贴板
+            'cursor': 'xterm'  # 使用文本光标
         }
         default_kwargs.update(text_kwargs)
 
         # 创建Text组件
         self.text = tk.Text(container, **default_kwargs)
+
+        # 设置为只读但可选择（通过绑定阻止输入）
+        self.text.bind('<Key>', lambda e: 'break')  # 阻止键盘输入
+        self.text.bind('<Button-2>', lambda e: 'break')  # 阻止中键粘贴（Linux）
+        self.text.bind('<Button-3>', lambda e: None)  # 允许右键（可用于复制菜单）
         self.v_scrollbar.config(command=self.text.yview)
 
         # 布局
@@ -145,9 +154,7 @@ class ImprovedLazyText(tk.Frame):
 
     def _clear_text(self):
         """清空文本内容"""
-        self.text.config(state='normal')
         self.text.delete(1.0, tk.END)
-        self.text.config(state='disabled')
 
     def _load_batch(self, count: int):
         """
@@ -160,7 +167,6 @@ class ImprovedLazyText(tk.Frame):
             return
 
         self.is_loading = True
-        self.text.config(state='normal')
 
         try:
             # 删除加载提示（如果存在）
@@ -178,7 +184,6 @@ class ImprovedLazyText(tk.Frame):
             self._add_load_hint()
 
         finally:
-            self.text.config(state='disabled')
             self.is_loading = False
 
     def _insert_items(self, start_idx: int, end_idx: int):
@@ -234,16 +239,12 @@ class ImprovedLazyText(tk.Frame):
         return self.text.get(start, end)
 
     def insert(self, index, text: str, tags=None):
-        """插入文本（临时启用编辑）"""
-        self.text.config(state='normal')
+        """插入文本"""
         self.text.insert(index, text, tags)
-        self.text.config(state='disabled')
 
     def delete(self, start, end):
-        """删除文本（临时启用编辑）"""
-        self.text.config(state='normal')
+        """删除文本"""
         self.text.delete(start, end)
-        self.text.config(state='disabled')
 
     def search(self, pattern: str, start, stop=None, **kwargs) -> Optional[str]:
         """搜索文本"""
