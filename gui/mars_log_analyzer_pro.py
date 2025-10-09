@@ -167,23 +167,45 @@ class MarsLogAnalyzerPro:
         self.progress_bar = ttk.Progressbar(file_frame, mode='indeterminate')
         self.progress_bar.grid(row=2, column=1, columnspan=4, sticky=(tk.W, tk.E), pady=5)
 
-        # 搜索过滤区域（移到顶部，紧凑布局）
-        search_frame = ttk.LabelFrame(main_frame, text="搜索与过滤", padding="5")
-        search_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
-
         # 创建Notebook（标签页）
         self.notebook = ttk.Notebook(main_frame)
-        self.notebook.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
+        self.notebook.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
 
         # 日志查看标签页
         self.log_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.log_frame, text="日志查看")
-        self.create_log_viewer()
 
         # 模块分组标签页
         self.module_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.module_frame, text="模块分组")
+
+        # 创建各标签页内容（搜索过滤区域现在在create_log_viewer内部）
+        self.create_log_viewer()
         self.create_module_viewer()
+
+        # ============ IPS崩溃解析标签页 ============
+        self.create_ips_analyzer_tab()
+
+        # ============ iOS推送测试标签页 ============
+        self.create_push_test_tab()
+
+        # ============ iOS沙盒浏览标签页 ============
+        self.create_sandbox_browser_tab()
+
+        # ============ dSYM分析标签页 ============
+        self.create_dsym_analysis_tab()
+
+        # ============ LinkMap分析标签页 ============
+        self.create_linkmap_analysis_tab()
+
+    def create_log_viewer(self):
+        """创建日志查看器"""
+        viewer_frame = ttk.Frame(self.log_frame)
+        viewer_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # 搜索过滤区域
+        search_frame = ttk.LabelFrame(viewer_frame, text="搜索与过滤", padding="5")
+        search_frame.pack(fill=tk.X, pady=(0, 5))
 
         # 第一行：关键词、搜索模式、级别、模块、按钮
         ttk.Label(search_frame, text="关键词:").grid(row=0, column=0, sticky=tk.W, padx=2)
@@ -237,26 +259,6 @@ class MarsLogAnalyzerPro:
         ttk.Button(search_frame, text="应用过滤", command=self.apply_global_filter).grid(row=1, column=6, padx=2, pady=3)
         ttk.Button(search_frame, text="导出视图", command=self.export_current_view).grid(row=1, column=7, padx=2, pady=3)
         ttk.Button(search_frame, text="导出报告", command=self.export_full_report).grid(row=1, column=8, padx=2, pady=3)
-
-        # ============ IPS崩溃解析标签页 ============
-        self.create_ips_analyzer_tab()
-
-        # ============ iOS推送测试标签页 ============
-        self.create_push_test_tab()
-
-        # ============ iOS沙盒浏览标签页 ============
-        self.create_sandbox_browser_tab()
-
-        # ============ dSYM分析标签页 ============
-        self.create_dsym_analysis_tab()
-
-        # ============ LinkMap分析标签页 ============
-        self.create_linkmap_analysis_tab()
-
-    def create_log_viewer(self):
-        """创建日志查看器"""
-        viewer_frame = ttk.Frame(self.log_frame)
-        viewer_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         # 添加统计标签
         self.log_stats_var = tk.StringVar(value="等待加载...")
