@@ -25,6 +25,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'decoders'))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'components'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'push_tools'))
+sys.path.append(os.path.join(os.path.dirname(__file__), 'modules'))
 
 from decode_mars_nocrypt_log_file_py3 import ParseFile, GetLogStartPos, DecodeBuffer
 from fast_decoder import FastXLogDecoder
@@ -33,164 +34,17 @@ try:
 except ImportError:
     from scrolled_text_with_lazy_load import LazyLoadText
 
+# 导入模块化的数据模型（统一使用，避免重复定义）
+try:
+    from modules.data_models import LogEntry, FileGroup
+except ImportError:
+    from gui.modules.data_models import LogEntry, FileGroup
+
 # 设置中文字体
 plt.rcParams['font.sans-serif'] = ['Arial Unicode MS', 'Hiragino Sans GB', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
-class LogEntry:
-    """日志条目类"""
-
-    # 级别映射表
-    LEVEL_MAP = {
-        'I': 'INFO',
-        'W': 'WARNING',
-        'E': 'ERROR',
-        'D': 'DEBUG',
-        'V': 'VERBOSE',
-        'F': 'FATAL'
-    }
-
-    # 崩溃关键词 - 必须是确定的崩溃标识
-    CRASH_KEYWORDS = [
-        '*** Terminating app due to uncaught exception'  # 只有这个才是真正的崩溃
-    ]
-
-    def __init__(self, raw_line, source_file=""):
-        self.raw_line = raw_line
-        self.source_file = source_file  # 来源文件
-        self.level = None
-        self.timestamp = None
-        self.module = None
-        self.content = None
-        self.thread_id = None
-        self.is_crash = False  # 是否为崩溃日志
-        self.is_stacktrace = False  # 是否为堆栈信息
-        self.parse()
-
-    def _is_crash_content(self, content, location=""):
-        """检测内容是否包含崩溃信息"""
-        if not content:
-            return False
-
-        # 只检查内容中是否包含确定的崩溃标识
-        for keyword in self.CRASH_KEYWORDS:
-            if keyword in content:  # 精确匹配，不转换大小写
-                return True
-
-        return False
-
-    def _mark_as_crash(self, location=None):
-        """标记为崩溃日志"""
-        self.is_crash = True
-        self.level = 'CRASH'
-        self.module = 'Crash'
-        if location and self.content:
-            self.content = f"[{location}] {self.content}"
-
-    def parse(self):
-        """解析日志行"""
-        # 尝试匹配带有两个模块标签的格式（崩溃日志特殊格式）
-        # 格式: [级别][时间][线程ID][<标签1><标签2>][位置信息][内容]
-        crash_pattern = r'^\[([IWEDVF])\]\[([^\]]+)\]\[([^\]]+)\]\[<([^>]+)><([^>]+)>\]\[([^\]]+)\](.*)$'
-        crash_match = re.match(crash_pattern, self.raw_line)
-
-        if crash_match:
-            # 这是崩溃日志格式
-            self.level = self.LEVEL_MAP.get(crash_match.group(1), crash_match.group(1))
-            self.timestamp = crash_match.group(2)
-            self.thread_id = crash_match.group(3)
-            tag1 = crash_match.group(4)  # ERROR
-            tag2 = crash_match.group(5)  # HY-Default
-            location = crash_match.group(6)  # CrashReportManager.m, attachmentForException, 204
-            self.content = crash_match.group(7)  # *** Terminating app...
-
-            # 设置模块
-            self.module = tag2
-
-            # 检测是否为崩溃日志 - 必须是ERROR级别且包含特定崩溃信息
-            if (self.level == 'ERROR' and
-                tag1 == 'ERROR' and
-                tag2 == 'HY-Default' and
-                'CrashReportManager.m' in location and
-                self._is_crash_content(self.content)):
-                self._mark_as_crash(location)
-
-            return
-
-        # 标准日志格式: [级别][时间][线程ID][模块]内容
-        pattern = r'^\[([IWEDVF])\]\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\](.*)$'
-        match = re.match(pattern, self.raw_line)
-
-        if match:
-            # 提取基本信息
-            self.level = self.LEVEL_MAP.get(match.group(1), match.group(1))
-            self.timestamp = match.group(2)
-            self.thread_id = match.group(3)
-
-            # 提取模块
-            module_str = match.group(4)
-            if 'mars::' in module_str:
-                self.module = 'mars'
-            elif 'HY-Default' in module_str:
-                self.module = 'HY-Default'
-            elif 'HY-' in module_str:
-                self.module = module_str
-            else:
-                self.module = module_str.strip('<>[]')
-
-            # 提取内容
-            self.content = match.group(5)
-
-            # 标准格式日志一般不是崩溃日志，崩溃日志通常使用特殊格式
-            # 除非内容明确包含崩溃标识
-            if self.level == 'ERROR' and '*** Terminating app due to uncaught exception' in self.content:
-                self._mark_as_crash()
-        else:
-            # 检查特殊的崩溃相关行
-            crash_related_patterns = [
-                r'^\*\*\* First throw call stack:',  # iOS崩溃堆栈开始标记
-            ]
-
-            # 检查iOS崩溃堆栈格式：数字 + 框架名 + 地址 + 偏移等
-            # 例如：0  CoreFoundation  0x00000001897c92ec 0x00000001896af000 + 1155820
-            ios_stack_pattern = r'^\s*\d+\s+\S+\s+0x[0-9a-fA-F]+(?:\s+0x[0-9a-fA-F]+\s*\+\s*\d+)?'
-
-            if any(re.match(pattern, self.raw_line) for pattern in crash_related_patterns):
-                # 崩溃相关的特殊行
-                self.is_stacktrace = True
-                self.level = 'CRASH'
-                self.module = 'Crash'
-                self.content = self.raw_line
-            elif re.match(ios_stack_pattern, self.raw_line):
-                # iOS堆栈格式，标记为可能的崩溃堆栈
-                self.is_stacktrace = True
-                self.level = 'STACKTRACE'
-                self.module = 'Crash-Stack'  # 临时标记，后续验证
-                self.content = self.raw_line
-            else:
-                # 无法解析的行，作为普通内容处理
-                self.level = 'OTHER'
-                self.module = 'Unknown'
-                self.content = self.raw_line
-
-class FileGroup:
-    """文件分组类"""
-    def __init__(self, base_name):
-        self.base_name = base_name
-        self.files = []  # 文件路径列表
-        self.entries = []  # 合并后的日志条目
-
-    def add_file(self, filepath):
-        """添加文件到组"""
-        self.files.append(filepath)
-
-    def get_display_name(self):
-        """获取显示名称"""
-        file_count = len(self.files)
-        if file_count == 1:
-            return os.path.basename(self.files[0])
-        else:
-            return f"{self.base_name} ({file_count}个文件)"
+# LogEntry和FileGroup类已从模块化组件导入，不再重复定义
 
 class MarsLogAnalyzerPro:
     def __init__(self, root):

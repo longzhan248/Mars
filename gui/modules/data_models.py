@@ -75,12 +75,33 @@ class LogEntry:
             tag1 = crash_match.group(4)  # ERROR
             tag2 = crash_match.group(5)  # HY-Default
             location = crash_match.group(6)  # CrashReportManager.m, attachmentForException, 204
-            self.content = crash_match.group(7)  # *** Terminating app...
+            content = crash_match.group(7)  # *** Terminating app...
 
             # 先临时设置模块为tag2
             self.module = tag2
+            self.content = content
 
-            # 检测是否为崩溃日志
+            # 检查内容开头是否有额外的模块标识 <Chair> 或 [Plugin]
+            # 格式1: [<Chair> 后面跟内容 (注意前面有个[)
+            extra_module_pattern1 = r'^\[<([^>]+)>\s*(.*)$'
+            # 格式2: [[Plugin] 后面跟内容 (注意有两个[)
+            extra_module_pattern2 = r'^\[\[([^\]]+)\]\s*(.*)$'
+
+            extra_match1 = re.match(extra_module_pattern1, content)
+            extra_match2 = re.match(extra_module_pattern2, content)
+
+            if extra_match1:
+                # 找到 [<Chair> 格式的额外模块标识
+                extra_module = extra_match1.group(1)
+                self.module = extra_module
+                self.content = extra_match1.group(2)
+            elif extra_match2:
+                # 找到 [[Plugin] 格式的额外模块标识
+                extra_module = extra_match2.group(1)
+                self.module = extra_module
+                self.content = extra_match2.group(2)
+
+            # 检测是否为崩溃日志（不要覆盖额外模块标识）
             # 条件：ERROR级别 + CrashReportManager + 包含崩溃关键词
             is_crash_log = (
                 self.level == 'ERROR' and
@@ -116,7 +137,28 @@ class LogEntry:
                 self.module = module_str.strip('<>[]')
 
             # 提取内容
-            self.content = match.group(5)
+            content = match.group(5)
+            self.content = content
+
+            # 检查内容开头是否有额外的模块标识 <Chair> 或 [Plugin]
+            # 格式1: [<Chair> 后面跟内容 (注意前面有个[)
+            extra_module_pattern1 = r'^\[<([^>]+)>\s*(.*)$'
+            # 格式2: [[Plugin] 后面跟内容 (注意有两个[)
+            extra_module_pattern2 = r'^\[\[([^\]]+)\]\s*(.*)$'
+
+            extra_match1 = re.match(extra_module_pattern1, content)
+            extra_match2 = re.match(extra_module_pattern2, content)
+
+            if extra_match1:
+                # 找到 [<Chair> 格式的额外模块标识
+                extra_module = extra_match1.group(1)
+                self.module = extra_module
+                self.content = extra_match1.group(2)
+            elif extra_match2:
+                # 找到 [[Plugin] 格式的额外模块标识
+                extra_module = extra_match2.group(1)
+                self.module = extra_module
+                self.content = extra_match2.group(2)
 
             # 标准格式日志一般不是崩溃日志，崩溃日志通常使用特殊格式
             # 除非内容明确包含崩溃标识
