@@ -54,9 +54,11 @@ class LogEntry:
         """标记为崩溃日志"""
         self.is_crash = True
         self.level = 'CRASH'
-        self.module = 'Crash'
+        self.module = 'Crash'  # 强制设置为Crash模块
         if location and self.content:
-            self.content = f"[{location}] {self.content}"
+            # 保留位置信息，但不要重复添加
+            if not self.content.startswith(f"[{location}]"):
+                self.content = f"[{location}] {self.content}"
 
     def parse(self):
         """解析日志行"""
@@ -75,15 +77,19 @@ class LogEntry:
             location = crash_match.group(6)  # CrashReportManager.m, attachmentForException, 204
             self.content = crash_match.group(7)  # *** Terminating app...
 
-            # 设置模块
+            # 先临时设置模块为tag2
             self.module = tag2
 
-            # 检测是否为崩溃日志 - 必须是ERROR级别且包含特定崩溃信息
-            if (self.level == 'ERROR' and
-                tag1 == 'ERROR' and
-                tag2 == 'HY-Default' and
-                'CrashReportManager.m' in location and
-                self._is_crash_content(self.content)):
+            # 检测是否为崩溃日志
+            # 条件：ERROR级别 + CrashReportManager + 包含崩溃关键词
+            is_crash_log = (
+                self.level == 'ERROR' and
+                'CrashReportManager' in location and
+                self._is_crash_content(self.content)
+            )
+
+            if is_crash_log:
+                # 标记为崩溃日志，这会将module改为'Crash'
                 self._mark_as_crash(location)
 
             return
@@ -124,7 +130,8 @@ class LogEntry:
 
             # 检查iOS崩溃堆栈格式：数字 + 框架名 + 地址 + 偏移等
             # 例如：0  CoreFoundation  0x00000001897c92ec 0x00000001896af000 + 1155820
-            ios_stack_pattern = r'^\s*\d+\s+\S+\s+0x[0-9a-fA-F]+(?:\s+0x[0-9a-fA-F]+\s*\+\s*\d+)?'
+            # 或：0  CoreFoundation                 0x000000019124c0c0 0x0000000191132000 + 1155264
+            ios_stack_pattern = r'^\s*\d+\s+\S+.*?\s+0x[0-9a-fA-F]+(?:\s+0x[0-9a-fA-F]+\s*\+\s*\d+)?'
 
             if any(re.match(pattern, self.raw_line) for pattern in crash_related_patterns):
                 # 崩溃相关的特殊行
@@ -133,10 +140,10 @@ class LogEntry:
                 self.module = 'Crash'
                 self.content = self.raw_line
             elif re.match(ios_stack_pattern, self.raw_line):
-                # iOS堆栈格式，标记为可能的崩溃堆栈
+                # iOS堆栈格式，标记为崩溃堆栈（统一归入Crash模块）
                 self.is_stacktrace = True
-                self.level = 'STACKTRACE'
-                self.module = 'Crash-Stack'  # 临时标记，后续验证
+                self.level = 'CRASH'  # 统一使用CRASH级别
+                self.module = 'Crash'  # 统一归入Crash模块
                 self.content = self.raw_line
             else:
                 # 无法解析的行，作为普通内容处理
