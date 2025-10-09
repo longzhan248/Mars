@@ -1224,14 +1224,20 @@ class MarsLogAnalyzerPro:
                                     full_line += '\n' + next_line
                                     j += 1
 
-                            # 创建主日志条目
-                            entry = LogEntry(full_line, os.path.basename(filepath))
-                            group.entries.append(entry)
+                            # 如果有崩溃堆栈，只创建主崩溃日志（不含堆栈），然后为每个堆栈行单独创建LogEntry
+                            if crash_stack_lines:
+                                # 主崩溃日志只包含崩溃信息本身，不包含堆栈
+                                entry = LogEntry(full_line, os.path.basename(filepath))
+                                group.entries.append(entry)
 
-                            # 如果有崩溃堆栈，为每一行单独创建LogEntry
-                            for stack_line in crash_stack_lines:
-                                stack_entry = LogEntry(stack_line, os.path.basename(filepath))
-                                group.entries.append(stack_entry)
+                                # 为每个堆栈行单独创建LogEntry
+                                for stack_line in crash_stack_lines:
+                                    stack_entry = LogEntry(stack_line, os.path.basename(filepath))
+                                    group.entries.append(stack_entry)
+                            else:
+                                # 普通日志，直接创建条目
+                                entry = LogEntry(full_line, os.path.basename(filepath))
+                                group.entries.append(entry)
 
                             i = j
                         else:
@@ -1297,9 +1303,27 @@ class MarsLogAnalyzerPro:
 
         # 确保Crash模块存在（如果有崩溃日志）
         if crash_entries and 'Crash' not in self.modules_data:
-            self.modules_data['Crash'] = crash_entries
-            module_stats['Crash'] = len(crash_entries)
+            # 去重：基于时间戳+内容前100字符
+            seen_crashes = set()
+            dedup_crash_entries = []
+
             for entry in crash_entries:
+                # 创建唯一键
+                content_key = entry.content[:100] if entry.content else entry.raw_line[:100]
+                key = (entry.timestamp, content_key)
+
+                if key not in seen_crashes:
+                    seen_crashes.add(key)
+                    dedup_crash_entries.append(entry)
+
+            # 如果去重后少了一些，显示提示
+            if len(dedup_crash_entries) < len(crash_entries):
+                removed_count = len(crash_entries) - len(dedup_crash_entries)
+                self.log_queue.put(("info", f"去除了 {removed_count} 条重复的崩溃日志"))
+
+            self.modules_data['Crash'] = dedup_crash_entries
+            module_stats['Crash'] = len(dedup_crash_entries)
+            for entry in dedup_crash_entries:
                 module_level_stats['Crash'][entry.level] += 1
 
         self.analysis_results = {
