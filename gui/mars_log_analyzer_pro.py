@@ -19,9 +19,7 @@ from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 from matplotlib import font_manager
 
-# 导入解码模块
-import sys
-import os
+# 配置模块搜索路径
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'decoders'))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'components'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'push_tools'))
@@ -37,10 +35,8 @@ except ImportError:
 # 导入模块化的数据模型（统一使用，避免重复定义）
 try:
     from modules.data_models import LogEntry, FileGroup
-    _import_source = "modules.data_models"
 except ImportError:
     from gui.modules.data_models import LogEntry, FileGroup
-    _import_source = "gui.modules.data_models"
 
 
 # 设置中文字体
@@ -672,9 +668,6 @@ class MarsLogAnalyzerPro:
         - HH:MM
         返回标准化的时间字符串用于比较
         """
-        import re
-        from datetime import datetime
-
         if not time_str or time_str.strip() == "":
             return None
 
@@ -709,7 +702,6 @@ class MarsLogAnalyzerPro:
 
     def compare_log_time(self, log_timestamp, start_time, end_time):
         """比较日志时间戳是否在指定范围内"""
-        import re
 
         # 从日志时间戳提取时间信息
         # 支持的格式：
@@ -2543,7 +2535,6 @@ class MarsLogAnalyzerPro:
 
     def display_text_crash(self, content):
         """显示文本格式的崩溃日志"""
-        import re
 
         # 尝试解析并格式化文本崩溃日志
         lines = content.split('\n')
@@ -2610,7 +2601,6 @@ class MarsLogAnalyzerPro:
             content: 崩溃报告内容（包含[APP]和[SYS]标记）
             bundle_id: 应用的Bundle ID
         """
-        import re
 
         lines = content.split('\n')
         app_name = bundle_id.split('.')[-1] if bundle_id else ''
@@ -3132,7 +3122,6 @@ except Exception as e:
     def get_dsym_uuids(self, dsym_path):
         """使用dwarfdump获取dSYM的UUID信息"""
         import subprocess
-        import re
 
         try:
             binary_path = self.get_dsym_binary_path(dsym_path)
@@ -3158,7 +3147,6 @@ except Exception as e:
     def symbolicate_crash(self, ips_file, dsym_file):
         """符号化崩溃报告（使用MacSymbolicator的方法）"""
         import subprocess
-        import re
 
         try:
             # 读取IPS文件内容
@@ -3288,7 +3276,6 @@ except Exception as e:
 
     def extract_binary_images(self, crash_content):
         """从crash内容中提取二进制映像信息"""
-        import re
 
         binary_images = []
 
@@ -3315,7 +3302,6 @@ except Exception as e:
 
     def extract_stack_frames(self, crash_content, binary_images):
         """从crash内容中提取需要符号化的堆栈帧"""
-        import re
 
         stack_frames = []
 
@@ -3493,7 +3479,6 @@ except Exception as e:
 
     def replace_frame(self, content, frame, symbol):
         """替换堆栈帧为符号化后的内容"""
-        import re
 
         original_line = frame['line']
         address = frame['address']
