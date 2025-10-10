@@ -220,29 +220,62 @@ pip install -r requirements.txt
         threading.Thread(target=self._load_apps_async, daemon=True).start()
 
     def _load_apps_async(self):
-        """异步加载应用列表"""
+        """异步加载应用列表，并过滤无法访问的应用"""
         try:
             from pymobiledevice3.lockdown import create_using_usbmux
             from pymobiledevice3.services.installation_proxy import InstallationProxyService
+            from pymobiledevice3.services.house_arrest import HouseArrestService
 
             lockdown = create_using_usbmux(serial=self.device_id)
             install_proxy = InstallationProxyService(lockdown=lockdown)
 
             apps = install_proxy.get_apps(application_type='User')
 
+            # 更新状态：开始检测可访问的应用
+            total_apps = len(apps)
+            self.parent.after(0, lambda: self.update_status(f"正在检测 {total_apps} 个应用的访问权限..."))
+
             app_list = []
             self.app_map = {}
+            checked_count = 0
+            accessible_count = 0
+
             for bundle_id, app_info in apps.items():
+                checked_count += 1
                 app_name = app_info.get('CFBundleDisplayName', bundle_id)
-                display_name = f"{app_name} ({bundle_id})"
-                app_list.append(display_name)
-                self.app_map[display_name] = {
-                    'bundle_id': bundle_id,
-                    'name': app_name,
-                    'info': app_info
-                }
+
+                # 更新检测进度
+                self.parent.after(0, lambda count=checked_count, total=total_apps:
+                                 self.update_status(f"正在检测应用访问权限... ({count}/{total})"))
+
+                # 尝试连接应用沙盒以检测是否可访问
+                try:
+                    lockdown_temp = create_using_usbmux(serial=self.device_id)
+                    house_arrest_test = HouseArrestService(lockdown=lockdown_temp, bundle_id=bundle_id)
+                    # 如果成功创建 HouseArrestService，说明可以访问
+                    accessible_count += 1
+
+                    display_name = f"{app_name} ({bundle_id})"
+                    app_list.append(display_name)
+                    self.app_map[display_name] = {
+                        'bundle_id': bundle_id,
+                        'name': app_name,
+                        'info': app_info
+                    }
+                except Exception:
+                    # 无法访问的应用，跳过不添加到列表
+                    pass
 
             app_list.sort()
+
+            # 更新状态：显示过滤结果
+            filtered_count = total_apps - accessible_count
+            if filtered_count > 0:
+                self.parent.after(0, lambda acc=accessible_count, flt=filtered_count:
+                                 self.update_status(f"已加载 {acc} 个可访问应用（已过滤 {flt} 个无法访问的应用）"))
+            else:
+                self.parent.after(0, lambda acc=accessible_count:
+                                 self.update_status(f"已加载 {acc} 个应用"))
 
             self.parent.after(0, self._update_app_combo, app_list)
 
@@ -254,14 +287,15 @@ pip install -r requirements.txt
     def _update_app_combo(self, app_list):
         """更新应用下拉框"""
         if not app_list:
-            self.app_combo['values'] = ["未找到应用"]
+            self.app_combo['values'] = ["未找到可访问的应用"]
             self.app_combo.current(0)
-            self.update_status("未找到可用应用")
+            self.update_status("未找到可访问的应用")
             return
 
         self.app_combo['values'] = app_list
         self.app_combo.current(0)
-        self.update_status(f"已加载 {len(app_list)} 个应用")
+        # 自动加载第一个应用（列表中的应用都已验证可访问）
+        self.on_app_selected(None)
 
     def on_app_selected(self, event):
         """应用选择事件"""
@@ -298,6 +332,9 @@ pip install -r requirements.txt
             error_msg = str(e)
             self.parent.after(0, lambda msg=error_msg: messagebox.showerror("错误", f"连接应用沙盒失败: {msg}"))
             self.parent.after(0, lambda msg=error_msg: self.update_status(f"错误: {msg}"))
+
+            # 清空文件树
+            self.parent.after(0, lambda: self.tree.delete(*self.tree.get_children()))
 
     def _list_directory(self, path, parent_item):
         """列出目录内容"""
