@@ -26,6 +26,14 @@ class LogEntry:
         '*** Terminating app due to uncaught exception'  # 只有这个才是真正的崩溃
     ]
 
+    # 类变量：存储自定义模块规则
+    custom_module_rules = []
+
+    @classmethod
+    def set_custom_rules(cls, rules):
+        """设置自定义模块规则"""
+        cls.custom_module_rules = rules
+
     def __init__(self, raw_line, source_file=""):
         self.raw_line = raw_line
         self.source_file = source_file  # 来源文件
@@ -59,6 +67,45 @@ class LogEntry:
             # 保留位置信息，但不要重复添加
             if not self.content.startswith(f"[{location}]"):
                 self.content = f"[{location}] {self.content}"
+
+    def _apply_custom_rules(self, content):
+        """应用自定义模块规则"""
+        if not content or not self.custom_module_rules:
+            return
+
+        for rule in self.custom_module_rules:
+            try:
+                pattern = rule.get('pattern')
+                module_name = rule.get('module')
+                rule_type = rule.get('type', '正则')  # 默认为正则，兼容旧数据
+
+                if not pattern or not module_name:
+                    continue
+
+                matched = False
+
+                if rule_type == '字符串':
+                    # 字符串模式：检查内容中是否包含指定字符串
+                    if pattern in content:
+                        matched = True
+                        # 字符串匹配不修改content
+                else:
+                    # 正则模式：使用正则表达式匹配
+                    match = re.match(pattern, content)
+                    if match:
+                        matched = True
+                        # 如果规则有捕获组，提取清理后的内容
+                        if match.groups():
+                            self.content = match.group(1) if len(match.groups()) >= 1 else content
+
+                if matched:
+                    # 匹配成功，设置模块名
+                    self.module = module_name
+                    break  # 匹配到第一个规则后停止
+
+            except Exception as e:
+                # 忽略错误
+                continue
 
     def parse(self):
         """解析日志行"""
@@ -100,6 +147,9 @@ class LogEntry:
                 extra_module = extra_match2.group(1)
                 self.module = extra_module
                 self.content = extra_match2.group(2)
+            else:
+                # 应用自定义模块规则
+                self._apply_custom_rules(self.content)
 
             # 检测是否为崩溃日志（不要覆盖额外模块标识）
             # 条件：ERROR级别 + CrashReportManager + 包含崩溃关键词
@@ -159,6 +209,9 @@ class LogEntry:
                 extra_module = extra_match2.group(1)
                 self.module = extra_module
                 self.content = extra_match2.group(2)
+            else:
+                # 应用自定义模块规则
+                self._apply_custom_rules(self.content)
 
             # 标准格式日志一般不是崩溃日志，崩溃日志通常使用特殊格式
             # 除非内容明确包含崩溃标识

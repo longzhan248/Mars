@@ -90,6 +90,13 @@ class MarsLogAnalyzerPro:
         self.merge_files_var = tk.BooleanVar(value=True)
         self.log_types = {}  # 日志类型 {类型名: [文件列表]}
 
+        # 加载自定义模块分组规则
+        self.custom_module_rules = self.load_custom_module_rules()
+
+        # 将自定义规则设置到LogEntry类中
+        from modules.data_models import LogEntry
+        LogEntry.set_custom_rules(self.custom_module_rules)
+
         # 创建UI
         self.create_widgets()
 
@@ -304,6 +311,11 @@ class MarsLogAnalyzerPro:
         scrollbar.config(command=self.module_listbox.yview)
 
         self.module_listbox.bind('<<ListboxSelect>>', self.on_module_select)
+
+        # 自定义规则按钮
+        rule_button_frame = ttk.Frame(left_frame)
+        rule_button_frame.pack(fill=tk.X, pady=5)
+        ttk.Button(rule_button_frame, text="自定义规则", command=self.open_custom_rules_dialog).pack(fill=tk.X, padx=5)
 
         # 右侧：模块详情
         right_frame = ttk.Frame(paned)
@@ -3800,6 +3812,280 @@ except Exception as e:
             ttk.Button(error_frame,
                       text="重试加载",
                       command=retry_load).pack(pady=10)
+
+    def load_custom_module_rules(self):
+        """加载自定义模块分组规则"""
+        config_file = os.path.join(os.path.dirname(__file__), 'custom_module_rules.json')
+        if os.path.exists(config_file):
+            try:
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    rules = json.load(f)
+                return rules
+            except Exception as e:
+                print(f"加载自定义规则失败: {e}")
+                return []
+        return []
+
+    def save_custom_module_rules(self):
+        """保存自定义模块分组规则"""
+        config_file = os.path.join(os.path.dirname(__file__), 'custom_module_rules.json')
+        try:
+            with open(config_file, 'w', encoding='utf-8') as f:
+                json.dump(self.custom_module_rules, f, ensure_ascii=False, indent=2)
+
+            # 更新LogEntry类中的规则
+            from modules.data_models import LogEntry
+            LogEntry.set_custom_rules(self.custom_module_rules)
+
+            return True
+        except Exception as e:
+            messagebox.showerror("错误", f"保存自定义规则失败: {e}")
+            return False
+
+    def open_custom_rules_dialog(self):
+        """打开自定义规则管理对话框"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("自定义模块分组规则")
+        dialog.geometry("700x550")
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        # 主框架
+        main_frame = ttk.Frame(dialog, padding="10")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # 说明文本
+        info_text = """
+自定义模块分组规则说明：
+- 规则名称：给规则起个名字，方便识别
+- 匹配模式：使用正则表达式匹配日志内容
+- 模块名：匹配成功后归类到哪个模块
+- 示例：
+  规则名：匹配Chair模块
+  模式：^\\[<Chair>\\s*(.*)$
+  模块：Chair
+"""
+        ttk.Label(main_frame, text=info_text, justify=tk.LEFT, foreground="gray").pack(anchor=tk.W, pady=(0, 10))
+
+        # 规则列表区域
+        list_frame = ttk.LabelFrame(main_frame, text="现有规则", padding="5")
+        list_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+        # 创建Treeview显示规则
+        columns = ('name', 'pattern', 'module')
+        tree = ttk.Treeview(list_frame, columns=columns, show='headings', height=10)
+        tree.heading('name', text='规则名称')
+        tree.heading('pattern', text='匹配模式')
+        tree.heading('module', text='模块名')
+        tree.column('name', width=150)
+        tree.column('pattern', width=300)
+        tree.column('module', width=150)
+
+        # 添加滚动条
+        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
+
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # 加载现有规则
+        def load_rules():
+            tree.delete(*tree.get_children())
+            for rule in self.custom_module_rules:
+                tree.insert('', tk.END, values=(rule['name'], rule['pattern'], rule['module']))
+
+        load_rules()
+
+        # 按钮区域
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill=tk.X, pady=(0, 10))
+
+        def add_rule():
+            """添加规则"""
+            add_dialog = tk.Toplevel(dialog)
+            add_dialog.title("添加规则")
+            add_dialog.geometry("550x280")
+            add_dialog.transient(dialog)
+            add_dialog.grab_set()
+
+            frame = ttk.Frame(add_dialog, padding="20")
+            frame.pack(fill=tk.BOTH, expand=True)
+
+            ttk.Label(frame, text="规则名称:").grid(row=0, column=0, sticky=tk.W, pady=5)
+            name_var = tk.StringVar()
+            ttk.Entry(frame, textvariable=name_var, width=40).grid(row=0, column=1, columnspan=2, pady=5, padx=(10, 0))
+
+            ttk.Label(frame, text="匹配类型:").grid(row=1, column=0, sticky=tk.W, pady=5)
+            match_type_var = tk.StringVar(value="字符串")
+            match_type_combo = ttk.Combobox(frame, textvariable=match_type_var, width=10, state='readonly')
+            match_type_combo['values'] = ('字符串', '正则')
+            match_type_combo.grid(row=1, column=1, sticky=tk.W, pady=5, padx=(10, 0))
+
+            ttk.Label(frame, text="匹配模式:").grid(row=2, column=0, sticky=tk.W, pady=5)
+            pattern_var = tk.StringVar()
+            ttk.Entry(frame, textvariable=pattern_var, width=40).grid(row=2, column=1, columnspan=2, pady=5, padx=(10, 0))
+
+            ttk.Label(frame, text="模块名:").grid(row=3, column=0, sticky=tk.W, pady=5)
+            module_var = tk.StringVar()
+            ttk.Entry(frame, textvariable=module_var, width=40).grid(row=3, column=1, columnspan=2, pady=5, padx=(10, 0))
+
+            hint_label = ttk.Label(frame, text="提示: 字符串模式会检查内容中是否包含该字符串",
+                     foreground="gray", font=('Arial', 9))
+            hint_label.grid(row=4, column=0, columnspan=3, sticky=tk.W, pady=(10, 5))
+
+            def update_hint(*args):
+                if match_type_var.get() == "正则":
+                    hint_label.config(text="提示: 正则模式，如 ^\\[<Chair>\\s*(.*)$ 匹配[<Chair> xxx格式")
+                else:
+                    hint_label.config(text="提示: 字符串模式会检查内容中是否包含该字符串")
+
+            match_type_var.trace_add('write', update_hint)
+
+            def save_new_rule():
+                name = name_var.get().strip()
+                pattern = pattern_var.get().strip()
+                module = module_var.get().strip()
+                match_type = match_type_var.get()
+
+                if not name or not pattern or not module:
+                    messagebox.showwarning("警告", "请填写所有字段")
+                    return
+
+                # 如果是正则模式，验证正则表达式
+                if match_type == "正则":
+                    try:
+                        re.compile(pattern)
+                    except re.error as e:
+                        messagebox.showerror("错误", f"正则表达式无效: {e}")
+                        return
+
+                self.custom_module_rules.append({
+                    'name': name,
+                    'pattern': pattern,
+                    'module': module,
+                    'type': match_type  # 新增类型字段
+                })
+                self.save_custom_module_rules()
+                load_rules()
+                add_dialog.destroy()
+                messagebox.showinfo("成功", "规则添加成功！\n重新加载日志后生效。")
+
+            btn_frame = ttk.Frame(frame)
+            btn_frame.grid(row=5, column=0, columnspan=3, pady=(15, 0))
+            ttk.Button(btn_frame, text="保存", command=save_new_rule).pack(side=tk.LEFT, padx=5)
+            ttk.Button(btn_frame, text="取消", command=add_dialog.destroy).pack(side=tk.LEFT, padx=5)
+
+        def edit_rule():
+            """编辑规则"""
+            selection = tree.selection()
+            if not selection:
+                messagebox.showwarning("警告", "请先选择一条规则")
+                return
+
+            item = tree.item(selection[0])
+            values = item['values']
+            index = tree.index(selection[0])
+
+            # 获取当前规则的类型，如果没有则默认为"正则"（兼容旧数据）
+            current_rule = self.custom_module_rules[index]
+            current_type = current_rule.get('type', '正则')
+
+            edit_dialog = tk.Toplevel(dialog)
+            edit_dialog.title("编辑规则")
+            edit_dialog.geometry("550x280")
+            edit_dialog.transient(dialog)
+            edit_dialog.grab_set()
+
+            frame = ttk.Frame(edit_dialog, padding="20")
+            frame.pack(fill=tk.BOTH, expand=True)
+
+            ttk.Label(frame, text="规则名称:").grid(row=0, column=0, sticky=tk.W, pady=5)
+            name_var = tk.StringVar(value=values[0])
+            ttk.Entry(frame, textvariable=name_var, width=40).grid(row=0, column=1, columnspan=2, pady=5, padx=(10, 0))
+
+            ttk.Label(frame, text="匹配类型:").grid(row=1, column=0, sticky=tk.W, pady=5)
+            match_type_var = tk.StringVar(value=current_type)
+            match_type_combo = ttk.Combobox(frame, textvariable=match_type_var, width=10, state='readonly')
+            match_type_combo['values'] = ('字符串', '正则')
+            match_type_combo.grid(row=1, column=1, sticky=tk.W, pady=5, padx=(10, 0))
+
+            ttk.Label(frame, text="匹配模式:").grid(row=2, column=0, sticky=tk.W, pady=5)
+            pattern_var = tk.StringVar(value=values[1])
+            ttk.Entry(frame, textvariable=pattern_var, width=40).grid(row=2, column=1, columnspan=2, pady=5, padx=(10, 0))
+
+            ttk.Label(frame, text="模块名:").grid(row=3, column=0, sticky=tk.W, pady=5)
+            module_var = tk.StringVar(value=values[2])
+            ttk.Entry(frame, textvariable=module_var, width=40).grid(row=3, column=1, columnspan=2, pady=5, padx=(10, 0))
+
+            hint_label = ttk.Label(frame, text="",
+                     foreground="gray", font=('Arial', 9))
+            hint_label.grid(row=4, column=0, columnspan=3, sticky=tk.W, pady=(10, 5))
+
+            def update_hint(*args):
+                if match_type_var.get() == "正则":
+                    hint_label.config(text="提示: 正则模式，如 ^\\[<Chair>\\s*(.*)$ 匹配[<Chair> xxx格式")
+                else:
+                    hint_label.config(text="提示: 字符串模式会检查内容中是否包含该字符串")
+
+            match_type_var.trace_add('write', update_hint)
+            update_hint()  # 初始化提示
+
+            def save_edited_rule():
+                name = name_var.get().strip()
+                pattern = pattern_var.get().strip()
+                module = module_var.get().strip()
+                match_type = match_type_var.get()
+
+                if not name or not pattern or not module:
+                    messagebox.showwarning("警告", "请填写所有字段")
+                    return
+
+                # 如果是正则模式，验证正则表达式
+                if match_type == "正则":
+                    try:
+                        re.compile(pattern)
+                    except re.error as e:
+                        messagebox.showerror("错误", f"正则表达式无效: {e}")
+                        return
+
+                self.custom_module_rules[index] = {
+                    'name': name,
+                    'pattern': pattern,
+                    'module': module,
+                    'type': match_type
+                }
+                self.save_custom_module_rules()
+                load_rules()
+                edit_dialog.destroy()
+                messagebox.showinfo("成功", "规则已更新！\n重新加载日志后生效。")
+
+            btn_frame = ttk.Frame(frame)
+            btn_frame.grid(row=5, column=0, columnspan=3, pady=(15, 0))
+            ttk.Button(btn_frame, text="保存", command=save_edited_rule).pack(side=tk.LEFT, padx=5)
+            ttk.Button(btn_frame, text="取消", command=edit_dialog.destroy).pack(side=tk.LEFT, padx=5)
+
+        def delete_rule():
+            """删除规则"""
+            selection = tree.selection()
+            if not selection:
+                messagebox.showwarning("警告", "请先选择一条规则")
+                return
+
+            if messagebox.askyesno("确认", "确定要删除选中的规则吗？"):
+                index = tree.index(selection[0])
+                del self.custom_module_rules[index]
+                self.save_custom_module_rules()
+                load_rules()
+                messagebox.showinfo("成功", "规则已删除！\n重新加载日志后生效。")
+
+        ttk.Button(button_frame, text="添加规则", command=add_rule).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="编辑规则", command=edit_rule).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="删除规则", command=delete_rule).pack(side=tk.LEFT, padx=5)
+
+        # 关闭按钮 - 独立的frame，确保在底部且不被遮挡
+        close_frame = ttk.Frame(main_frame)
+        close_frame.pack(fill=tk.X, pady=(10, 0))
+        ttk.Button(close_frame, text="关闭", command=dialog.destroy).pack(pady=5)
 
 
 def main():
