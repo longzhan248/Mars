@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
 """
-LinkMap文件分析标签页
+LinkMap文件分析标签页（重构版）
 用于分析iOS应用的二进制大小，统计代码使用情况
 """
 
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 import os
-import re
-from pathlib import Path
 import threading
-from collections import defaultdict
+
+# 导入模块化组件
+try:
+    # 相对导入（作为包导入时）
+    from .linkmap import LinkMapParser, LinkMapAnalyzer, LinkMapFormatter
+except ImportError:
+    # 绝对导入（直接导入时）
+    from linkmap import LinkMapParser, LinkMapAnalyzer, LinkMapFormatter
+
 
 class LinkMapTab:
     def __init__(self, parent):
@@ -23,6 +29,11 @@ class LinkMapTab:
         self.app_name = None
         self.symbol_map = {}
         self.dead_symbol_map = {}
+
+        # 模块化组件
+        self.parser = LinkMapParser()
+        self.analyzer = LinkMapAnalyzer()
+        self.formatter = LinkMapFormatter()
 
         self.setup_ui()
 
@@ -73,21 +84,18 @@ class LinkMapTab:
         ttk.Button(option_frame, text="导出文件", command=self.export_file).pack(side=tk.LEFT, padx=(5, 0))
 
         # 中部：分析结果显示
-        # 使用Notebook创建标签页
         notebook = ttk.Notebook(main_frame)
         notebook.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
 
         # 符号统计标签页
         symbol_frame = ttk.Frame(notebook)
         notebook.add(symbol_frame, text="符号统计")
-
         self.symbol_text = scrolledtext.ScrolledText(symbol_frame, wrap=tk.WORD)
         self.symbol_text.pack(fill=tk.BOTH, expand=True)
 
         # 未使用代码标签页
         dead_code_frame = ttk.Frame(notebook)
         notebook.add(dead_code_frame, text="未使用代码")
-
         self.dead_code_text = scrolledtext.ScrolledText(dead_code_frame, wrap=tk.WORD)
         self.dead_code_text.pack(fill=tk.BOTH, expand=True)
 
@@ -155,7 +163,6 @@ class LinkMapTab:
             for file in files:
                 if 'LinkMap' in file and file.endswith('.txt'):
                     full_path = os.path.join(root, file)
-                    # 获取修改时间
                     mtime = os.path.getmtime(full_path)
                     linkmap_files.append((full_path, mtime))
 
@@ -163,17 +170,20 @@ class LinkMapTab:
             messagebox.showinfo("提示", "未找到Link Map文件")
             return
 
-        # 按修改时间排序，最新的在前
+        # 按修改时间排序
         linkmap_files.sort(key=lambda x: x[1], reverse=True)
 
         # 创建选择对话框
+        self._show_file_selection_dialog(linkmap_files)
+
+    def _show_file_selection_dialog(self, linkmap_files):
+        """显示文件选择对话框"""
         dialog = tk.Toplevel(self.parent)
         dialog.title("选择 Link Map 文件")
         dialog.geometry("800x400")
 
         ttk.Label(dialog, text="找到以下Link Map文件 (按修改时间排序):").pack(pady=10)
 
-        # 列表框
         listbox_frame = ttk.Frame(dialog)
         listbox_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
 
@@ -186,14 +196,12 @@ class LinkMapTab:
         listbox.config(yscrollcommand=scrollbar.set)
         scrollbar.config(command=listbox.yview)
 
-        # 添加文件到列表
         from datetime import datetime
-        for path, mtime in linkmap_files[:20]:  # 最多显示20个
+        for path, mtime in linkmap_files[:20]:
             dt = datetime.fromtimestamp(mtime)
             display_text = f"{dt.strftime('%Y-%m-%d %H:%M:%S')} - {os.path.basename(path)}"
             listbox.insert(tk.END, display_text)
 
-        # 选择按钮
         def on_select():
             selection = listbox.curselection()
             if selection:
@@ -214,16 +222,10 @@ class LinkMapTab:
                 self.link_map_content = f.read()
 
             # 提取应用名称
-            lines = self.link_map_content.split('\n')
-            if lines:
-                first_line = lines[0]
-                if '.app/' in first_line:
-                    self.app_name = first_line.split('.app/')[-1].split('/')[0]
-                else:
-                    self.app_name = os.path.basename(file_path).replace('-LinkMap', '').replace('.txt', '')
+            self.app_name = self.parser.extract_app_name(self.link_map_content, file_path)
 
             # 验证文件格式
-            if not self.check_content():
+            if not self.parser.check_format(self.link_map_content):
                 messagebox.showerror("错误", "无效的Link Map文件格式")
                 self.link_map_path = None
                 self.link_map_content = None
@@ -236,18 +238,6 @@ class LinkMapTab:
         except Exception as e:
             messagebox.showerror("错误", f"读取文件失败: {str(e)}")
 
-    def check_content(self):
-        """检查Link Map文件格式"""
-        if not self.link_map_content:
-            return False
-
-        required_sections = ["# Object files:", "# Symbols:"]
-        for section in required_sections:
-            if section not in self.link_map_content:
-                return False
-
-        return True
-
     def analyze(self):
         """分析Link Map文件"""
         if not self.link_map_content:
@@ -257,15 +247,14 @@ class LinkMapTab:
         self.status_label.config(text="正在分析...")
         self.progress_bar.start()
 
-        # 在线程中执行分析
         threading.Thread(target=self._do_analyze, daemon=True).start()
 
     def _do_analyze(self):
         """执行分析"""
         try:
-            # 解析符号
-            self.symbol_map = self.parse_symbols(self.link_map_content)
-            self.dead_symbol_map = self.parse_dead_symbols(self.link_map_content)
+            # 使用解析器解析符号
+            self.symbol_map = self.parser.parse_symbols(self.link_map_content)
+            self.dead_symbol_map = self.parser.parse_dead_symbols(self.link_map_content)
 
             # 更新UI
             self.parent.after(0, self._update_analysis_result)
@@ -276,246 +265,37 @@ class LinkMapTab:
             self.parent.after(0, self.progress_bar.stop)
             self.parent.after(0, lambda: self.status_label.config(text="分析完成"))
 
-    def parse_symbols(self, content):
-        """解析符号信息"""
-        symbol_map = {}
-        lines = content.split('\n')
-
-        in_object_files = False
-        in_symbols = False
-        object_files = {}
-
-        for line in lines:
-            line = line.strip()
-
-            if line.startswith('# Object files:'):
-                in_object_files = True
-                continue
-            elif line.startswith('# Sections:'):
-                in_object_files = False
-                continue
-            elif line.startswith('# Symbols:'):
-                in_symbols = True
-                continue
-            elif line.startswith('# Dead Stripped Symbols:'):
-                break
-
-            if in_object_files and line and not line.startswith('#'):
-                # 解析对象文件
-                # 格式: [ 0] /path/to/file.o
-                match = re.match(r'\[\s*(\d+)\]\s+(.+)', line)
-                if match:
-                    index = f"[{match.group(1).strip()}]"
-                    file_path = match.group(2).strip()
-                    object_files[index] = file_path
-
-            elif in_symbols and line and not line.startswith('#'):
-                # 解析符号
-                # 格式: 0x1000 0x100 [ 0] _symbol_name
-                parts = line.split('\t')
-                if len(parts) >= 3:
-                    size_hex = parts[1] if len(parts) > 1 else '0x0'
-                    size = int(size_hex, 16) if size_hex.startswith('0x') else 0
-
-                    # 提取文件索引
-                    file_info = parts[2] if len(parts) > 2 else ''
-                    match = re.search(r'(\[\s*\d+\])', file_info)
-                    if match:
-                        file_index = match.group(1).replace(' ', '')
-                        if file_index in object_files:
-                            file_path = object_files[file_index]
-                            if file_path not in symbol_map:
-                                symbol_map[file_path] = 0
-                            symbol_map[file_path] += size
-
-        return symbol_map
-
-    def parse_dead_symbols(self, content):
-        """解析未使用的符号"""
-        dead_symbol_map = {}
-        lines = content.split('\n')
-
-        in_object_files = False
-        in_dead_symbols = False
-        object_files = {}
-
-        for line in lines:
-            line = line.strip()
-
-            if line.startswith('# Object files:'):
-                in_object_files = True
-                continue
-            elif line.startswith('# Sections:'):
-                in_object_files = False
-                continue
-            elif line.startswith('# Dead Stripped Symbols:'):
-                in_dead_symbols = True
-                continue
-
-            if in_object_files and line and not line.startswith('#'):
-                # 解析对象文件
-                match = re.match(r'\[\s*(\d+)\]\s+(.+)', line)
-                if match:
-                    index = f"[{match.group(1).strip()}]"
-                    file_path = match.group(2).strip()
-                    object_files[index] = file_path
-
-            elif in_dead_symbols and line and not line.startswith('#'):
-                # 解析死代码符号
-                # 格式: <<dead>> 0x100 [ 0] _symbol_name
-                if line.startswith('<<dead>>'):
-                    parts = line.split('\t')
-                    if len(parts) >= 3:
-                        size_hex = parts[1] if len(parts) > 1 else '0x0'
-                        size = int(size_hex, 16) if size_hex.startswith('0x') else 0
-
-                        # 提取文件索引
-                        file_info = parts[2] if len(parts) > 2 else ''
-                        match = re.search(r'(\[\s*\d+\])', file_info)
-                        if match:
-                            file_index = match.group(1).replace(' ', '')
-                            if file_index in object_files:
-                                file_path = object_files[file_index]
-                                if file_path not in dead_symbol_map:
-                                    dead_symbol_map[file_path] = 0
-                                dead_symbol_map[file_path] += size
-
-        return dead_symbol_map
-
     def _update_analysis_result(self):
         """更新分析结果显示"""
-        # 清空显示
         self.symbol_text.delete('1.0', tk.END)
         self.dead_code_text.delete('1.0', tk.END)
 
-        # 应用搜索过滤
         search_keyword = self.search_var.get().strip()
 
         # 符号统计
-        if self.group_by_library_var.get():
-            result = self._build_grouped_result(self.symbol_map, search_keyword)
-        else:
-            result = self._build_result(self.symbol_map, search_keyword)
-
+        result = self._build_display_result(self.symbol_map, search_keyword)
         self.symbol_text.insert('1.0', result)
 
         # 未使用代码统计
-        if self.group_by_library_var.get():
-            dead_result = self._build_grouped_result(self.dead_symbol_map, search_keyword)
-        else:
-            dead_result = self._build_result(self.dead_symbol_map, search_keyword)
-
+        dead_result = self._build_display_result(self.dead_symbol_map, search_keyword)
         self.dead_code_text.insert('1.0', dead_result)
 
-    def _build_result(self, symbol_map, search_keyword):
-        """构建结果字符串"""
+    def _build_display_result(self, symbol_map, search_keyword):
+        """构建显示结果"""
         if not symbol_map:
             return "无数据"
 
-        # 过滤和排序
-        filtered_symbols = []
-        for file_path, size in symbol_map.items():
-            if not search_keyword or search_keyword.lower() in file_path.lower():
-                filtered_symbols.append((file_path, size))
+        # 过滤
+        filtered_map = self.analyzer.filter_by_keyword(symbol_map, search_keyword)
 
-        # 按大小排序
-        filtered_symbols.sort(key=lambda x: x[1], reverse=True)
-
-        # 构建结果
-        result = []
-        result.append(f"{'文件大小':<15} {'文件名称'}")
-        result.append("=" * 80)
-
-        total_size = 0
-        for file_path, size in filtered_symbols:
-            total_size += size
-            size_str = self._format_size(size)
-            # 简化路径显示
-            display_path = self._simplify_path(file_path)
-            result.append(f"{size_str:<15} {display_path}")
-
-        result.append("=" * 80)
-        result.append(f"总计: {self._format_size(total_size)} ({len(filtered_symbols)} 个文件)")
-
-        return '\n'.join(result)
-
-    def _build_grouped_result(self, symbol_map, search_keyword):
-        """构建按库分组的结果"""
-        if not symbol_map:
-            return "无数据"
-
-        # 按库分组
-        library_map = defaultdict(int)
-        for file_path, size in symbol_map.items():
-            if not search_keyword or search_keyword.lower() in file_path.lower():
-                library_name = self._extract_library_name(file_path)
-                library_map[library_name] += size
-
-        # 排序
-        sorted_libraries = sorted(library_map.items(), key=lambda x: x[1], reverse=True)
-
-        # 构建结果
-        result = []
-        result.append(f"{'库大小':<15} {'库名称'}")
-        result.append("=" * 80)
-
-        total_size = 0
-        for library_name, size in sorted_libraries:
-            total_size += size
-            size_str = self._format_size(size)
-            result.append(f"{size_str:<15} {library_name}")
-
-        result.append("=" * 80)
-        result.append(f"总计: {self._format_size(total_size)} ({len(sorted_libraries)} 个库)")
-
-        return '\n'.join(result)
-
-    def _format_size(self, size):
-        """格式化文件大小"""
-        if size >= 1024 * 1024:
-            return f"{size / (1024 * 1024):.2f}M"
-        elif size >= 1024:
-            return f"{size / 1024:.2f}K"
+        # 按库分组或直接排序
+        if self.group_by_library_var.get():
+            grouped = self.analyzer.group_by_library(filtered_map)
+            sorted_items = self.analyzer.sort_by_size(grouped, reverse=True)
+            return self.formatter.format_library_list(sorted_items)
         else:
-            return f"{size}B"
-
-    def _simplify_path(self, path):
-        """简化路径显示"""
-        # 移除常见的路径前缀
-        patterns = [
-            r'.*/Build/Intermediates\.noindex/.*?\.build/.*?/',
-            r'.*/DerivedData/.*?\.build/.*?/',
-            r'.*/Developer/Platforms/.*?\.sdk/',
-            r'.*/Xcode\.app/.*?\.sdk/',
-        ]
-
-        simplified = path
-        for pattern in patterns:
-            simplified = re.sub(pattern, '../', simplified)
-
-        return simplified
-
-    def _extract_library_name(self, file_path):
-        """提取库名称"""
-        # 从路径中提取库名
-        if '.framework' in file_path:
-            # Framework
-            match = re.search(r'([^/]+)\.framework', file_path)
-            if match:
-                return match.group(1) + '.framework'
-
-        if '.a' in file_path:
-            # 静态库
-            match = re.search(r'lib([^/]+)\.a', file_path)
-            if match:
-                return 'lib' + match.group(1) + '.a'
-
-        # 项目文件
-        if '.o' in file_path:
-            file_name = os.path.basename(file_path)
-            return file_name.replace('.o', '')
-
-        return os.path.basename(file_path)
+            sorted_items = self.analyzer.sort_by_size(filtered_map, reverse=True)
+            return self.formatter.format_symbol_list(sorted_items)
 
     def format_output(self):
         """格式化输出Link Map文件"""
@@ -541,60 +321,10 @@ class LinkMapTab:
     def _format_and_save(self, save_path):
         """格式化并保存文件"""
         try:
-            lines = self.link_map_content.split('\n')
-            formatted_lines = []
+            formatted_content = self.formatter.format_linkmap_file(self.link_map_content)
 
-            in_object_files = False
-            in_sections = False
-            in_symbols = False
-            in_dead_symbols = False
-
-            for line in lines:
-                if line.startswith('# Object files:'):
-                    in_object_files = True
-                    formatted_lines.append('\n' + '=' * 80)
-                    formatted_lines.append('OBJECT FILES')
-                    formatted_lines.append('=' * 80)
-                elif line.startswith('# Sections:'):
-                    in_object_files = False
-                    in_sections = True
-                    formatted_lines.append('\n' + '=' * 80)
-                    formatted_lines.append('SECTIONS')
-                    formatted_lines.append('=' * 80)
-                elif line.startswith('# Symbols:'):
-                    in_sections = False
-                    in_symbols = True
-                    formatted_lines.append('\n' + '=' * 80)
-                    formatted_lines.append('SYMBOLS')
-                    formatted_lines.append('=' * 80)
-                elif line.startswith('# Dead Stripped Symbols:'):
-                    in_symbols = False
-                    in_dead_symbols = True
-                    formatted_lines.append('\n' + '=' * 80)
-                    formatted_lines.append('DEAD STRIPPED SYMBOLS')
-                    formatted_lines.append('=' * 80)
-                else:
-                    # 格式化各部分内容
-                    if in_object_files and line.strip() and not line.startswith('#'):
-                        # 简化路径
-                        formatted_line = self._simplify_path(line)
-                        formatted_lines.append(formatted_line)
-                    elif (in_sections or in_symbols or in_dead_symbols) and line.strip():
-                        # 格式化大小
-                        parts = line.split('\t')
-                        if len(parts) >= 2 and parts[1].startswith('0x'):
-                            size = int(parts[1], 16)
-                            size_str = self._format_size(size)
-                            parts[1] = size_str.rjust(10)
-                            formatted_lines.append('\t'.join(parts))
-                        else:
-                            formatted_lines.append(line)
-                    else:
-                        formatted_lines.append(line)
-
-            # 写入文件
             with open(save_path, 'w', encoding='utf-8') as f:
-                f.write('\n'.join(formatted_lines))
+                f.write(formatted_content)
 
             self.parent.after(0, lambda: messagebox.showinfo("成功", f"格式化文件已保存到:\n{save_path}"))
 
@@ -621,30 +351,36 @@ class LinkMapTab:
             return
 
         try:
+            search_keyword = self.search_var.get().strip()
+
+            # 构建符号结果
+            filtered_symbols = self.analyzer.filter_by_keyword(self.symbol_map, search_keyword)
+            if self.group_by_library_var.get():
+                grouped_symbols = self.analyzer.group_by_library(filtered_symbols)
+                sorted_symbols = self.analyzer.sort_by_size(grouped_symbols, reverse=True)
+                symbol_result = self.formatter.format_library_list(sorted_symbols)
+            else:
+                sorted_symbols = self.analyzer.sort_by_size(filtered_symbols, reverse=True)
+                symbol_result = self.formatter.format_symbol_list(sorted_symbols)
+
+            # 构建死代码结果
+            filtered_dead = self.analyzer.filter_by_keyword(self.dead_symbol_map, search_keyword)
+            if self.group_by_library_var.get():
+                grouped_dead = self.analyzer.group_by_library(filtered_dead)
+                sorted_dead = self.analyzer.sort_by_size(grouped_dead, reverse=True)
+                dead_result = self.formatter.format_library_list(sorted_dead)
+            else:
+                sorted_dead = self.analyzer.sort_by_size(filtered_dead, reverse=True)
+                dead_result = self.formatter.format_symbol_list(sorted_dead)
+
+            # 生成报告
+            report = self.formatter.format_analysis_report(
+                self.app_name, self.link_map_path,
+                symbol_result, dead_result
+            )
+
             with open(save_path, 'w', encoding='utf-8') as f:
-                f.write(f"Link Map 分析报告\n")
-                f.write(f"应用名称: {self.app_name}\n")
-                f.write(f"文件路径: {self.link_map_path}\n")
-                f.write("=" * 80 + "\n\n")
-
-                # 符号统计
-                f.write("符号统计:\n")
-                f.write("-" * 80 + "\n")
-                search_keyword = self.search_var.get().strip()
-                if self.group_by_library_var.get():
-                    result = self._build_grouped_result(self.symbol_map, search_keyword)
-                else:
-                    result = self._build_result(self.symbol_map, search_keyword)
-                f.write(result)
-
-                # 未使用代码
-                f.write("\n\n未使用代码:\n")
-                f.write("-" * 80 + "\n")
-                if self.group_by_library_var.get():
-                    dead_result = self._build_grouped_result(self.dead_symbol_map, search_keyword)
-                else:
-                    dead_result = self._build_result(self.dead_symbol_map, search_keyword)
-                f.write(dead_result)
+                f.write(report)
 
             messagebox.showinfo("成功", f"分析结果已导出到:\n{save_path}")
 
