@@ -242,6 +242,10 @@ cd /path/to/project
 - `README_CN.md` - 中文说明文档
 - `README_EN.md` - 英文说明文档
 - `BUILD.md` - 打包和分发指南
+- `technical/` - 技术文档目录 🆕
+  - `SANDBOX_BUGFIX.md` - iOS沙盒浏览Bug修复记录
+  - `SANDBOX_REFACTORING.md` - iOS沙盒浏览模块重构总结
+  - `DSYM_LINKMAP.md` - dSYM和LinkMap分析技术文档
 
 ## 使用命令
 
@@ -411,6 +415,51 @@ pip install -r requirements.txt
 **解决方案**：
 使用`./scripts/run_analyzer.sh`启动，它会自动处理所有依赖。
 
+## 技术文档目录说明 🆕
+
+项目中所有重构文档、Bug修复记录、技术说明等文档统一存放在 `docs/technical/` 目录下，便于集中管理和查阅。
+
+### 文档分类
+
+#### Bug修复记录
+- **SANDBOX_BUGFIX.md** - iOS沙盒浏览功能的Bug修复详细记录
+  - 记录问题症状和触发场景
+  - 分析问题根本原因
+  - 详细的解决方案和代码修改
+  - 修复后的测试验证结果
+
+#### 重构总结
+- **SANDBOX_REFACTORING.md** - iOS沙盒浏览模块化重构总结
+  - 重构前后的代码行数对比
+  - 模块拆分的架构设计
+  - 重构带来的优势说明
+  - 未来优化建议
+
+#### 技术文档
+- **DSYM_LINKMAP.md** - dSYM文件分析和LinkMap文件分析技术文档
+  - 功能概述和使用流程
+  - 核心技术实现细节
+  - 集成方式和依赖要求
+  - 故障排查和最佳实践
+
+### 文档规范
+
+所有技术文档应遵循以下规范：
+1. **标题清晰**：使用描述性的标题，一目了然
+2. **结构完整**：包含问题描述、分析、解决方案、测试验证
+3. **代码示例**：提供清晰的代码示例和对比
+4. **版本信息**：记录文档创建/更新日期和版本
+5. **统一格式**：使用Markdown格式，遵循项目风格
+
+### 新增技术文档指南
+
+当需要添加新的技术文档时：
+1. 在 `docs/technical/` 目录创建Markdown文件
+2. 使用描述性的文件名（大写+下划线分隔）
+3. 遵循现有文档的结构模板
+4. 在主CLAUDE.md中更新文档列表
+5. 提交时使用 `docs:` 前缀标记
+
 ## 开发指南
 
 ### 项目结构
@@ -472,7 +521,11 @@ pip install -r requirements.txt
 │   ├── README_CN.md                          # 中文文档
 │   ├── README_EN.md                          # 英文文档
 │   ├── BUILD.md                              # 打包分发指南
-│   └── CLAUDE.md                              # 项目指南（本文件）
+│   ├── technical/                            # 技术文档目录 🆕
+│   │   ├── SANDBOX_BUGFIX.md                 # iOS沙盒浏览Bug修复记录
+│   │   ├── SANDBOX_REFACTORING.md            # iOS沙盒浏览模块重构总结
+│   │   └── DSYM_LINKMAP.md                   # dSYM和LinkMap分析技术文档
+│   └── CLAUDE.md                             # 项目指南（本文件）
 ├── MarsLogAnalyzer.spec                      # PyInstaller配置文件
 ├── build/                                    # 构建临时文件（自动生成）
 ├── dist/                                     # 打包输出目录（自动生成）
