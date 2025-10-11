@@ -37,6 +37,9 @@ try:
     from modules.ips_tab import IPSAnalysisTab
     from modules.push_tab import PushTestTab
     from modules.sandbox_tab import SandboxBrowserTab
+    # 阶段二优化模块
+    from modules.log_indexer import LogIndexer, IndexedFilterSearchManager
+    from modules.stream_loader import StreamLoader, EnhancedFileOperations
 except ImportError:
     # 绝对导入（从项目根目录运行时）
     from gui.modules.data_models import LogEntry, FileGroup
@@ -45,6 +48,9 @@ except ImportError:
     from gui.modules.ips_tab import IPSAnalysisTab
     from gui.modules.push_tab import PushTestTab
     from gui.modules.sandbox_tab import SandboxBrowserTab
+    # 阶段二优化模块
+    from gui.modules.log_indexer import LogIndexer, IndexedFilterSearchManager
+    from gui.modules.stream_loader import StreamLoader, EnhancedFileOperations
 
 # 导入原有组件
 try:
@@ -73,7 +79,17 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
         """初始化应用程序"""
         # 初始化模块化组件
         self.file_ops = FileOperations()
-        self.filter_manager = FilterSearchManager()
+
+        # 阶段二优化：使用索引过滤管理器替代原有过滤管理器
+        self.filter_manager = IndexedFilterSearchManager()
+
+        # 阶段二优化：添加流式加载器
+        self.stream_loader = StreamLoader()
+        self.enhanced_file_ops = EnhancedFileOperations()
+
+        # 索引器状态
+        self.indexer_ready = False
+        self.index_building = False
 
         # 调用父类初始化
         super().__init__(root)
@@ -87,8 +103,44 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
         """使用模块化的时间比较"""
         return self.filter_manager.compare_log_time(log_timestamp, start_time, end_time)
 
+    def build_index_async(self):
+        """异步构建索引（阶段二优化）"""
+        if not self.log_entries or self.index_building:
+            return
+
+        self.index_building = True
+        self.indexer_ready = False
+
+        def progress_callback(current, total):
+            """索引构建进度回调"""
+            if hasattr(self, 'file_stats_var'):
+                progress = int((current / total) * 100)
+                self.file_stats_var.set(f"正在构建索引: {progress}% ({current}/{total})")
+
+        def complete_callback():
+            """索引构建完成回调"""
+            self.index_building = False
+            self.indexer_ready = True
+            if hasattr(self, 'file_stats_var'):
+                stats = self.filter_manager.indexer.get_statistics()
+                self.file_stats_var.set(
+                    f"索引构建完成: {stats['total_entries']}条 | "
+                    f"词:{stats['unique_words']} | "
+                    f"模块:{stats['modules']} | "
+                    f"级别:{stats['levels']}"
+                )
+            # 索引构建完成后自动应用当前过滤条件
+            self.root.after(100, self.apply_global_filter)
+
+        # 异步构建索引
+        self.filter_manager.build_index(
+            self.log_entries,
+            progress_callback=progress_callback,
+            complete_callback=complete_callback
+        )
+
     def apply_global_filter(self):
-        """使用模块化的过滤功能"""
+        """使用模块化的过滤功能（阶段二优化：使用索引）"""
         if not self.log_entries:
             return
 
@@ -100,16 +152,30 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
         start_time = self.global_time_start_var.get()
         end_time = self.global_time_end_var.get()
 
-        # 使用模块化的过滤器
-        filtered = self.filter_manager.filter_entries(
-            self.log_entries,
-            level=level_filter,
-            module=module_filter,
-            keyword=keyword,
-            start_time=start_time,
-            end_time=end_time,
-            search_mode=search_mode
-        )
+        # 阶段二优化：使用索引过滤器（如果索引已准备好）
+        if self.indexer_ready and self.filter_manager.indexer.is_ready:
+            filtered = self.filter_manager.filter_entries_with_index(
+                self.log_entries,
+                level=level_filter,
+                module=module_filter,
+                keyword=keyword,
+                start_time=start_time,
+                end_time=end_time,
+                search_mode=search_mode
+            )
+        else:
+            # 降级到原有过滤方式
+            from modules.filter_search import FilterSearchManager
+            fallback_manager = FilterSearchManager()
+            filtered = fallback_manager.filter_entries(
+                self.log_entries,
+                level=level_filter,
+                module=module_filter,
+                keyword=keyword,
+                start_time=start_time,
+                end_time=end_time,
+                search_mode=search_mode
+            )
 
         self.filtered_entries = filtered
         self.display_logs(filtered)
@@ -127,10 +193,13 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
         if end_time:
             filter_info.append(f"结束:{end_time}")
 
+        # 添加索引状态提示
+        index_status = "⚡索引" if self.indexer_ready else "普通"
+
         if filter_info:
-            stats_text = f"过滤结果: {len(filtered)}/{len(self.log_entries)} | " + " | ".join(filter_info)
+            stats_text = f"{index_status} | 过滤结果: {len(filtered)}/{len(self.log_entries)} | " + " | ".join(filter_info)
         else:
-            stats_text = f"显示: {len(filtered)}/{len(self.log_entries)} 条日志"
+            stats_text = f"{index_status} | 显示: {len(filtered)}/{len(self.log_entries)} 条日志"
 
         # 更新文件统计标签
         if hasattr(self, 'file_stats_var'):
@@ -181,6 +250,15 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
         # 使用模块化的LinkMap标签页
         self.linkmap_tab = LinkMapTab(linkmap_frame)
         self.linkmap_tab.frame.pack(fill=tk.BOTH, expand=True)
+
+    def load_group_logs(self, group):
+        """加载文件组的日志 - 阶段二优化：自动构建索引"""
+        # 调用父类方法完成基本加载
+        super().load_group_logs(group)
+
+        # 阶段二优化：异步构建索引
+        if self.log_entries:
+            self.root.after(500, self.build_index_async)
 
     def filter_logs(self, start_time=None, end_time=None):
         """重写filter_logs方法以使用模块化的过滤逻辑
