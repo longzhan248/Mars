@@ -1,27 +1,35 @@
 #!/usr/bin/env python3
 """
-dSYM文件分析标签页
+dSYM文件分析标签页（重构版）
 用于解析iOS崩溃日志的符号化，根据错误地址进行代码定位
 """
 
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
-import subprocess
-import os
-import re
-import json
-from pathlib import Path
 import threading
+
+# 导入模块化组件
+try:
+    # 相对导入（作为包导入时）
+    from .dsym import DSYMFileManager, DSYMUUIDParser, DSYMSymbolizer
+except ImportError:
+    # 绝对导入（直接导入时）
+    from dsym import DSYMFileManager, DSYMUUIDParser, DSYMSymbolizer
 
 class DSYMTab:
     def __init__(self, parent):
         self.parent = parent
         self.frame = ttk.Frame(parent)
 
-        # 存储文件信息
-        self.archive_files = []
+        # 数据存储
         self.selected_archive = None
         self.selected_uuid = None
+        self.uuid_infos = []
+
+        # 模块化组件
+        self.file_manager = DSYMFileManager()
+        self.uuid_parser = DSYMUUIDParser()
+        self.symbolizer = DSYMSymbolizer()
 
         self.setup_ui()
         self.load_local_archives()
@@ -128,84 +136,55 @@ class DSYMTab:
     def load_local_archives(self):
         """加载本地的xcarchive文件"""
         self.file_listbox.delete(0, tk.END)
-        self.archive_files = []
 
-        # Xcode Archives默认路径
-        archives_path = os.path.expanduser("~/Library/Developer/Xcode/Archives/")
+        # 使用文件管理器加载
+        archives = self.file_manager.load_local_archives()
+        self.file_manager.archive_files = archives
 
-        if not os.path.exists(archives_path):
-            return
-
-        # 遍历查找所有xcarchive文件
-        for root, dirs, files in os.walk(archives_path):
-            for dir_name in dirs:
-                if dir_name.endswith('.xcarchive'):
-                    archive_path = os.path.join(root, dir_name)
-                    self.archive_files.append({
-                        'path': archive_path,
-                        'name': dir_name,
-                        'type': 'xcarchive'
-                    })
-                    self.file_listbox.insert(tk.END, f"📦 {dir_name}")
+        for archive in archives:
+            self.file_listbox.insert(tk.END, f"📦 {archive['name']}")
 
     def load_file(self):
         """手动加载dSYM或xcarchive文件"""
-        # 使用tkinter的标准文件对话框，但提示用户选择包目录
         import platform
 
         if platform.system() == 'Darwin':
-            # macOS: 使用原生对话框选择包文件
-            try:
-                import subprocess
-                # 使用AppleScript选择dSYM或xcarchive文件
-                script = '''
-                tell application "System Events"
-                    activate
-                    set theFile to choose file with prompt "选择dSYM或xcarchive文件" ¬
-                        of type {"dSYM", "xcarchive", "app.dSYM", "public.folder"} ¬
-                        default location (path to home folder)
-                    return POSIX path of theFile
-                end tell
-                '''
+            # macOS: 尝试使用原生对话框
+            file_path = self.file_manager.select_file_with_applescript()
 
-                result = subprocess.run(
-                    ['osascript', '-e', script],
-                    capture_output=True,
-                    text=True
-                )
-
-                if result.returncode == 0 and result.stdout.strip():
-                    file_path = result.stdout.strip()
-
-                    # 检查文件类型并添加
-                    if '.dSYM' in file_path:
-                        self._add_dsym_file(file_path)
-                    elif '.xcarchive' in file_path:
-                        self._add_xcarchive_file(file_path)
-                    else:
-                        # 如果选择的是普通文件夹，检查是否包含dSYM
-                        if os.path.isdir(file_path):
-                            # 检查是否是dSYM目录
-                            if file_path.endswith('.dSYM'):
-                                self._add_dsym_file(file_path)
-                            # 检查目录内是否有dSYM文件
-                            elif os.path.exists(os.path.join(file_path, 'Contents', 'Info.plist')):
-                                self._add_dsym_file(file_path)
-                            else:
-                                messagebox.showinfo("提示", "请选择.dSYM或.xcarchive文件")
-                        else:
-                            messagebox.showinfo("提示", "请选择.dSYM或.xcarchive文件")
-
-            except Exception as e:
-                # 如果AppleScript失败，回退到标准方法
+            if file_path:
+                self._add_file(file_path)
+            else:
+                # AppleScript失败，使用备用方法
                 self._fallback_file_selection()
         else:
             # 非macOS平台使用标准方法
             self._fallback_file_selection()
 
+    def _add_file(self, file_path):
+        """添加文件到列表"""
+        file_type = self.file_manager.get_file_type(file_path)
+
+        if file_type == 'dsym':
+            file_info = self.file_manager.add_dsym_file(file_path)
+            if file_info:
+                self.file_listbox.insert(tk.END, f"🔍 {file_info['name']}")
+                self.file_listbox.selection_clear(0, tk.END)
+                self.file_listbox.selection_set(tk.END)
+                self.on_file_select(None)
+
+        elif file_type == 'xcarchive':
+            file_info = self.file_manager.add_xcarchive_file(file_path)
+            if file_info:
+                self.file_listbox.insert(tk.END, f"📦 {file_info['name']}")
+                self.file_listbox.selection_clear(0, tk.END)
+                self.file_listbox.selection_set(tk.END)
+                self.on_file_select(None)
+        else:
+            messagebox.showinfo("提示", "请选择.dSYM或.xcarchive文件")
+
     def _fallback_file_selection(self):
         """备用文件选择方法"""
-        # 提示用户
         result = messagebox.askyesnocancel(
             "选择文件类型",
             "您要选择dSYM文件吗？\n\n" +
@@ -219,55 +198,17 @@ class DSYMTab:
         elif result:  # 用户选择dSYM
             file_path = filedialog.askdirectory(
                 title="选择dSYM文件（是一个以.dSYM结尾的文件夹）",
-                initialdir=os.path.expanduser("~/")
+                initialdir="~/"
             )
             if file_path:
-                if '.dSYM' in file_path or self._is_dsym_directory(file_path):
-                    self._add_dsym_file(file_path)
-                else:
-                    messagebox.showwarning("提示", "请选择有效的.dSYM文件")
+                self._add_file(file_path)
         else:  # 用户选择xcarchive
             file_path = filedialog.askdirectory(
                 title="选择xcarchive文件（是一个以.xcarchive结尾的文件夹）",
-                initialdir=os.path.expanduser("~/Library/Developer/Xcode/Archives/")
+                initialdir="~/Library/Developer/Xcode/Archives/"
             )
             if file_path:
-                if file_path.endswith('.xcarchive'):
-                    self._add_xcarchive_file(file_path)
-                else:
-                    messagebox.showwarning("提示", "请选择有效的.xcarchive文件")
-
-    def _is_dsym_directory(self, path):
-        """检查目录是否是有效的dSYM目录"""
-        # 检查是否包含dSYM的标准结构
-        return os.path.exists(os.path.join(path, 'Contents', 'Info.plist')) or \
-               os.path.exists(os.path.join(path, 'Contents', 'Resources', 'DWARF'))
-
-    def _add_dsym_file(self, file_path):
-        """添加dSYM文件到列表"""
-        file_name = os.path.basename(file_path)
-        self.archive_files.append({
-            'path': file_path,
-            'name': file_name,
-            'type': 'dsym'
-        })
-        self.file_listbox.insert(tk.END, f"🔍 {file_name}")
-        self.file_listbox.selection_clear(0, tk.END)
-        self.file_listbox.selection_set(tk.END)
-        self.on_file_select(None)
-
-    def _add_xcarchive_file(self, file_path):
-        """添加xcarchive文件到列表"""
-        file_name = os.path.basename(file_path)
-        self.archive_files.append({
-            'path': file_path,
-            'name': file_name,
-            'type': 'xcarchive'
-        })
-        self.file_listbox.insert(tk.END, f"📦 {file_name}")
-        self.file_listbox.selection_clear(0, tk.END)
-        self.file_listbox.selection_set(tk.END)
-        self.on_file_select(None)
+                self._add_file(file_path)
 
     def on_file_select(self, event):
         """文件选择事件"""
@@ -276,7 +217,7 @@ class DSYMTab:
             return
 
         index = selection[0]
-        self.selected_archive = self.archive_files[index]
+        self.selected_archive = self.file_manager.get_file_by_index(index)
 
         # 清除之前的UUID选择
         for widget in self.uuid_buttons_frame.winfo_children():
@@ -297,76 +238,43 @@ class DSYMTab:
 
         # 如果是xcarchive，需要找到其中的dSYM
         if self.selected_archive['type'] == 'xcarchive':
-            dsym_dir = os.path.join(dsym_path, 'dSYMs')
-            if os.path.exists(dsym_dir):
-                for item in os.listdir(dsym_dir):
-                    if item.endswith('.dSYM'):
-                        dsym_path = os.path.join(dsym_dir, item)
-                        break
-
-        # 使用dwarfdump获取UUID
-        try:
-            result = subprocess.run(
-                ['dwarfdump', '--uuid', dsym_path],
-                capture_output=True,
-                text=True
-            )
-
-            if result.returncode == 0:
-                self.parse_uuid_output(result.stdout, dsym_path)
-            else:
+            dsym_path = self.file_manager.get_dsym_path_from_xcarchive(dsym_path)
+            if not dsym_path:
                 self.result_text.delete('1.0', tk.END)
-                self.result_text.insert('1.0', f"获取UUID失败:\n{result.stderr}")
+                self.result_text.insert('1.0', "错误: 未找到dSYM文件")
+                return
 
-        except Exception as e:
+        # 使用UUID解析器获取UUID
+        self.uuid_infos = self.uuid_parser.get_uuid_info(dsym_path)
+
+        if not self.uuid_infos:
             self.result_text.delete('1.0', tk.END)
-            self.result_text.insert('1.0', f"执行dwarfdump失败:\n{str(e)}")
-
-    def parse_uuid_output(self, output, dsym_path):
-        """解析UUID输出"""
-        lines = output.strip().split('\n')
-        uuids = []
-
-        # 解析UUID信息
-        # 格式: UUID: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX (armv7) path/to/file
-        pattern = r'UUID: ([\w-]+) \((\w+)\) (.+)'
-
-        for line in lines:
-            match = re.search(pattern, line)
-            if match:
-                uuid = match.group(1)
-                arch = match.group(2)
-                path = match.group(3)
-
-                uuids.append({
-                    'uuid': uuid,
-                    'arch': arch,
-                    'path': path
-                })
+            self.result_text.insert('1.0', "获取UUID失败")
+            return
 
         # 创建架构选择按钮
-        for i, uuid_info in enumerate(uuids):
+        for i, uuid_info in enumerate(self.uuid_infos):
             radio = ttk.Radiobutton(
                 self.uuid_buttons_frame,
                 text=uuid_info['arch'],
                 variable=self.uuid_var,
                 value=i,
-                command=lambda idx=i: self.select_uuid(uuids[idx])
+                command=lambda idx=i: self.select_uuid(self.uuid_infos[idx])
             )
             radio.pack(side=tk.LEFT, padx=5)
 
-        if uuids:
+        if self.uuid_infos:
             # 默认选择第一个
             self.uuid_var.set(0)
-            self.select_uuid(uuids[0])
+            self.select_uuid(self.uuid_infos[0])
 
     def select_uuid(self, uuid_info):
         """选择UUID"""
         self.selected_uuid = uuid_info
         self.uuid_label.config(text=uuid_info['uuid'])
 
-        # 获取默认基址（这里使用默认值，实际可能需要从二进制文件获取）
-        default_slide = "0x104000000"  # iOS默认值
+        # 获取默认基址
+        default_slide = self.uuid_parser.get_default_slide_address(uuid_info['arch'])
         self.slide_address_label.config(text=default_slide)
         self.slide_address_entry.delete(0, tk.END)
         self.slide_address_entry.insert(0, default_slide)
@@ -392,6 +300,15 @@ class DSYMTab:
             messagebox.showwarning("提示", "请输入错误内存地址")
             return
 
+        # 验证地址格式
+        if not self.symbolizer.validate_address(slide_address):
+            messagebox.showwarning("提示", "基址格式无效，应为0x开头的十六进制")
+            return
+
+        if not self.symbolizer.validate_address(error_address):
+            messagebox.showwarning("提示", "错误地址格式无效，应为0x开头的十六进制")
+            return
+
         # 清除之前的结果
         self.result_text.delete('1.0', tk.END)
         self.result_text.insert('1.0', "正在分析...\n")
@@ -402,34 +319,28 @@ class DSYMTab:
     def _do_analyze(self, slide_address, error_address):
         """执行符号化分析"""
         try:
-            # 构建atos命令
-            cmd = [
-                'xcrun', 'atos',
-                '-arch', self.selected_uuid['arch'],
-                '-o', self.selected_uuid['path'],
-                '-l', slide_address,
-                error_address
-            ]
+            # 使用符号化器进行分析
+            result = self.symbolizer.symbolicate_address(
+                dsym_path=self.selected_uuid['path'],
+                arch=self.selected_uuid['arch'],
+                slide_address=slide_address,
+                error_address=error_address
+            )
 
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            # 格式化结果
+            if result['success']:
+                formatted_result = self.symbolizer.format_symbolication_result(
+                    arch=self.selected_uuid['arch'],
+                    uuid=self.selected_uuid['uuid'],
+                    slide_address=slide_address,
+                    error_address=error_address,
+                    output=result['output'],
+                    command=result['command']
+                )
+            else:
+                formatted_result = f"分析失败:\n{result.get('error', '未知错误')}\n\n命令: {result['command']}"
 
-            # 更新结果
-            output = result.stdout if result.stdout else result.stderr
-
-            self.parent.after(0, self._update_result, f"""
-分析结果:
-=====================================
-架构: {self.selected_uuid['arch']}
-UUID: {self.selected_uuid['uuid']}
-基址: {slide_address}
-错误地址: {error_address}
-=====================================
-
-符号化结果:
-{output}
-
-命令: {' '.join(cmd)}
-""")
+            self.parent.after(0, self._update_result, formatted_result)
 
         except Exception as e:
             self.parent.after(0, self._update_result, f"分析失败:\n{str(e)}")
@@ -450,60 +361,31 @@ UUID: {self.selected_uuid['uuid']}
             return
 
         # 选择保存位置
-        save_path = filedialog.asksaveasfilename(
-            title="保存IPA文件",
-            defaultextension=".ipa",
-            filetypes=[("IPA files", "*.ipa"), ("All files", "*.*")]
-        )
+        save_dir = filedialog.askdirectory(title="选择IPA导出目录")
 
-        if not save_path:
+        if not save_dir:
             return
 
         # 执行导出
         self.result_text.delete('1.0', tk.END)
         self.result_text.insert('1.0', "正在导出IPA...\n")
 
-        threading.Thread(target=self._export_ipa, args=(save_path,), daemon=True).start()
+        threading.Thread(target=self._export_ipa, args=(save_dir,), daemon=True).start()
 
-    def _export_ipa(self, save_path):
+    def _export_ipa(self, save_dir):
         """执行IPA导出"""
         try:
-            # 使用xcodebuild导出
-            cmd = [
-                '/usr/bin/xcodebuild',
-                '-exportArchive',
-                '-archivePath', self.selected_archive['path'],
-                '-exportPath', os.path.dirname(save_path),
-                '-exportOptionsPlist', self._create_export_options()
-            ]
+            result = self.symbolizer.export_ipa(
+                xcarchive_path=self.selected_archive['path'],
+                output_dir=save_dir
+            )
 
-            result = subprocess.run(cmd, capture_output=True, text=True)
-
-            if result.returncode == 0:
-                self.parent.after(0, self._update_result, f"IPA导出成功:\n{save_path}")
+            if result['success']:
+                message = f"IPA导出成功:\n{result['output_path']}"
             else:
-                self.parent.after(0, self._update_result, f"IPA导出失败:\n{result.stderr}")
+                message = f"IPA导出失败:\n{result['error']}"
+
+            self.parent.after(0, self._update_result, message)
 
         except Exception as e:
             self.parent.after(0, self._update_result, f"导出失败:\n{str(e)}")
-
-    def _create_export_options(self):
-        """创建导出选项plist"""
-        # 创建临时的导出选项文件
-        import tempfile
-        import plistlib
-
-        options = {
-            'method': 'development',  # 或 'app-store', 'ad-hoc', 'enterprise'
-            'teamID': '',  # 可选
-            'compileBitcode': False,
-            'uploadBitcode': False,
-            'uploadSymbols': False
-        }
-
-        fd, path = tempfile.mkstemp(suffix='.plist')
-        with open(path, 'wb') as f:
-            plistlib.dump(options, f)
-        os.close(fd)
-
-        return path
