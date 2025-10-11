@@ -10,7 +10,8 @@
       "Bash(pip install:*)",
       "Bash(grep:*)",
       "Bash(find:*)",
-      "Bash(./scripts/build_app.sh:*)"
+      "Bash(./scripts/build_app.sh:*)",
+      "Bash(touch:*)"
     ],
     "deny": [],
     "ask": []
