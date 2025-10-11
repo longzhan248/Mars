@@ -6,6 +6,9 @@ iOS应用管理模块
 """
 
 from tkinter import messagebox
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 
 
 class AppManager:
@@ -20,12 +23,57 @@ class AppManager:
         self.parent = parent_tab
         self.app_map = {}  # 应用显示名到应用信息的映射
 
+    def _check_app_accessibility(self, device_id, bundle_id, app_info, timeout=2):
+        """检测单个应用的访问权限（带超时）
+
+        Args:
+            device_id: 设备ID
+            bundle_id: 应用Bundle ID
+            app_info: 应用信息
+            timeout: 超时时间（秒）
+
+        Returns:
+            dict or None: 可访问返回应用信息，否则返回None
+        """
+        try:
+            from pymobiledevice3.lockdown import create_using_usbmux
+            from pymobiledevice3.services.house_arrest import HouseArrestService
+
+            # 使用超时机制
+            result = [None]
+
+            def check():
+                try:
+                    lockdown = create_using_usbmux(serial=device_id)
+                    HouseArrestService(lockdown=lockdown, bundle_id=bundle_id)
+                    result[0] = True
+                except Exception:
+                    result[0] = False
+
+            thread = threading.Thread(target=check, daemon=True)
+            thread.start()
+            thread.join(timeout=timeout)
+
+            if result[0]:
+                app_name = app_info.get('CFBundleDisplayName', bundle_id)
+                display_name = f"{app_name} ({bundle_id})"
+                return {
+                    'display_name': display_name,
+                    'bundle_id': bundle_id,
+                    'name': app_name,
+                    'info': app_info
+                }
+            else:
+                return None
+
+        except Exception:
+            return None
+
     def load_apps_async(self):
-        """异步加载应用列表，并预先过滤无法访问的应用"""
+        """异步加载应用列表，并使用多线程并发检测访问权限"""
         try:
             from pymobiledevice3.lockdown import create_using_usbmux
             from pymobiledevice3.services.installation_proxy import InstallationProxyService
-            from pymobiledevice3.services.house_arrest import HouseArrestService
 
             device_id = self.parent.device_id
             if not device_id:
@@ -41,48 +89,65 @@ class AppManager:
             self.parent.parent.after(0, lambda: self.parent.update_status(
                 f"正在检测 {total_apps} 个应用的访问权限..."))
 
+            # 使用线程锁保护共享数据
+            lock = threading.Lock()
             app_list = []
             self.app_map = {}
-            checked_count = 0
-            accessible_count = 0
+            checked_count = [0]  # 使用列表以便在闭包中修改
+            accessible_count = [0]
 
-            for bundle_id, app_info in apps.items():
-                checked_count += 1
-                app_name = app_info.get('CFBundleDisplayName', bundle_id)
+            # 并发检测（最多同时检测5个应用）
+            max_workers = 5
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # 提交所有检测任务
+                future_to_bundle = {
+                    executor.submit(self._check_app_accessibility, device_id, bundle_id, app_info): bundle_id
+                    for bundle_id, app_info in apps.items()
+                }
 
-                # 更新检测进度
-                self.parent.parent.after(0, lambda count=checked_count, total=total_apps:
-                                         self.parent.update_status(
-                                             f"正在检测应用访问权限... ({count}/{total})"))
+                # 边检测边更新UI
+                for future in as_completed(future_to_bundle):
+                    with lock:
+                        checked_count[0] += 1
+                        current_checked = checked_count[0]
 
-                # 尝试连接应用沙盒以检测是否可访问
-                try:
-                    lockdown_temp = create_using_usbmux(serial=device_id)
-                    house_arrest_test = HouseArrestService(lockdown=lockdown_temp, bundle_id=bundle_id)
-                    # 如果成功创建 HouseArrestService，说明可以访问
-                    accessible_count += 1
+                    # 获取检测结果
+                    result = future.result()
+                    if result:
+                        with lock:
+                            accessible_count[0] += 1
+                            current_accessible = accessible_count[0]
 
-                    display_name = f"{app_name} ({bundle_id})"
-                    app_list.append(display_name)
-                    self.app_map[display_name] = {
-                        'bundle_id': bundle_id,
-                        'name': app_name,
-                        'info': app_info
-                    }
-                except Exception:
-                    # 无法访问的应用，跳过不添加到列表
-                    pass
+                            # 添加到应用列表
+                            app_list.append(result['display_name'])
+                            self.app_map[result['display_name']] = {
+                                'bundle_id': result['bundle_id'],
+                                'name': result['name'],
+                                'info': result['info']
+                            }
 
+                        # 实时更新进度（显示已找到的可访问应用数）
+                        self.parent.parent.after(0, lambda count=current_checked, total=total_apps, acc=current_accessible:
+                                                 self.parent.update_status(
+                                                     f"正在检测... ({count}/{total}) 已找到 {acc} 个可访问应用"))
+                    else:
+                        # 无法访问的应用，仍更新进度
+                        self.parent.parent.after(0, lambda count=current_checked, total=total_apps, acc=accessible_count[0]:
+                                                 self.parent.update_status(
+                                                     f"正在检测... ({count}/{total}) 已找到 {acc} 个可访问应用"))
+
+            # 排序应用列表
             app_list.sort()
 
-            # 更新状态：显示过滤结果
-            filtered_count = total_apps - accessible_count
+            # 更新状态：显示最终结果
+            final_accessible = accessible_count[0]
+            filtered_count = total_apps - final_accessible
             if filtered_count > 0:
-                self.parent.parent.after(0, lambda acc=accessible_count, flt=filtered_count:
+                self.parent.parent.after(0, lambda acc=final_accessible, flt=filtered_count:
                                          self.parent.update_status(
                                              f"已加载 {acc} 个可访问应用（已过滤 {flt} 个无法访问的应用）"))
             else:
-                self.parent.parent.after(0, lambda acc=accessible_count:
+                self.parent.parent.after(0, lambda acc=final_accessible:
                                          self.parent.update_status(f"已加载 {acc} 个应用"))
 
             self.parent.parent.after(0, self._update_app_combo, app_list)
