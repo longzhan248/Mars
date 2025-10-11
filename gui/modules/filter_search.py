@@ -10,10 +10,49 @@ from datetime import datetime
 
 
 class FilterSearchManager:
-    """过滤和搜索管理器"""
+    """过滤和搜索管理器
+
+    性能优化：
+    - 正则表达式预编译和缓存
+    - 减少重复编译开销
+    """
 
     def __init__(self):
-        pass
+        # 正则表达式缓存 {(pattern, flags): compiled_pattern}
+        self._pattern_cache = {}
+        self._cache_max_size = 100  # 最多缓存100个正则表达式
+
+    def _get_compiled_pattern(self, pattern, flags=0):
+        """获取编译后的正则表达式（带缓存）
+
+        Args:
+            pattern: 正则表达式字符串
+            flags: 正则标志（如re.IGNORECASE）
+
+        Returns:
+            编译后的正则表达式对象
+        """
+        cache_key = (pattern, flags)
+
+        # 尝试从缓存获取
+        if cache_key in self._pattern_cache:
+            return self._pattern_cache[cache_key]
+
+        # 缓存未命中，编译并缓存
+        try:
+            compiled = re.compile(pattern, flags)
+
+            # 如果缓存已满，移除最旧的项（FIFO）
+            if len(self._pattern_cache) >= self._cache_max_size:
+                # 移除第一个添加的项
+                first_key = next(iter(self._pattern_cache))
+                del self._pattern_cache[first_key]
+
+            self._pattern_cache[cache_key] = compiled
+            return compiled
+        except re.error:
+            # 正则表达式无效，返回None
+            return None
 
     @staticmethod
     def parse_time_string(time_str):
@@ -117,10 +156,9 @@ class FilterSearchManager:
 
         return True
 
-    @staticmethod
-    def filter_entries(entries, level=None, module=None, keyword=None,
+    def filter_entries(self, entries, level=None, module=None, keyword=None,
                        start_time=None, end_time=None, search_mode='普通'):
-        """过滤日志条目
+        """过滤日志条目（优化版：使用正则缓存）
 
         Args:
             entries: 日志条目列表
@@ -136,18 +174,29 @@ class FilterSearchManager:
         """
         filtered = []
 
+        # 预编译正则表达式（如果是正则模式）
+        pattern = None
+        keyword_lower = None
+
+        if keyword:
+            if search_mode == "正则":
+                pattern = self._get_compiled_pattern(keyword, re.IGNORECASE)
+                if pattern is None:
+                    # 正则表达式无效，返回空结果
+                    return filtered
+            else:
+                # 预处理关键词（普通模式）
+                keyword_lower = keyword.lower()
+
         for entry in entries:
-            # 关键词过滤
+            # 关键词过滤（优化：预编译的正则）
             if keyword:
                 if search_mode == "正则":
-                    try:
-                        pattern = re.compile(keyword, re.IGNORECASE)
-                        if not pattern.search(entry.raw_line):
-                            continue
-                    except re.error:
+                    if not pattern.search(entry.raw_line):
                         continue
                 else:
-                    if keyword.lower() not in entry.raw_line.lower():
+                    # 普通模式：预处理的小写关键词
+                    if keyword_lower and keyword_lower not in entry.raw_line.lower():
                         continue
 
             # 级别过滤

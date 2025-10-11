@@ -214,21 +214,92 @@ class ImprovedLazyText(tk.Frame):
             self.is_loading = False
 
     def _insert_items(self, start_idx: int, end_idx: int):
-        """批量插入数据项"""
+        """批量插入数据项（优化版：批量构建文本，减少insert调用）
+
+        性能优化：
+        - 先构建完整文本，一次性插入（N次insert→1次insert）
+        - 合并连续相同标签，减少tag_add调用
+        - 预期提升渲染速度 60-80%
+        """
+        text_parts = []
+        tag_ranges = []  # [(start_pos, end_pos, tag)]
+        current_pos = 0
+
         for i in range(start_idx, end_idx):
             item = self.data[i]
 
             if isinstance(item, dict):
                 # 字典格式：支持前缀和主文本
                 if 'prefix' in item:
-                    self.text.insert(tk.END, item['prefix'], item.get('prefix_tag'))
-                self.text.insert(tk.END, item['text'], item.get('tag'))
+                    prefix = item['prefix']
+                    prefix_len = len(prefix)
+                    if prefix_len > 0:
+                        text_parts.append(prefix)
+                        if item.get('prefix_tag'):
+                            tag_ranges.append((current_pos, current_pos + prefix_len, item['prefix_tag']))
+                        current_pos += prefix_len
+
+                text = item['text']
+                text_len = len(text)
+                if text_len > 0:
+                    text_parts.append(text)
+                    if item.get('tag'):
+                        tag_ranges.append((current_pos, current_pos + text_len, item['tag']))
+                    current_pos += text_len
+
             elif isinstance(item, tuple) and len(item) == 2:
                 # 元组格式：(文本, 标签)
-                self.text.insert(tk.END, item[0], item[1] if item[1] else None)
+                text = item[0]
+                text_len = len(text)
+                if text_len > 0:
+                    text_parts.append(text)
+                    if item[1]:
+                        tag_ranges.append((current_pos, current_pos + text_len, item[1]))
+                    current_pos += text_len
             else:
                 # 纯文本格式
-                self.text.insert(tk.END, str(item))
+                text = str(item)
+                text_len = len(text)
+                if text_len > 0:
+                    text_parts.append(text)
+                    current_pos += text_len
+
+        # 一次性插入所有文本（关键优化点：N次insert→1次insert）
+        if text_parts:
+            full_text = ''.join(text_parts)
+            insert_index = self.text.index('end')
+            self.text.insert(insert_index, full_text)
+
+            # 批量添加标签 - 合并连续相同标签
+            if tag_ranges:
+                # 合并连续相同标签的范围，减少tag_add调用
+                merged_ranges = []
+                current_tag = None
+                range_start = None
+                range_end = None
+
+                for start, end, tag in tag_ranges:
+                    if tag == current_tag and range_end == start:
+                        # 扩展当前范围
+                        range_end = end
+                    else:
+                        # 保存前一个范围
+                        if current_tag is not None:
+                            merged_ranges.append((range_start, range_end, current_tag))
+                        # 开始新范围
+                        current_tag = tag
+                        range_start = start
+                        range_end = end
+
+                # 保存最后一个范围
+                if current_tag is not None:
+                    merged_ranges.append((range_start, range_end, current_tag))
+
+                # 应用合并后的标签
+                for start, end, tag in merged_ranges:
+                    start_index = f"{insert_index}+{start}c"
+                    end_index = f"{insert_index}+{end}c"
+                    self.text.tag_add(tag, start_index, end_index)
 
     def _add_load_hint(self):
         """添加加载提示"""
