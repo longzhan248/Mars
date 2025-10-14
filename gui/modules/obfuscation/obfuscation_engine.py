@@ -27,6 +27,10 @@ try:
     from .resource_handler import ResourceHandler
     from .incremental_manager import IncrementalManager, FileChangeType
     from .advanced_resource_handler import AdvancedResourceHandler
+    from .garbage_generator import GarbageCodeGenerator, ComplexityLevel
+    from .garbage_generator import CodeLanguage as GarbageCodeLanguage  # 垃圾代码的CodeLanguage
+    from .string_encryptor import StringEncryptor, EncryptionAlgorithm
+    from .string_encryptor import CodeLanguage as StringCodeLanguage  # 字符串加密的CodeLanguage
 except ImportError:
     from config_manager import ObfuscationConfig, ConfigManager
     from whitelist_manager import WhitelistManager
@@ -37,6 +41,10 @@ except ImportError:
     from resource_handler import ResourceHandler
     from incremental_manager import IncrementalManager, FileChangeType
     from advanced_resource_handler import AdvancedResourceHandler
+    from garbage_generator import GarbageCodeGenerator, ComplexityLevel
+    from garbage_generator import CodeLanguage as GarbageCodeLanguage  # 垃圾代码的CodeLanguage
+    from string_encryptor import StringEncryptor, EncryptionAlgorithm
+    from string_encryptor import CodeLanguage as StringCodeLanguage  # 字符串加密的CodeLanguage
 
 
 @dataclass
@@ -79,12 +87,19 @@ class ObfuscationEngine:
         self.resource_handler: Optional[ResourceHandler] = None
         self.advanced_resource_handler: Optional[AdvancedResourceHandler] = None
         self.incremental_manager: Optional[IncrementalManager] = None
+        self.garbage_generator: Optional[GarbageCodeGenerator] = None
+        self.string_encryptor: Optional[StringEncryptor] = None
 
         # 处理结果
         self.project_structure: Optional[ProjectStructure] = None
         self.parsed_files: Dict[str, ParsedFile] = {}
         self.transform_results: Dict[str, TransformResult] = {}
         self.file_changes: Dict[FileChangeType, List[str]] = {}
+
+        # P2深度集成 - 存储需要特殊处理的文件
+        self.files_with_encryption: Dict[str, List[str]] = {'objc': [], 'swift': []}  # 需要添加解密代码的文件
+        self.garbage_files: Dict[str, List[str]] = {'objc': [], 'swift': []}  # 生成的垃圾文件
+        self.total_encrypted_strings: int = 0  # 总加密字符串数
 
     def obfuscate(self, project_path: str, output_dir: str,
                   progress_callback: Optional[Callable[[float, str], None]] = None) -> ObfuscationResult:
@@ -130,24 +145,38 @@ class ObfuscationEngine:
                 result.errors.append("源代码解析失败")
                 return result
 
-            # 步骤5: 转换代码 (50-70%)
+            # 步骤5: 转换代码 (50-60%)
             self._report_progress(progress_callback, 0.5, "转换代码...")
             if not self._transform_code(progress_callback):
                 result.errors.append("代码转换失败")
                 return result
 
-            # 步骤6: 处理资源文件 (70-85%)
+            # 步骤6: 字符串加密 (60-65%)
+            if self.config.string_encryption:
+                self._report_progress(progress_callback, 0.6, "加密字符串...")
+                self._encrypt_strings(progress_callback)
+
+            # 步骤7: 插入垃圾代码 (65-70%)
+            if self.config.insert_garbage_code:
+                self._report_progress(progress_callback, 0.65, "插入垃圾代码...")
+                self._insert_garbage_code(output_dir, progress_callback)
+
+            # 步骤8: 处理资源文件 (70-75%)
             self._report_progress(progress_callback, 0.7, "处理资源文件...")
             self._process_resources(progress_callback)
 
-            # 步骤7: 保存结果 (85-95%)
-            self._report_progress(progress_callback, 0.85, "保存混淆结果...")
+            # 步骤9: P2深度集成后处理 (75-80%)
+            self._report_progress(progress_callback, 0.75, "P2后处理...")
+            self._p2_post_processing(output_dir, progress_callback)
+
+            # 步骤10: 保存结果 (80-90%)
+            self._report_progress(progress_callback, 0.8, "保存混淆结果...")
             if not self._save_results(output_dir, result):
                 result.errors.append("保存结果失败")
                 return result
 
-            # 步骤8: 导出映射文件 (95-100%)
-            self._report_progress(progress_callback, 0.95, "导出映射文件...")
+            # 步骤11: 导出映射文件 (90-100%)
+            self._report_progress(progress_callback, 0.9, "导出映射文件...")
             mapping_file = self._export_mapping(output_dir)
             result.mapping_file = mapping_file
 
@@ -299,8 +328,8 @@ class ObfuscationEngine:
             )
 
             def transformer_callback(progress, file_path):
-                # 转换阶段占总进度的20% (50%-70%)
-                total_progress = 0.5 + progress * 0.2
+                # 转换阶段占总进度的10% (50%-60%)
+                total_progress = 0.5 + progress * 0.1
                 if progress_callback:
                     progress_callback(total_progress, f"转换: {Path(file_path).name}")
 
@@ -314,6 +343,205 @@ class ObfuscationEngine:
         except Exception as e:
             print(f"代码转换失败: {e}")
             return False
+
+    def _encrypt_strings(self, progress_callback: Optional[Callable] = None):
+        """加密字符串（P2功能 - 深度集成）"""
+        try:
+            print("\n🔐 开始字符串加密...")
+
+            # 确定加密算法
+            algorithm_map = {
+                'base64': EncryptionAlgorithm.BASE64,
+                'xor': EncryptionAlgorithm.XOR,
+                'shift': EncryptionAlgorithm.SIMPLE_SHIFT,
+                'rot13': EncryptionAlgorithm.ROT13,
+            }
+
+            algorithm = algorithm_map.get(
+                getattr(self.config, 'encryption_algorithm', 'xor'),
+                EncryptionAlgorithm.XOR
+            )
+
+            # 获取加密配置参数
+            encryption_key = getattr(self.config, 'encryption_key', 'DefaultKey')
+            encryption_min_length = getattr(self.config, 'string_min_length', 4)
+            encryption_whitelist = set(getattr(self.config, 'string_whitelist_patterns', []))
+
+            # 保存加密配置供后续P2后处理使用
+            self.encryption_algorithm = algorithm
+            self.encryption_key = encryption_key
+            self.encryption_min_length = encryption_min_length
+
+            # 对每个已转换的文件进行字符串加密
+            total_files = len(self.transform_results)
+            processed_files = 0
+            total_encrypted = 0
+            objc_files_with_encryption = []
+            swift_files_with_encryption = []
+
+            for file_path, transform_result in self.transform_results.items():
+                try:
+                    # 获取文件语言
+                    is_swift = file_path.endswith('.swift')
+                    language = StringCodeLanguage.SWIFT if is_swift else StringCodeLanguage.OBJC
+
+                    # 为每种语言创建对应的StringEncryptor
+                    file_encryptor = StringEncryptor(
+                        algorithm=algorithm,
+                        language=language,
+                        key=encryption_key,
+                        min_length=encryption_min_length,
+                        whitelist=encryption_whitelist
+                    )
+
+                    # 对转换后的内容进行字符串加密
+                    encrypted_content, encrypted_strings = file_encryptor.process_file(
+                        file_path,
+                        transform_result.transformed_content
+                    )
+
+                    # 保存第一个encryptor供统计使用
+                    if not hasattr(self, 'string_encryptor') or self.string_encryptor is None:
+                        self.string_encryptor = file_encryptor
+
+                    # 如果有字符串被加密，记录文件并更新内容
+                    if encrypted_strings:
+                        # 更新转换结果（不在这里插入解密代码，稍后统一处理）
+                        transform_result.transformed_content = encrypted_content
+                        total_encrypted += len(encrypted_strings)
+                        self.total_encrypted_strings += len(encrypted_strings)  # 累积总数
+
+                        if is_swift:
+                            swift_files_with_encryption.append(file_path)
+                        else:
+                            objc_files_with_encryption.append(file_path)
+
+                        print(f"  ✅ {Path(file_path).name}: 加密 {len(encrypted_strings)} 个字符串")
+
+                    processed_files += 1
+
+                    # 更新进度
+                    if progress_callback and total_files > 0:
+                        progress = processed_files / total_files
+                        total_progress = 0.6 + progress * 0.05
+                        progress_callback(total_progress, f"加密字符串: {Path(file_path).name}")
+
+                except Exception as e:
+                    print(f"  ⚠️  字符串加密失败 {Path(file_path).name}: {e}")
+
+            # 存储需要添加解密代码的文件列表
+            self.files_with_encryption = {
+                'objc': objc_files_with_encryption,
+                'swift': swift_files_with_encryption
+            }
+
+            # 输出统计
+            if self.string_encryptor:
+                stats = self.string_encryptor.get_statistics()
+                print(f"\n📊 字符串加密总结:")
+                print(f"  处理文件: {processed_files}/{total_files}")
+                print(f"  加密字符串: {total_encrypted} 个")
+                print(f"  ObjC文件: {len(objc_files_with_encryption)} 个")
+                print(f"  Swift文件: {len(swift_files_with_encryption)} 个")
+                print(f"  检测字符串: {stats.get('total_strings_detected', 0)} 个")
+                print(f"  跳过字符串: {stats.get('strings_skipped', 0)} 个")
+                print(f"  过滤比例: {stats.get('strings_skipped', 0) / max(stats.get('total_strings_detected', 1), 1) * 100:.1f}%")
+
+        except Exception as e:
+            print(f"❌ 字符串加密异常: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _insert_garbage_code(self, output_dir: str, progress_callback: Optional[Callable] = None):
+        """插入垃圾代码（P2功能 - 深度集成）"""
+        try:
+            print("\n🗑️  开始生成垃圾代码...")
+
+            # 确定复杂度级别
+            complexity_map = {
+                'simple': ComplexityLevel.SIMPLE,
+                'moderate': ComplexityLevel.MODERATE,
+                'complex': ComplexityLevel.COMPLEX,
+            }
+
+            complexity = complexity_map.get(
+                getattr(self.config, 'garbage_complexity', 'moderate'),
+                ComplexityLevel.MODERATE
+            )
+
+            # 确定生成数量
+            garbage_count = getattr(self.config, 'garbage_count', 20)
+
+            # 分别为ObjC和Swift生成垃圾代码
+            objc_files = [f for f in self.transform_results.keys() if f.endswith(('.m', '.mm'))]
+            swift_files = [f for f in self.transform_results.keys() if f.endswith('.swift')]
+
+            # 存储生成的垃圾文件信息（完整路径）
+            self.garbage_files = {
+                'objc': [],
+                'swift': []
+            }
+
+            # 生成Objective-C垃圾代码
+            if objc_files and garbage_count > 0:
+                print(f"  生成 Objective-C 垃圾代码...")
+                self.garbage_generator = GarbageCodeGenerator(
+                    language=GarbageCodeLanguage.OBJC,
+                    complexity=complexity,
+                    name_prefix=getattr(self.config, 'garbage_prefix', 'GC'),
+                    seed=self.config.fixed_seed if self.config.use_fixed_seed else None
+                )
+
+                # 生成垃圾类
+                garbage_classes = self.garbage_generator.generate_classes(count=garbage_count)
+
+                # 导出到文件
+                output_path = Path(output_dir)
+                output_path.mkdir(parents=True, exist_ok=True)
+
+                files_dict = self.garbage_generator.export_to_files(str(output_path))
+                # 存储完整的文件路径（files_dict的values是完整路径）
+                self.garbage_files['objc'] = list(files_dict.values())
+
+                print(f"  ✅ 生成了 {len(garbage_classes)} 个 Objective-C 垃圾类")
+                print(f"  ✅ 导出了 {len(files_dict)} 个文件")
+
+            # 生成Swift垃圾代码
+            if swift_files and garbage_count > 0:
+                print(f"  生成 Swift 垃圾代码...")
+                swift_generator = GarbageCodeGenerator(
+                    language=GarbageCodeLanguage.SWIFT,
+                    complexity=complexity,
+                    name_prefix=getattr(self.config, 'garbage_prefix', 'GC'),
+                    seed=self.config.fixed_seed if self.config.use_fixed_seed else None
+                )
+
+                # 生成垃圾类
+                garbage_classes = swift_generator.generate_classes(count=garbage_count)
+
+                # 导出到文件
+                output_path = Path(output_dir)
+                files_dict = swift_generator.export_to_files(str(output_path))
+                # 存储完整的文件路径
+                self.garbage_files['swift'] = list(files_dict.values())
+
+                print(f"  ✅ 生成了 {len(garbage_classes)} 个 Swift 垃圾类")
+                print(f"  ✅ 导出了 {len(files_dict)} 个文件")
+
+            # 输出统计
+            if self.garbage_generator:
+                stats = self.garbage_generator.get_statistics()
+                total_garbage_files = len(self.garbage_files['objc']) + len(self.garbage_files['swift'])
+                print(f"\n📊 垃圾代码生成总结:")
+                print(f"  生成类: {stats.get('classes_generated', 0)} 个")
+                print(f"  生成方法: {stats.get('methods_generated', 0)} 个")
+                print(f"  生成属性: {stats.get('properties_generated', 0)} 个")
+                print(f"  导出文件: {total_garbage_files} 个")
+
+        except Exception as e:
+            print(f"❌ 垃圾代码生成异常: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _process_resources(self, progress_callback: Optional[Callable] = None):
         """处理资源文件（集成P2高级功能）"""
@@ -555,8 +783,124 @@ class ObfuscationEngine:
             print(f"保存结果失败: {e}")
             return False
 
+    def _p2_post_processing(self, output_dir: str, progress_callback: Optional[Callable] = None):
+        """
+        P2深度集成后处理
+        1. 为字符串加密生成统一的解密宏头文件
+        2. 为所有加密文件添加解密宏导入
+        """
+        try:
+            print("\n🔧 P2深度集成后处理...")
+
+            # === 字符串加密后处理 ===
+            if self.config.string_encryption and self.string_encryptor:
+                total_encrypted_files = len(self.files_with_encryption['objc']) + len(self.files_with_encryption['swift'])
+
+                if total_encrypted_files > 0:
+                    print(f"  处理 {total_encrypted_files} 个加密文件...")
+
+                    output_path = Path(output_dir)
+
+                    # 1. 生成ObjC解密宏头文件
+                    if self.files_with_encryption['objc']:
+                        print(f"  生成 Objective-C 解密宏头文件...")
+
+                        # 创建ObjC版本的StringEncryptor获取解密宏
+                        objc_encryptor = StringEncryptor(
+                            algorithm=self.encryption_algorithm,
+                            language=StringCodeLanguage.OBJC,
+                            key=self.encryption_key,
+                            min_length=self.encryption_min_length
+                        )
+                        objc_macro = objc_encryptor.generate_decryption_macro()
+
+                        # 创建头文件
+                        objc_header_file = output_path / "StringDecryption.h"
+                        with open(objc_header_file, 'w', encoding='utf-8') as f:
+                            f.write("//\n")
+                            f.write("// StringDecryption.h\n")
+                            f.write("// 字符串解密宏定义\n")
+                            f.write("// 自动生成，请勿手动修改\n")
+                            f.write("//\n\n")
+                            f.write("#ifndef StringDecryption_h\n")
+                            f.write("#define StringDecryption_h\n\n")
+                            f.write(objc_macro.code)
+                            f.write("\n\n#endif /* StringDecryption_h */\n")
+
+                        print(f"    ✅ 创建头文件: {objc_header_file.name}")
+
+                        # 2. 为所有ObjC加密文件添加导入
+                        for file_path in self.files_with_encryption['objc']:
+                            if file_path in self.transform_results:
+                                transform_result = self.transform_results[file_path]
+                                content = transform_result.transformed_content
+
+                                # 在第一个import之后插入导入
+                                lines = content.split('\n')
+                                insert_index = 0
+
+                                # 找到最后一个import的位置
+                                for i, line in enumerate(lines):
+                                    if line.strip().startswith(('#import', '@import')):
+                                        insert_index = i + 1
+
+                                # 插入导入语句
+                                import_statement = f'#import "StringDecryption.h"'
+                                if import_statement not in content:
+                                    lines.insert(insert_index, import_statement)
+                                    transform_result.transformed_content = '\n'.join(lines)
+                                    print(f"    ✅ 添加导入: {Path(file_path).name}")
+
+                    # 3. 生成Swift解密函数文件
+                    if self.files_with_encryption['swift']:
+                        print(f"  生成 Swift 解密函数文件...")
+
+                        # 创建Swift版本的StringEncryptor获取解密函数
+                        swift_encryptor = StringEncryptor(
+                            algorithm=self.encryption_algorithm,
+                            language=StringCodeLanguage.SWIFT,
+                            key=self.encryption_key,
+                            min_length=self.encryption_min_length
+                        )
+                        swift_function = swift_encryptor.generate_decryption_macro()
+
+                        # 创建Swift文件
+                        swift_file = output_path / "StringDecryption.swift"
+                        with open(swift_file, 'w', encoding='utf-8') as f:
+                            f.write("//\n")
+                            f.write("// StringDecryption.swift\n")
+                            f.write("// 字符串解密函数定义\n")
+                            f.write("// 自动生成，请勿手动修改\n")
+                            f.write("//\n\n")
+                            f.write("import Foundation\n\n")
+                            f.write(swift_function.code)
+
+                        print(f"    ✅ 创建文件: {swift_file.name}")
+
+                        # Swift不需要导入，因为在同一个模块内自动可见
+                        print(f"    ℹ️  Swift文件自动可见，无需导入")
+
+                    print(f"  ✅ 字符串加密后处理完成")
+
+            # === 垃圾代码后处理 ===
+            if self.config.insert_garbage_code and self.garbage_files:
+                total_garbage_files = len(self.garbage_files['objc']) + len(self.garbage_files['swift'])
+
+                if total_garbage_files > 0:
+                    print(f"  垃圾代码文件已生成: {total_garbage_files} 个")
+                    print(f"    - Objective-C: {len(self.garbage_files['objc'])} 个")
+                    print(f"    - Swift: {len(self.garbage_files['swift'])} 个")
+                    print(f"  ℹ️  垃圾文件已保存到输出目录，需手动添加到Xcode项目")
+
+            print(f"✅ P2深度集成后处理完成\n")
+
+        except Exception as e:
+            print(f"❌ P2后处理异常: {e}")
+            import traceback
+            traceback.print_exc()
+
     def _export_mapping(self, output_dir: str) -> str:
-        """导出映射文件"""
+        """导出映射文件（包含P2统计信息）"""
         try:
             output_path = Path(output_dir)
             mapping_file = output_path / "obfuscation_mapping.json"
@@ -566,6 +910,49 @@ class ObfuscationEngine:
                 str(mapping_file),
                 format=self.config.mapping_format
             )
+
+            # 读取映射文件并添加P2统计信息
+            if mapping_file.exists():
+                with open(mapping_file, 'r', encoding='utf-8') as f:
+                    mapping_data = json.load(f)
+
+                # 添加P2统计信息
+                if 'metadata' not in mapping_data:
+                    mapping_data['metadata'] = {}
+
+                # 字符串加密统计
+                if self.string_encryptor:
+                    encryption_stats = self.string_encryptor.get_statistics()
+                    mapping_data['metadata']['string_encryption'] = {
+                        'enabled': True,
+                        'algorithm': encryption_stats.get('algorithm', 'unknown'),
+                        'total_encrypted': self.total_encrypted_strings,  # 使用累积的总数
+                        'objc_files': len(self.files_with_encryption['objc']),
+                        'swift_files': len(self.files_with_encryption['swift']),
+                        'decryption_header_objc': 'StringDecryption.h' if self.files_with_encryption['objc'] else None,
+                        'decryption_file_swift': 'StringDecryption.swift' if self.files_with_encryption['swift'] else None
+                    }
+
+                # 垃圾代码统计
+                if self.garbage_generator:
+                    garbage_stats = self.garbage_generator.get_statistics()
+                    mapping_data['metadata']['garbage_code'] = {
+                        'enabled': True,
+                        'complexity': getattr(self.config, 'garbage_complexity', 'moderate'),
+                        'classes_generated': garbage_stats.get('classes_generated', 0),
+                        'methods_generated': garbage_stats.get('methods_generated', 0),
+                        'properties_generated': garbage_stats.get('properties_generated', 0),
+                        'objc_files': len(self.garbage_files['objc']),
+                        'swift_files': len(self.garbage_files['swift']),
+                        'file_list': {
+                            'objc': [Path(f).name for f in self.garbage_files['objc']],
+                            'swift': [Path(f).name for f in self.garbage_files['swift']]
+                        }
+                    }
+
+                # 保存更新后的映射文件
+                with open(mapping_file, 'w', encoding='utf-8') as f:
+                    json.dump(mapping_data, f, indent=2, ensure_ascii=False)
 
             print(f"映射文件已导出: {mapping_file}")
             return str(mapping_file)
@@ -594,6 +981,8 @@ class ObfuscationEngine:
             'transformer': self.code_transformer.get_statistics() if self.code_transformer else {},
             'resources': self.resource_handler.get_statistics() if self.resource_handler else {},
             'advanced_resources': self.advanced_resource_handler.get_statistics() if self.advanced_resource_handler else {},
+            'string_encryption': self.string_encryptor.get_statistics() if self.string_encryptor else {},
+            'garbage_code': self.garbage_generator.get_statistics() if self.garbage_generator else {},
         }
         return stats
 

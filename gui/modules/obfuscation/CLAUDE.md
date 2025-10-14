@@ -136,6 +136,12 @@ saved_configs = manager.list_saved_configs()
 | | string_encryption | 字符串加密 | false |
 | | modify_color_values | 修改颜色值 | false |
 | | modify_resource_files | 修改资源文件 | false |
+| P2垃圾代码 🆕 | garbage_count | 垃圾类数量：生成多少个无用类（5-100）| 20 |
+| | garbage_complexity | 垃圾代码复杂度：simple（简单）/moderate（中等）/complex（复杂）| "moderate" |
+| | garbage_prefix | 垃圾类名前缀：生成类的命名前缀，如"GC"生成GCClass1、GCClass2等 | "GC" |
+| P2字符串加密 🆕 | encryption_algorithm | 加密算法：xor（异或）/base64（编码）/shift（移位）/rot13（旋转13）| "xor" |
+| | encryption_key | 加密密钥：用于XOR等算法的密钥字符串 | "DefaultKey" |
+| | string_min_length | 最小加密长度：只加密长度≥此值的字符串（1-20）| 4 |
 | 命名策略 | naming_strategy | 命名策略 | "random" |
 | | name_prefix | 名称前缀 | "WHC" |
 | | min_name_length | 最小名称长度 | 8 |
@@ -151,6 +157,52 @@ saved_configs = manager.list_saved_configs()
 | 性能 | parallel_processing | 并行处理 | true |
 | | max_workers | 最大线程数 | 8 |
 | | batch_size | 批处理大小 | 100 |
+
+**P2参数详解**:
+
+**垃圾代码生成参数**:
+- `garbage_count`:
+  - 范围：5-100
+  - 说明：生成的垃圾类数量，数量越多混淆效果越强，但编译时间会增加
+  - 推荐值：小项目10-20，中项目20-30，大项目30-50
+  - 影响：每个类约1-5KB，20个类约20-100KB
+
+- `garbage_complexity`:
+  - 可选值：`simple`（简单）、`moderate`（中等）、`complex`（复杂）
+  - 说明：
+    - **simple**: 基础类和方法，快速编译，适合快速开发阶段
+    - **moderate**: 包含条件语句和循环，平衡效果和编译时间，适合测试阶段
+    - **complex**: 嵌套循环、switch语句，最强混淆但编译较慢，适合正式发布
+  - 推荐：日常开发用moderate，提审用complex
+
+- `garbage_prefix`:
+  - 说明：垃圾类的命名前缀，用于区分垃圾代码和正常代码
+  - 示例：前缀"GC"会生成GCClass1、GCClass2、GCClass3...
+  - 注意：确保前缀与项目现有类名不冲突
+
+**字符串加密参数**:
+- `encryption_algorithm`:
+  - 可选值：`xor`、`base64`、`shift`、`rot13`
+  - 说明：
+    - **xor**: 异或加密，安全性和性能平衡好，推荐用于敏感信息
+    - **base64**: Base64编码，轻量但安全性较低，适合非敏感字符串
+    - **shift**: 移位加密，简单快速，适合大量字符串
+    - **rot13**: ROT13编码，最简单，仅用于非敏感信息
+  - 推荐：优先使用xor算法
+
+- `encryption_key`:
+  - 说明：用于XOR等加密算法的密钥
+  - 建议：使用项目特定的密钥，如"ProjectName_v1.0"
+  - 安全性：密钥越复杂，破解难度越大
+
+- `string_min_length`:
+  - 范围：1-20
+  - 说明：只加密长度大于等于此值的字符串
+  - 推荐值：
+    - 敏感信息：1（加密所有字符串）
+    - 普通场景：4-6（平衡性能和效果）
+    - 大量字符串：8-10（减少性能开销）
+  - 注意：太小会加密过多短字符串，影响性能；太大会遗漏中等长度的敏感信息
 
 ### 2. WhitelistManager - 白名单管理器 ✅
 
@@ -1000,6 +1052,168 @@ manager.finalize(processed_files)
 - **测试覆盖**: 39个测试全部通过
 - **代码质量**: 平均9.2/10
 - **文档完整**: 完整的docstring和注释
+
+### v2.2.1 (2025-10-14) - P2功能GUI集成完成 ✅
+
+**GUI集成**:
+1. ✅ **obfuscation_tab.py** - P2高级功能GUI集成
+   - **垃圾代码选项**:
+     - "插入垃圾代码 🆕" 复选框
+     - 垃圾类数量 (Spinbox 5-100, 默认20)
+     - 复杂度选择 (Combobox: simple/moderate/complex)
+   - **字符串加密选项**:
+     - "字符串加密 🆕" 复选框
+     - 加密算法选择 (Combobox: xor/base64/shift/rot13)
+     - 最小字符串长度 (Spinbox 1-20, 默认4)
+   - **模板集成**:
+     - minimal模板: 禁用垃圾代码和字符串加密
+     - standard模板: 启用垃圾代码(20类/moderate)，禁用字符串加密
+     - aggressive模板: 启用垃圾代码(20类/complex)和字符串加密(xor)
+   - **配置传递**: P2选项正确传递到ObfuscationConfig和混淆引擎
+
+2. ✅ **obfuscation_templates.py** - 模板配置更新
+   - 所有三个模板添加P2配置项
+   - 配置项对应：
+     - insert_garbage_code (bool)
+     - garbage_count (int)
+     - garbage_complexity (str: simple/moderate/complex)
+     - string_encryption (bool)
+     - encryption_algorithm (str: xor/base64/shift/rot13)
+     - string_min_length (int)
+
+**测试完善**:
+3. ✅ **tests/test_obfuscation_integration_p2.py** - P2集成测试 (5/5通过)
+   - **测试用例**:
+     - test_config_p2_options - P2配置选项验证 ✅
+     - test_garbage_code_integration - 垃圾代码生成集成 ✅
+     - test_string_encryption_integration - 字符串加密集成 ✅
+     - test_engine_statistics_p2 - P2统计信息 ✅
+     - test_config_validation_p2 - P2配置验证 ✅
+   - **修复问题**:
+     - 添加 `get_statistics()` 到 GarbageCodeGenerator
+     - 修复 `generate_decryption_macro()` 调用签名
+     - 修复统计信息键名称（total_encrypted vs strings_encrypted）
+     - 修复文件路径验证（使用values()而非keys()）
+   - **测试结果**: 5/5 tests passed, 0.009秒 ✅
+
+**UI位置**:
+- P2选项位于obfuscation_tab.py右侧选项区域（lines 270-339）
+- 垃圾代码配置框架（lines 285-311）
+- 字符串加密配置框架（lines 313-339）
+
+**使用流程**:
+1. 打开主程序，切换到"代码混淆"标签页
+2. 勾选"插入垃圾代码 🆕"和/或"字符串加密 🆕"
+3. 配置垃圾类数量、复杂度、加密算法等参数
+4. 或直接选择预设模板（minimal/standard/aggressive）
+5. 运行混淆，P2功能自动集成到混淆流程
+
+**集成状态**:
+- ✅ GUI界面集成完成
+- ✅ 配置传递验证通过
+- ✅ P2集成测试全部通过
+- ✅ 引擎深度集成完成（v2.2.2）
+
+### v2.2.2 (2025-10-14) - P2引擎深度集成完成 🎉
+
+**深度集成实现**:
+1. ✅ **obfuscation_engine.py** - P2功能完全集成到主流程
+   - **字符串加密深度集成**:
+     - 在混淆流程中自动执行字符串加密（步骤6，60-65%）
+     - 为ObjC和Swift分别创建专用StringEncryptor实例
+     - 批量处理所有源文件，累积加密统计
+     - P2后处理阶段（步骤9，75-80%）：
+       - 生成统一的ObjC解密宏头文件（StringDecryption.h）
+       - 生成统一的Swift解密函数文件（StringDecryption.swift）
+       - 自动为ObjC文件添加`#import "StringDecryption.h"`
+       - Swift文件自动可见解密函数（同模块）
+     - 映射文件记录完整统计信息（加密算法、总数、文件列表）
+
+   - **垃圾代码深度集成**:
+     - 在混淆流程中自动生成垃圾代码（步骤7，65-70%）
+     - 为ObjC和Swift分别生成指定数量和复杂度的垃圾类
+     - 垃圾文件直接输出到目标目录
+     - 映射文件记录垃圾代码统计（类数、方法数、属性数、文件列表）
+     - 需手动将垃圾文件添加到Xcode项目（未来可自动化）
+
+   - **CodeLanguage枚举冲突修复** ⚠️:
+     - **问题**: `garbage_generator.py`和`string_encryptor.py`各自定义了`CodeLanguage`枚举
+     - **症状**: 传递`garbage_generator.CodeLanguage.OBJC`给`StringEncryptor`导致枚举比较失败
+     - **表现**: ObjC解密头文件生成Swift代码，因为`self.language == CodeLanguage.OBJC`判断为False
+     - **修复**: 导入时使用别名区分两个枚举：
+       ```python
+       from .garbage_generator import CodeLanguage as GarbageCodeLanguage
+       from .string_encryptor import CodeLanguage as StringCodeLanguage
+       ```
+     - **结果**: 每个模块使用正确的枚举类型，解决跨模块枚举比较问题
+
+   - **统计信息累积修复**:
+     - **问题**: 每个文件创建独立StringEncryptor实例，统计信息分散
+     - **修复**: 添加`self.total_encrypted_strings`累积所有文件的加密字符串总数
+     - **结果**: 映射文件正确显示总加密字符串数
+
+2. ✅ **tests/test_p2_deep_integration.py** - 深度集成测试套件 (3/3通过)
+   - **测试用例**:
+     - test_string_encryption_deep_integration - 字符串加密完整流程 ✅
+       - 验证ObjC解密头文件生成（包含`DECRYPT_STRING`宏）
+       - 验证Swift解密函数文件生成（包含`func decryptString`）
+       - 验证ObjC文件自动添加导入语句
+       - 验证映射文件包含准确的加密统计信息
+
+     - test_garbage_code_deep_integration - 垃圾代码完整流程 ✅
+       - 验证ObjC和Swift垃圾文件生成
+       - 验证垃圾文件内容格式正确
+       - 验证映射文件包含垃圾代码统计信息
+
+     - test_combined_p2_deep_integration - 组合功能测试 ✅
+       - 验证字符串加密和垃圾代码同时启用
+       - 验证所有P2文件正确生成
+       - 验证映射文件包含完整P2统计
+
+   - **测试结果**: 3/3 tests passed, 0.044秒 ✅
+   - **测试输出验证**:
+     - ✅ 9个字符串成功加密（ObjC 4个 + Swift 5个）
+     - ✅ 生成60个垃圾文件（ObjC 40个 + Swift 20个）
+     - ✅ ObjC解密头文件包含正确的C宏代码
+     - ✅ Swift解密文件包含正确的Swift函数代码
+     - ✅ 映射文件total_encrypted = 9 ✅
+
+**技术实现细节**:
+- **流程编排**: 11步完整混淆流程，P2功能无缝集成在步骤6-9
+- **数据流设计**:
+  ```
+  [字符串加密] → 记录加密文件列表 → P2后处理 → 生成统一解密头文件
+  [垃圾代码生成] → 导出到输出目录 → 记录文件列表 → 映射文件统计
+  ```
+- **语言隔离**: ObjC和Swift使用独立的encryptor/generator实例，避免语言混淆
+- **后处理分离**: 加密在转换阶段完成，解密头文件在后处理阶段统一生成，架构清晰
+
+**测试覆盖**:
+- ✅ 字符串加密单独测试
+- ✅ 垃圾代码生成单独测试
+- ✅ 组合功能测试
+- ✅ 文件内容验证
+- ✅ 映射文件统计验证
+- ✅ 枚举类型冲突场景测试
+
+**用户体验**:
+1. 用户勾选"字符串加密"和/或"插入垃圾代码"
+2. 配置加密算法、密钥、垃圾类数量等参数
+3. 点击"开始混淆"
+4. 引擎自动完成：
+   - ✅ 扫描和加密所有字符串
+   - ✅ 生成统一的解密代码文件
+   - ✅ 自动添加解密代码导入
+   - ✅ 生成指定数量的垃圾类
+   - ✅ 导出所有文件到输出目录
+   - ✅ 生成包含完整P2统计的映射文件
+5. 用户需手动将生成的文件添加到Xcode项目
+
+**后续优化方向**:
+- 🔜 自动修改.xcodeproj文件，将垃圾文件加入项目
+- 🔜 支持更多加密算法（AES、RSA等）
+- 🔜 垃圾代码调用关系生成，增强混淆效果
+- 🔜 字符串加密白名单可视化编辑
 
 ### v2.1.1 (2025-10-13) - 集成测试完成 ✅
 

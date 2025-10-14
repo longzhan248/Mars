@@ -267,6 +267,77 @@ class ObfuscationTab(ttk.Frame):
             variable=self.use_fixed_seed
         ).pack(anchor=tk.W, pady=1)
 
+        # P2高级混淆选项
+        self.insert_garbage_code = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            right_options,
+            text="插入垃圾代码 🆕",
+            variable=self.insert_garbage_code
+        ).pack(anchor=tk.W, pady=1)
+
+        self.string_encryption = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            right_options,
+            text="字符串加密 🆕",
+            variable=self.string_encryption
+        ).pack(anchor=tk.W, pady=1)
+
+        # P2垃圾代码配置（当checkbox启用时生效）
+        garbage_config_frame = ttk.Frame(right_options)
+        garbage_config_frame.pack(anchor=tk.W, fill=tk.X, pady=5)
+
+        # 垃圾类数量
+        ttk.Label(garbage_config_frame, text="垃圾类数:", width=8, font=("Arial", 8)).pack(side=tk.LEFT)
+        self.garbage_count = tk.IntVar(value=20)
+        garbage_count_spinbox = ttk.Spinbox(
+            garbage_config_frame,
+            from_=5,
+            to=100,
+            textvariable=self.garbage_count,
+            width=6
+        )
+        garbage_count_spinbox.pack(side=tk.LEFT, padx=2)
+
+        # 垃圾复杂度
+        ttk.Label(garbage_config_frame, text="复杂度:", width=6, font=("Arial", 8)).pack(side=tk.LEFT, padx=(5, 0))
+        self.garbage_complexity = tk.StringVar(value="moderate")
+        complexity_combo = ttk.Combobox(
+            garbage_config_frame,
+            textvariable=self.garbage_complexity,
+            values=["simple", "moderate", "complex"],
+            state="readonly",
+            width=8
+        )
+        complexity_combo.pack(side=tk.LEFT, padx=2)
+
+        # P2字符串加密配置（当checkbox启用时生效）
+        string_config_frame = ttk.Frame(right_options)
+        string_config_frame.pack(anchor=tk.W, fill=tk.X, pady=5)
+
+        # 加密算法
+        ttk.Label(string_config_frame, text="加密:", width=8, font=("Arial", 8)).pack(side=tk.LEFT)
+        self.encryption_algorithm = tk.StringVar(value="xor")
+        algorithm_combo = ttk.Combobox(
+            string_config_frame,
+            textvariable=self.encryption_algorithm,
+            values=["xor", "base64", "shift", "rot13"],
+            state="readonly",
+            width=8
+        )
+        algorithm_combo.pack(side=tk.LEFT, padx=2)
+
+        # 最小长度
+        ttk.Label(string_config_frame, text="最小:", width=6, font=("Arial", 8)).pack(side=tk.LEFT, padx=(5, 0))
+        self.string_min_length = tk.IntVar(value=4)
+        min_length_spinbox = ttk.Spinbox(
+            string_config_frame,
+            from_=1,
+            to=20,
+            textvariable=self.string_min_length,
+            width=4
+        )
+        min_length_spinbox.pack(side=tk.LEFT, padx=2)
+
         # 分隔线
         ttk.Separator(right_options, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=8)
 
@@ -452,6 +523,14 @@ class ObfuscationTab(ttk.Frame):
             self.auto_detect_third_party.set(t["auto_detect"])
             self.use_fixed_seed.set(t["fixed_seed"])
 
+            # 加载P2高级混淆选项
+            self.insert_garbage_code.set(t.get("insert_garbage_code", False))
+            self.garbage_count.set(t.get("garbage_count", 20))
+            self.garbage_complexity.set(t.get("garbage_complexity", "moderate"))
+            self.string_encryption.set(t.get("string_encryption", False))
+            self.encryption_algorithm.set(t.get("encryption_algorithm", "xor"))
+            self.string_min_length.set(t.get("string_min_length", 4))
+
             self.log(f"✅ 已加载 '{template_name}' 配置模板")
 
     def select_project(self):
@@ -585,6 +664,14 @@ class ObfuscationTab(ttk.Frame):
             config.image_intensity = self.image_intensity.get()
             config.modify_audio_files = self.modify_audio.get()
             config.modify_font_files = self.modify_fonts.get()
+
+            # 添加P2高级混淆配置
+            config.insert_garbage_code = self.insert_garbage_code.get()
+            config.garbage_count = self.garbage_count.get()
+            config.garbage_complexity = self.garbage_complexity.get()
+            config.string_encryption = self.string_encryption.get()
+            config.encryption_algorithm = self.encryption_algorithm.get()
+            config.string_min_length = self.string_min_length.get()
 
             # 创建混淆引擎
             engine = self.obfuscation_engine_class(config)

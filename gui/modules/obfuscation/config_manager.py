@@ -49,6 +49,17 @@ class ObfuscationConfig:
     modify_color_values: bool = False
     modify_resource_files: bool = False
 
+    # 垃圾代码生成配置
+    garbage_count: int = 20  # 生成垃圾类的数量
+    garbage_complexity: str = "moderate"  # simple/moderate/complex
+    garbage_prefix: str = "GC"  # 垃圾代码类名前缀
+
+    # 字符串加密配置
+    encryption_algorithm: str = "xor"  # base64/xor/shift/rot13
+    encryption_key: str = "DefaultKey"  # 加密密钥
+    string_min_length: int = 4  # 最小加密字符串长度
+    string_whitelist_patterns: List[str] = field(default_factory=list)  # 字符串白名单模式
+
     # 名称生成策略
     naming_strategy: str = "random"  # random, prefix, pattern, dictionary
     name_prefix: str = "WHC"

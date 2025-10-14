@@ -551,6 +551,23 @@ class GarbageCodeGenerator:
 
         return file_map
 
+    def get_statistics(self) -> Dict[str, int]:
+        """
+        获取统计信息
+
+        Returns:
+            Dict[str, int]: 统计数据
+        """
+        total_properties = sum(len(gc.properties) for gc in self.generated_classes)
+        total_methods = sum(len(gc.methods) for gc in self.generated_classes)
+
+        return {
+            'classes_generated': len(self.generated_classes),
+            'properties_generated': total_properties,
+            'methods_generated': total_methods,
+            'files_exported': len(self.generated_classes) * (2 if self.language == CodeLanguage.OBJC else 1)
+        }
+
 
 if __name__ == "__main__":
     print("=== 垃圾代码生成器测试 ===\n")

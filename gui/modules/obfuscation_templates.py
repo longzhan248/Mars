@@ -19,7 +19,14 @@ OBFUSCATION_TEMPLATES = {
         "audio": False,
         "fonts": False,
         "auto_detect": True,
-        "fixed_seed": False
+        "fixed_seed": False,
+        # P2高级混淆选项
+        "insert_garbage_code": False,
+        "garbage_count": 20,
+        "garbage_complexity": "moderate",
+        "string_encryption": False,
+        "encryption_algorithm": "xor",
+        "string_min_length": 4
     },
     "standard": {
         "name": "标准",
@@ -33,7 +40,14 @@ OBFUSCATION_TEMPLATES = {
         "audio": False,
         "fonts": False,
         "auto_detect": True,
-        "fixed_seed": False
+        "fixed_seed": False,
+        # P2高级混淆选项
+        "insert_garbage_code": True,
+        "garbage_count": 20,
+        "garbage_complexity": "moderate",
+        "string_encryption": False,
+        "encryption_algorithm": "xor",
+        "string_min_length": 4
     },
     "aggressive": {
         "name": "激进",
@@ -47,7 +61,14 @@ OBFUSCATION_TEMPLATES = {
         "audio": True,
         "fonts": True,
         "auto_detect": True,
-        "fixed_seed": False
+        "fixed_seed": False,
+        # P2高级混淆选项
+        "insert_garbage_code": True,
+        "garbage_count": 20,
+        "garbage_complexity": "complex",
+        "string_encryption": True,
+        "encryption_algorithm": "xor",
+        "string_min_length": 4
     }
 }
 
