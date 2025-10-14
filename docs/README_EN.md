@@ -1,6 +1,6 @@
 # Mars Log Analyzer System - Professional Edition
 
-A powerful Mars/WeChat xlog file parsing and analysis tool with batch processing, advanced filtering, module grouping, and data visualization features.
+A powerful iOS development toolkit integrating Mars/WeChat xlog log parsing, IPS crash analysis, iOS push testing, sandbox browsing, dSYM symbolication, LinkMap analysis, and **iOS Code Obfuscation** features.
 
 ## 🌟 Key Features
 
@@ -12,6 +12,14 @@ A powerful Mars/WeChat xlog file parsing and analysis tool with batch processing
 - ✅ **Data Visualization**: Pie charts, bar charts, time distribution graphs
 - ✅ **Lazy Loading**: Optimized for large files, smooth display of millions of logs
 - ✅ **Export Functions**: Export current view, module reports, filtered results
+
+### iOS Development Tools
+- ✅ **IPS Crash Analysis**: Parse iOS crash reports with symbolication support
+- ✅ **iOS Push Testing**: APNS push testing tool for sandbox and production
+- ✅ **iOS Sandbox Browser**: Browse iOS app sandbox file system with preview and export
+- ✅ **dSYM Symbolication**: Auto-load dSYM files for crash address symbolication
+- ✅ **LinkMap Analysis**: iOS binary size analysis for code optimization
+- ✅ **iOS Code Obfuscation** 🆕: Professional code obfuscation tool for App Store review
 
 ### Supported Log Levels
 - FATAL
@@ -79,6 +87,77 @@ python3 run_analyzer.py
 ```
 
 ## 📖 User Guide
+
+### iOS Code Obfuscation Tool 🆕
+
+#### Overview
+Professional iOS code obfuscation tool to help developers pass App Store machine review (4.3, 2.1, etc.). Supports both Objective-C and Swift code obfuscation.
+
+#### Key Features
+- **Symbol Obfuscation**: Class names, method names, property names, protocol names, enum names, constant names
+- **Advanced Obfuscation**: Garbage code generation, string encryption, method shuffling, resource modification
+- **Smart Whitelist**: Built-in 500+ system API whitelist, auto-detect third-party libraries
+- **Deterministic Obfuscation**: Support fixed seed for version consistency
+- **Incremental Obfuscation**: Support incremental build, process only changed files
+- **Dual Interface**: GUI and CLI support
+
+#### GUI Usage
+1. Launch main program: `./scripts/run_analyzer.sh`
+2. Switch to "iOS Code Obfuscation" tab
+3. Select project path and output directory
+4. Configure obfuscation options (use template or custom)
+5. Click "Start Obfuscation"
+
+#### CLI Usage
+```bash
+# Basic obfuscation (using standard template)
+python -m gui.modules.obfuscation.obfuscation_cli \
+    --project /path/to/ios/project \
+    --output /path/to/obfuscated \
+    --template standard
+
+# Custom obfuscation configuration
+python -m gui.modules.obfuscation.obfuscation_cli \
+    --project /path/to/ios/project \
+    --output /path/to/obfuscated \
+    --class-names \
+    --method-names \
+    --property-names \
+    --insert-garbage-code \
+    --string-encryption \
+    --prefix "WHC" \
+    --seed "my_project_v1.0"
+
+# Incremental obfuscation
+python -m gui.modules.obfuscation.obfuscation_cli \
+    --project /path/to/ios/project \
+    --output /path/to/obfuscated \
+    --incremental \
+    --mapping /path/to/old_mapping.json
+
+# Analyze only (no obfuscation)
+python -m gui.modules.obfuscation.obfuscation_cli \
+    --project /path/to/ios/project \
+    --analyze-only \
+    --report /path/to/analysis_report.json
+```
+
+#### Configuration Templates
+- **minimal**: Minimal obfuscation (class and method names only)
+- **standard**: Standard obfuscation (balanced strategy)
+- **aggressive**: Aggressive obfuscation (maximum obfuscation)
+
+#### Important Notes
+1. **Backup Code**: Always backup original code before obfuscation
+2. **Test Thoroughly**: Complete functional testing after obfuscation
+3. **Save Mapping**: Keep the name mapping file safe (for debugging and incremental builds)
+4. **Whitelist Management**: Customize whitelist based on project needs
+
+For more details:
+- Technical docs: `gui/modules/obfuscation/CLAUDE.md`
+- Roadmap: `docs/technical/IOS_OBFUSCATION_ROADMAP.md`
+
+---
 
 ### 1. Load Log Files
 
@@ -215,5 +294,17 @@ MIT License - See LICENSE file for details
 
 ---
 
-**Version:** 1.0.0
-**Last Updated:** January 2024
+**Version:** 2.2.0
+**Last Updated:** October 14, 2025
+
+## 🆕 Latest Updates (v2.2.0)
+
+### iOS Code Obfuscation Module Completed 🎉
+- ✅ Core features 100% complete (9 core modules)
+- ✅ P2 advanced features: Garbage code generation, string encryption, incremental build
+- ✅ GUI and CLI dual interface support
+- ✅ Complete test coverage and documentation
+- ✅ Support for Objective-C and Swift obfuscation
+- ✅ Built-in 500+ system API whitelist
+- ✅ Three configuration templates (minimal/standard/aggressive)
+- ✅ Deterministic and incremental obfuscation support

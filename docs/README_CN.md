@@ -1,6 +1,6 @@
 # Mars日志分析系统 - 专业版
 
-一个功能强大的Mars/微信 xlog文件解析和分析工具，支持批量处理、高级过滤、模块分组、数据可视化等专业功能。
+一个功能强大的iOS开发工具套件，集成Mars/微信 xlog日志解析、IPS崩溃分析、iOS推送测试、沙盒浏览、dSYM符号化、LinkMap分析和**iOS代码混淆**等专业功能。
 
 ## 🌟 主要功能
 
@@ -13,6 +13,14 @@
 - ✅ **数据可视化**：饼图、柱状图、时间分布图等多种图表
 - ✅ **懒加载显示**：大文件优化，流畅显示百万级日志
 - ✅ **导出功能**：支持导出当前视图、模块报告、过滤结果
+
+### iOS开发工具
+- ✅ **IPS崩溃分析**：解析iOS崩溃报告，支持符号化
+- ✅ **iOS推送测试**：APNS推送测试工具，支持沙盒和生产环境
+- ✅ **iOS沙盒浏览**：浏览iOS应用沙盒文件系统，支持预览和导出
+- ✅ **dSYM符号化**：自动加载dSYM文件，崩溃地址符号化
+- ✅ **LinkMap分析**：iOS应用二进制大小分析，代码瘦身
+- ✅ **iOS代码混淆** 🆕：专业级代码混淆工具，应对App Store机器审核
 
 ### 日志级别支持
 - FATAL（致命）
@@ -121,6 +129,77 @@ python mars_log_analyzer_pro.py
 ```
 
 ## 📖 使用指南
+
+### iOS代码混淆工具 🆕
+
+#### 功能概述
+专业级iOS代码混淆工具，帮助开发者应对App Store的4.3、2.1等机器审核问题。支持Objective-C和Swift代码混淆。
+
+#### 核心特性
+- **符号混淆**：类名、方法名、属性名、协议名、枚举名、常量名
+- **高级混淆**：垃圾代码生成、字符串加密、方法顺序打乱、资源文件修改
+- **智能白名单**：内置500+系统API白名单，自动检测第三方库
+- **确定性混淆**：支持固定种子，版本迭代时保持一致性
+- **增量混淆**：支持增量编译，仅处理变更文件
+- **双接口支持**：GUI图形界面和CLI命令行工具
+
+#### GUI使用方法
+1. 启动主程序：`./scripts/run_analyzer.sh`
+2. 切换到"iOS代码混淆"标签页
+3. 选择项目路径和输出目录
+4. 配置混淆选项（使用模板或自定义）
+5. 点击"开始混淆"执行
+
+#### CLI使用方法
+```bash
+# 基础混淆（使用标准模板）
+python -m gui.modules.obfuscation.obfuscation_cli \
+    --project /path/to/ios/project \
+    --output /path/to/obfuscated \
+    --template standard
+
+# 自定义混淆配置
+python -m gui.modules.obfuscation.obfuscation_cli \
+    --project /path/to/ios/project \
+    --output /path/to/obfuscated \
+    --class-names \
+    --method-names \
+    --property-names \
+    --insert-garbage-code \
+    --string-encryption \
+    --prefix "WHC" \
+    --seed "my_project_v1.0"
+
+# 增量混淆（仅处理变更）
+python -m gui.modules.obfuscation.obfuscation_cli \
+    --project /path/to/ios/project \
+    --output /path/to/obfuscated \
+    --incremental \
+    --mapping /path/to/old_mapping.json
+
+# 只分析不混淆
+python -m gui.modules.obfuscation.obfuscation_cli \
+    --project /path/to/ios/project \
+    --analyze-only \
+    --report /path/to/analysis_report.json
+```
+
+#### 配置模板
+- **minimal**：最小化混淆（仅类名和方法名）
+- **standard**：标准混淆（平衡的混淆策略）
+- **aggressive**：激进混淆（最强混淆力度）
+
+#### 注意事项
+1. **备份代码**：混淆前务必备份原始代码
+2. **测试验证**：混淆后完整测试应用功能
+3. **保存映射**：妥善保存名称映射文件（用于调试和增量混淆）
+4. **白名单管理**：根据项目需要自定义白名单
+
+更多详细文档请参考：
+- 技术文档：`gui/modules/obfuscation/CLAUDE.md`
+- 开发路线图：`docs/technical/IOS_OBFUSCATION_ROADMAP.md`
+
+---
 
 ### 1. 加载日志文件
 
@@ -326,5 +405,17 @@ MIT License - 详见LICENSE文件
 
 ---
 
-**版本：** 1.0.0
-**最后更新：** 2024年1月
+**版本：** 2.2.0
+**最后更新：** 2025年10月14日
+
+## 🆕 最新更新 (v2.2.0)
+
+### iOS代码混淆模块完成 🎉
+- ✅ 核心功能100%完成（9个核心模块）
+- ✅ P2高级功能完成：垃圾代码生成、字符串加密、增量编译
+- ✅ GUI和CLI双接口支持
+- ✅ 完整的测试验证和文档
+- ✅ 支持Objective-C和Swift混淆
+- ✅ 内置500+系统API白名单
+- ✅ 三种配置模板（minimal/standard/aggressive）
+- ✅ 确定性混淆和增量混淆支持

@@ -25,6 +25,49 @@ cd /path/to/project
 
 ## 最新更新
 
+### 2025-10-14
+- **iOS代码混淆功能** 🔐 - 应对App Store审核(4.3/2.1)的完整解决方案
+  - **核心功能完成** (v2.2.0): 完整的混淆引擎，支持ObjC/Swift
+    - 15个核心模块：配置管理、白名单、名称生成、项目分析、代码解析/转换等
+    - 内置1500+系统API白名单（UIKit/Foundation/CoreGraphics等）
+    - 四种命名策略：随机/前缀/模式/词典
+    - 确定性混淆：固定种子保证版本迭代一致性
+    - 增量混淆：仅混淆新增代码，减少变更影响
+  - **P2高级资源处理**: 应对二进制特征检测
+    - 图片像素微调：修改RGB值但保持视觉一致
+    - Assets.xcassets处理：Contents.json同步更新
+    - 音频文件hash修改：metadata和静音段处理
+    - 字体文件处理：内部表和元数据修改
+  - **代码混淆能力**:
+    - ✅ 类名/方法名/属性名/协议名混淆
+    - ✅ 垃圾代码生成器（3种复杂度级别）
+    - ✅ 字符串加密器（4种加密算法）
+    - ✅ 方法重载和重写智能处理
+    - ✅ XIB/Storyboard类名同步更新
+  - **双界面支持**:
+    - GUI界面：配置预设、实时进度、映射查看
+    - CLI工具：命令行批量处理、Jenkins/CI集成
+  - **企业级特性**:
+    - 混淆历史管理和版本控制
+    - 增量编译管理（MD5变化检测）
+    - 性能分析和统计报告
+  - **技术文档**:
+    - `gui/modules/obfuscation/CLAUDE.md` - 完整技术文档
+    - `docs/technical/IOS_OBFUSCATION_ROADMAP.md` - 后续开发计划
+    - 80+个测试用例验证
+  - **使用示例**:
+    ```bash
+    # GUI启动
+    ./scripts/run_analyzer.sh
+    # 切换到"iOS代码混淆"标签页
+
+    # CLI使用
+    python -m gui.modules.obfuscation.obfuscation_cli \
+      --project /path/to/project \
+      --output /path/to/obfuscated \
+      --template standard
+    ```
+
 ### 2025-10-11
 - **阶段二性能优化集成完成** 🚀⚡⚡⚡ - 核心性能突破已全面应用到主程序
   - **自动索引构建**: 加载日志文件后自动异步构建索引，无需手动操作
@@ -337,13 +380,14 @@ python3 gui/mars_log_analyzer_modular.py
 ```
 
 #### 功能说明
-主程序包含六个标签页：
+主程序包含七个标签页：
 1. **Mars日志分析** - 解码和分析xlog文件
 2. **IPS崩溃解析** - 解析iOS崩溃报告
 3. **iOS推送测试** - APNS推送测试工具
 4. **iOS沙盒浏览** - iOS应用沙盒文件浏览器
-5. **dSYM分析** - iOS崩溃符号化和代码定位 🆕
-6. **LinkMap分析** - iOS应用二进制大小分析 🆕
+5. **dSYM分析** - iOS崩溃符号化和代码定位
+6. **LinkMap分析** - iOS应用二进制大小分析
+7. **iOS代码混淆** - iOS项目代码混淆工具 🆕
 
 ### 独立启动iOS推送工具：
 ```bash
@@ -400,6 +444,57 @@ pyinstaller --clean MarsLogAnalyzer.spec
 ```
 
 详细的打包和分发说明请参考 [BUILD.md](docs/BUILD.md)
+
+### iOS代码混淆：
+
+#### GUI使用
+```bash
+# 启动主程序
+./scripts/run_analyzer.sh
+
+# 在主程序中选择"iOS代码混淆"标签页
+# 1. 选择项目和输出目录
+# 2. 配置混淆选项（或使用快速配置模板）
+# 3. 点击"开始混淆"
+# 4. 查看实时进度和日志
+# 5. 混淆完成后查看/导出映射文件
+```
+
+#### CLI使用
+```bash
+# 基础混淆（使用标准模板）
+python -m gui.modules.obfuscation.obfuscation_cli \
+    --project /path/to/ios/project \
+    --output /path/to/obfuscated \
+    --template standard
+
+# 自定义配置
+python -m gui.modules.obfuscation.obfuscation_cli \
+    --project /path/to/project \
+    --output /path/to/output \
+    --class-names \
+    --method-names \
+    --property-names \
+    --prefix "WHC" \
+    --seed "my_project_v1.0"
+
+# 增量混淆（保持旧版本映射）
+python -m gui.modules.obfuscation.obfuscation_cli \
+    --project /path/to/project \
+    --output /path/to/output \
+    --incremental \
+    --mapping /path/to/old_mapping.json
+
+# 只分析不混淆
+python -m gui.modules.obfuscation.obfuscation_cli \
+    --project /path/to/project \
+    --analyze-only \
+    --report analysis_report.json
+```
+
+详细的混淆功能说明请参考：
+- 技术文档：`gui/modules/obfuscation/CLAUDE.md`
+- 开发计划：`docs/technical/IOS_OBFUSCATION_ROADMAP.md`
 
 ## 重要说明
 
@@ -559,7 +654,8 @@ pip install -r requirements.txt
 │   │   ├── sandbox_tab.py                    # 沙盒浏览标签页
 │   │   ├── dsym_tab.py                       # dSYM分析标签页（重构版）
 │   │   ├── linkmap_tab.py                    # LinkMap分析标签页（重构版）
-│   │   ├── dsym/                             # dSYM模块化组件 🆕
+│   │   ├── obfuscation_tab.py                # iOS代码混淆标签页 🆕
+│   │   ├── dsym/                             # dSYM模块化组件
 │   │   │   ├── dsym_file_manager.py          # 文件管理器
 │   │   │   ├── dsym_uuid_parser.py           # UUID解析器
 │   │   │   ├── dsym_symbolizer.py            # 符号化器
@@ -569,13 +665,28 @@ pip install -r requirements.txt
 │   │   │   ├── linkmap_analyzer.py           # 数据分析器
 │   │   │   ├── linkmap_formatter.py          # 格式化输出
 │   │   │   └── CLAUDE.md                     # 模块技术文档
-│   │   └── sandbox/                          # 沙盒浏览模块化组件
-│   │       ├── device_manager.py             # 设备管理
-│   │       ├── app_manager.py                # 应用管理
-│   │       ├── file_browser.py               # 文件浏览
-│   │       ├── file_operations.py            # 文件操作
-│   │       ├── file_preview.py               # 文件预览
-│   │       ├── search_manager.py             # 搜索功能
+│   │   ├── sandbox/                          # 沙盒浏览模块化组件
+│   │   │   ├── device_manager.py             # 设备管理
+│   │   │   ├── app_manager.py                # 应用管理
+│   │   │   ├── file_browser.py               # 文件浏览
+│   │   │   ├── file_operations.py            # 文件操作
+│   │   │   ├── file_preview.py               # 文件预览
+│   │   │   ├── search_manager.py             # 搜索功能
+│   │   │   └── CLAUDE.md                     # 模块技术文档
+│   │   └── obfuscation/                      # iOS代码混淆模块化组件 🆕
+│   │       ├── config_manager.py             # 配置管理器
+│   │       ├── whitelist_manager.py          # 白名单管理器
+│   │       ├── name_generator.py             # 名称生成器
+│   │       ├── project_analyzer.py           # 项目分析器
+│   │       ├── code_parser.py                # 代码解析器
+│   │       ├── code_transformer.py           # 代码转换器
+│   │       ├── resource_handler.py           # 资源文件处理器
+│   │       ├── advanced_resource_handler.py  # 高级资源处理器
+│   │       ├── obfuscation_engine.py         # 混淆引擎核心
+│   │       ├── obfuscation_cli.py            # CLI命令行工具
+│   │       ├── garbage_generator.py          # 垃圾代码生成器
+│   │       ├── string_encryptor.py           # 字符串加密器
+│   │       ├── incremental_manager.py        # 增量编译管理器
 │   │       └── CLAUDE.md                     # 模块技术文档
 │   └── components/                           # UI组件
 │       ├── improved_lazy_text.py             # 改进版懒加载文本
@@ -598,10 +709,17 @@ pip install -r requirements.txt
 │   ├── README_CN.md                          # 中文文档
 │   ├── README_EN.md                          # 英文文档
 │   ├── BUILD.md                              # 打包分发指南
-│   ├── technical/                            # 技术文档目录 🆕
+│   ├── technical/                            # 技术文档目录
+│   │   ├── OPTIMIZATION_ANALYSIS.md          # 性能优化分析报告
+│   │   ├── PHASE_ONE_OPTIMIZATION_REPORT.md  # 阶段一优化实施报告
+│   │   ├── PHASE_TWO_OPTIMIZATION_REPORT.md  # 阶段二优化实施报告
+│   │   ├── BUGFIX_PHASE_ONE.md               # 阶段一Bug修复记录
 │   │   ├── SANDBOX_BUGFIX.md                 # iOS沙盒浏览Bug修复记录
 │   │   ├── SANDBOX_REFACTORING.md            # iOS沙盒浏览模块重构总结
-│   │   └── DSYM_LINKMAP.md                   # dSYM和LinkMap分析技术文档
+│   │   ├── DSYM_LINKMAP.md                   # dSYM和LinkMap分析技术文档
+│   │   ├── IOS_OBFUSCATION_PROGRESS.md       # iOS混淆开发进度报告
+│   │   ├── IOS_OBFUSCATION_DESIGN.md         # iOS混淆设计文档
+│   │   └── IOS_OBFUSCATION_ROADMAP.md        # iOS混淆后续开发计划 🆕
 │   └── CLAUDE.md                             # 项目指南（本文件）
 ├── MarsLogAnalyzer.spec                      # PyInstaller配置文件
 ├── build/                                    # 构建临时文件（自动生成）
