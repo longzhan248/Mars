@@ -363,6 +363,17 @@ class ObfuscationTab(ttk.Frame):
         )
         min_length_spinbox.pack(side=tk.LEFT, padx=2)
 
+        # 字符串加密白名单按钮（第二行）
+        string_whitelist_frame = ttk.Frame(right_options)
+        string_whitelist_frame.pack(anchor=tk.W, fill=tk.X, pady=2)
+
+        ttk.Button(
+            string_whitelist_frame,
+            text="🛡️ 加密白名单",
+            command=self.manage_string_whitelist,
+            width=14
+        ).pack(side=tk.LEFT)
+
         # 分隔线
         ttk.Separator(right_options, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=8)
 
@@ -690,6 +701,25 @@ class ObfuscationTab(ttk.Frame):
             config.modify_audio_files = self.modify_audio.get()
             config.modify_font_files = self.modify_fonts.get()
 
+            # 加载字符串加密白名单
+            string_whitelist = []
+            string_whitelist_file = os.path.join(
+                os.path.dirname(__file__),
+                "obfuscation",
+                "string_encryption_whitelist.json"
+            )
+
+            if os.path.exists(string_whitelist_file):
+                try:
+                    with open(string_whitelist_file, 'r', encoding='utf-8') as f:
+                        whitelist_data = json.load(f)
+                        string_whitelist = [item['content'] for item in whitelist_data.get('strings', [])]
+
+                    if string_whitelist:
+                        self.log(f"🛡️ 已加载 {len(string_whitelist)} 个字符串加密白名单项")
+                except Exception as e:
+                    self.log(f"⚠️  加载字符串加密白名单失败: {str(e)}")
+
             # 添加P2高级混淆配置
             config.insert_garbage_code = self.insert_garbage_code.get()
             config.garbage_count = self.garbage_count.get()
@@ -697,6 +727,7 @@ class ObfuscationTab(ttk.Frame):
             config.string_encryption = self.string_encryption.get()
             config.encryption_algorithm = self.encryption_algorithm.get()
             config.string_min_length = self.string_min_length.get()
+            config.string_whitelist_patterns = string_whitelist  # 添加字符串加密白名单
 
             # 添加P2.3调用关系生成配置
             config.enable_call_relationships = self.enable_call_relationships.get()
@@ -1455,6 +1486,412 @@ class ObfuscationTab(ttk.Frame):
 
         # 配置搜索高亮标签
         text_widget.tag_config('search', background='yellow', foreground='black')
+
+    def manage_string_whitelist(self):
+        """管理字符串加密白名单"""
+        # 创建白名单管理窗口
+        whitelist_window = tk.Toplevel(self)
+        whitelist_window.title("🛡️ 字符串加密白名单管理")
+        whitelist_window.geometry("700x550")
+
+        # 说明文本
+        desc_frame = ttk.Frame(whitelist_window)
+        desc_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        desc_text = ("字符串加密白名单用于保护不希望被加密的字符串常量。\n"
+                    "例如：系统API名称、第三方SDK调用、配置键名等不应加密的字符串。")
+        ttk.Label(
+            desc_frame,
+            text=desc_text,
+            font=("Arial", 9),
+            foreground="gray",
+            justify=tk.LEFT
+        ).pack(anchor=tk.W)
+
+        # 工具栏
+        toolbar = ttk.Frame(whitelist_window)
+        toolbar.pack(fill=tk.X, padx=10, pady=5)
+
+        ttk.Button(
+            toolbar,
+            text="➕ 添加",
+            command=lambda: self.add_string_whitelist_item(tree),
+            width=10
+        ).pack(side=tk.LEFT, padx=3)
+
+        ttk.Button(
+            toolbar,
+            text="✏️ 编辑",
+            command=lambda: self.edit_string_whitelist_item(tree),
+            width=10
+        ).pack(side=tk.LEFT, padx=3)
+
+        ttk.Button(
+            toolbar,
+            text="🗑️ 删除",
+            command=lambda: self.delete_string_whitelist_item(tree),
+            width=10
+        ).pack(side=tk.LEFT, padx=3)
+
+        ttk.Button(
+            toolbar,
+            text="📂 导入",
+            command=lambda: self.import_string_whitelist(tree),
+            width=10
+        ).pack(side=tk.LEFT, padx=3)
+
+        ttk.Button(
+            toolbar,
+            text="💾 导出",
+            command=lambda: self.export_string_whitelist(tree),
+            width=10
+        ).pack(side=tk.LEFT, padx=3)
+
+        # 白名单列表
+        list_frame = ttk.LabelFrame(whitelist_window, text="字符串白名单", padding=10)
+        list_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+
+        # 创建Treeview
+        columns = ("字符串", "备注")
+        tree = ttk.Treeview(list_frame, columns=columns, show="tree headings", selectmode="browse")
+
+        # 配置列
+        tree.heading("#0", text="")
+        tree.column("#0", width=30)
+        tree.heading("字符串", text="字符串内容")
+        tree.column("字符串", width=350)
+        tree.heading("备注", text="备注说明")
+        tree.column("备注", width=250)
+
+        # 添加滚动条
+        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
+
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # 加载字符串加密白名单
+        self.load_string_whitelist(tree)
+
+        # 双击编辑
+        tree.bind("<Double-1>", lambda e: self.edit_string_whitelist_item(tree))
+
+        # 统计信息
+        stats_frame = ttk.Frame(whitelist_window)
+        stats_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        stats_label = ttk.Label(stats_frame, text="", font=("Arial", 9))
+        stats_label.pack(side=tk.LEFT)
+
+        # 更新统计
+        def update_stats():
+            count = len(tree.get_children())
+            stats_label.config(text=f"共 {count} 个字符串白名单项")
+
+        update_stats()
+
+        # 关闭按钮
+        button_frame = ttk.Frame(whitelist_window)
+        button_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        ttk.Button(
+            button_frame,
+            text="关闭",
+            command=whitelist_window.destroy,
+            width=10
+        ).pack(side=tk.RIGHT)
+
+        # 保存刷新统计的引用
+        tree.update_stats = update_stats
+
+    def load_string_whitelist(self, tree):
+        """加载字符串加密白名单"""
+        whitelist_file = os.path.join(
+            os.path.dirname(__file__),
+            "obfuscation",
+            "string_encryption_whitelist.json"
+        )
+
+        if not os.path.exists(whitelist_file):
+            return
+
+        try:
+            with open(whitelist_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                items = data.get('strings', [])
+
+            for item in items:
+                tree.insert('', tk.END, values=(
+                    item.get('content', ''),
+                    item.get('reason', '')
+                ))
+        except Exception as e:
+            self.log(f"⚠️  加载字符串白名单失败: {str(e)}")
+
+    def save_string_whitelist(self, tree):
+        """保存字符串加密白名单"""
+        whitelist_file = os.path.join(
+            os.path.dirname(__file__),
+            "obfuscation",
+            "string_encryption_whitelist.json"
+        )
+
+        try:
+            items = []
+            for item_id in tree.get_children():
+                values = tree.item(item_id, 'values')
+                items.append({
+                    'content': values[0],
+                    'reason': values[1]
+                })
+
+            # 确保目录存在
+            os.makedirs(os.path.dirname(whitelist_file), exist_ok=True)
+
+            with open(whitelist_file, 'w', encoding='utf-8') as f:
+                json.dump({
+                    'version': '1.0',
+                    'updated': datetime.now().isoformat(),
+                    'strings': items
+                }, f, indent=2, ensure_ascii=False)
+
+            return True
+        except Exception as e:
+            self.log(f"⚠️  保存字符串白名单失败: {str(e)}")
+            return False
+
+    def add_string_whitelist_item(self, tree):
+        """添加字符串白名单项"""
+        # 创建添加对话框
+        dialog = tk.Toplevel(self)
+        dialog.title("添加字符串白名单")
+        dialog.geometry("500x200")
+        dialog.transient(self)
+        dialog.grab_set()
+
+        # 字符串内容
+        content_frame = ttk.Frame(dialog)
+        content_frame.pack(fill=tk.X, padx=20, pady=10)
+
+        ttk.Label(content_frame, text="字符串内容:", width=10).pack(side=tk.LEFT)
+        content_var = tk.StringVar()
+        content_entry = ttk.Entry(content_frame, textvariable=content_var)
+        content_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        content_entry.focus()
+
+        # 备注
+        reason_frame = ttk.Frame(dialog)
+        reason_frame.pack(fill=tk.X, padx=20, pady=10)
+
+        ttk.Label(reason_frame, text="备注说明:", width=10).pack(side=tk.LEFT, anchor=tk.N)
+        reason_var = tk.StringVar()
+        reason_entry = ttk.Entry(reason_frame, textvariable=reason_var)
+        reason_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+
+        # 按钮
+        button_frame = ttk.Frame(dialog)
+        button_frame.pack(fill=tk.X, padx=20, pady=20)
+
+        def on_confirm():
+            content = content_var.get().strip()
+            if not content:
+                messagebox.showwarning("提示", "请输入字符串内容", parent=dialog)
+                return
+
+            # 添加到列表
+            tree.insert('', tk.END, values=(
+                content,
+                reason_var.get()
+            ))
+
+            # 保存
+            self.save_string_whitelist(tree)
+            tree.update_stats()
+
+            dialog.destroy()
+
+        ttk.Button(
+            button_frame,
+            text="确定",
+            command=on_confirm,
+            width=10
+        ).pack(side=tk.RIGHT, padx=5)
+
+        ttk.Button(
+            button_frame,
+            text="取消",
+            command=dialog.destroy,
+            width=10
+        ).pack(side=tk.RIGHT)
+
+        # Enter键确认
+        dialog.bind('<Return>', lambda e: on_confirm())
+
+    def edit_string_whitelist_item(self, tree):
+        """编辑字符串白名单项"""
+        selection = tree.selection()
+        if not selection:
+            messagebox.showinfo("提示", "请先选择要编辑的项")
+            return
+
+        item_id = selection[0]
+        values = tree.item(item_id, 'values')
+
+        # 创建编辑对话框
+        dialog = tk.Toplevel(self)
+        dialog.title("编辑字符串白名单")
+        dialog.geometry("500x200")
+        dialog.transient(self)
+        dialog.grab_set()
+
+        # 字符串内容
+        content_frame = ttk.Frame(dialog)
+        content_frame.pack(fill=tk.X, padx=20, pady=10)
+
+        ttk.Label(content_frame, text="字符串内容:", width=10).pack(side=tk.LEFT)
+        content_var = tk.StringVar(value=values[0])
+        content_entry = ttk.Entry(content_frame, textvariable=content_var)
+        content_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        content_entry.focus()
+
+        # 备注
+        reason_frame = ttk.Frame(dialog)
+        reason_frame.pack(fill=tk.X, padx=20, pady=10)
+
+        ttk.Label(reason_frame, text="备注说明:", width=10).pack(side=tk.LEFT, anchor=tk.N)
+        reason_var = tk.StringVar(value=values[1])
+        reason_entry = ttk.Entry(reason_frame, textvariable=reason_var)
+        reason_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+
+        # 按钮
+        button_frame = ttk.Frame(dialog)
+        button_frame.pack(fill=tk.X, padx=20, pady=20)
+
+        def on_confirm():
+            content = content_var.get().strip()
+            if not content:
+                messagebox.showwarning("提示", "请输入字符串内容", parent=dialog)
+                return
+
+            # 更新列表
+            tree.item(item_id, values=(
+                content,
+                reason_var.get()
+            ))
+
+            # 保存
+            self.save_string_whitelist(tree)
+
+            dialog.destroy()
+
+        ttk.Button(
+            button_frame,
+            text="确定",
+            command=on_confirm,
+            width=10
+        ).pack(side=tk.RIGHT, padx=5)
+
+        ttk.Button(
+            button_frame,
+            text="取消",
+            command=dialog.destroy,
+            width=10
+        ).pack(side=tk.RIGHT)
+
+        # Enter键确认
+        dialog.bind('<Return>', lambda e: on_confirm())
+
+    def delete_string_whitelist_item(self, tree):
+        """删除字符串白名单项"""
+        selection = tree.selection()
+        if not selection:
+            messagebox.showinfo("提示", "请先选择要删除的项")
+            return
+
+        if messagebox.askyesno("确认", "确定要删除选中的字符串白名单项吗？"):
+            for item_id in selection:
+                tree.delete(item_id)
+
+            # 保存
+            self.save_string_whitelist(tree)
+            tree.update_stats()
+
+    def import_string_whitelist(self, tree):
+        """导入字符串白名单"""
+        file_path = filedialog.askopenfilename(
+            title="导入字符串白名单",
+            filetypes=[("JSON文件", "*.json"), ("文本文件", "*.txt"), ("所有文件", "*.*")]
+        )
+
+        if not file_path:
+            return
+
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                if file_path.endswith('.json'):
+                    data = json.load(f)
+                    items = data.get('strings', [])
+                else:
+                    # 文本文件，每行一个字符串
+                    items = [{'content': line.strip(), 'reason': '从文件导入'}
+                             for line in f if line.strip()]
+
+            # 添加到列表
+            for item in items:
+                tree.insert('', tk.END, values=(
+                    item.get('content', ''),
+                    item.get('reason', '')
+                ))
+
+            # 保存
+            self.save_string_whitelist(tree)
+            tree.update_stats()
+
+            messagebox.showinfo("成功", f"已导入 {len(items)} 个字符串白名单项")
+
+        except Exception as e:
+            messagebox.showerror("错误", f"导入失败:\n{str(e)}")
+
+    def export_string_whitelist(self, tree):
+        """导出字符串白名单"""
+        if not tree.get_children():
+            messagebox.showinfo("提示", "字符串白名单为空，无需导出")
+            return
+
+        file_path = filedialog.asksaveasfilename(
+            title="导出字符串白名单",
+            defaultextension=".json",
+            filetypes=[("JSON文件", "*.json"), ("文本文件", "*.txt"), ("所有文件", "*.*")]
+        )
+
+        if not file_path:
+            return
+
+        try:
+            items = []
+            for item_id in tree.get_children():
+                values = tree.item(item_id, 'values')
+                items.append({
+                    'content': values[0],
+                    'reason': values[1]
+                })
+
+            with open(file_path, 'w', encoding='utf-8') as f:
+                if file_path.endswith('.json'):
+                    json.dump({
+                        'version': '1.0',
+                        'exported': datetime.now().isoformat(),
+                        'strings': items
+                    }, f, indent=2, ensure_ascii=False)
+                else:
+                    # 文本文件，每行一个字符串
+                    for item in items:
+                        f.write(item['content'] + '\n')
+
+            messagebox.showinfo("成功", f"已导出 {len(items)} 个字符串白名单项")
+
+        except Exception as e:
+            messagebox.showerror("错误", f"导出失败:\n{str(e)}")
 
 
 if __name__ == "__main__":
