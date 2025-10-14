@@ -31,6 +31,7 @@ try:
     from .garbage_generator import CodeLanguage as GarbageCodeLanguage  # 垃圾代码的CodeLanguage
     from .string_encryptor import StringEncryptor, EncryptionAlgorithm
     from .string_encryptor import CodeLanguage as StringCodeLanguage  # 字符串加密的CodeLanguage
+    from .xcode_project_manager import XcodeProjectManager, check_pbxproj_availability
 except ImportError:
     from config_manager import ObfuscationConfig, ConfigManager
     from whitelist_manager import WhitelistManager
@@ -45,6 +46,7 @@ except ImportError:
     from garbage_generator import CodeLanguage as GarbageCodeLanguage  # 垃圾代码的CodeLanguage
     from string_encryptor import StringEncryptor, EncryptionAlgorithm
     from string_encryptor import CodeLanguage as StringCodeLanguage  # 字符串加密的CodeLanguage
+    from xcode_project_manager import XcodeProjectManager, check_pbxproj_availability
 
 
 @dataclass
@@ -890,9 +892,65 @@ class ObfuscationEngine:
                     print(f"  垃圾代码文件已生成: {total_garbage_files} 个")
                     print(f"    - Objective-C: {len(self.garbage_files['objc'])} 个")
                     print(f"    - Swift: {len(self.garbage_files['swift'])} 个")
-                    print(f"  ℹ️  垃圾文件已保存到输出目录，需手动添加到Xcode项目")
 
-            print(f"✅ P2深度集成后处理完成\n")
+            # === Xcode项目文件自动添加 ===
+            # 检查是否启用自动添加到Xcode项目（默认启用，可通过配置禁用）
+            auto_add_to_xcode = getattr(self.config, 'auto_add_to_xcode', True)
+
+            if auto_add_to_xcode and (self.garbage_files['objc'] or self.garbage_files['swift'] or
+                                     self.files_with_encryption['objc'] or self.files_with_encryption['swift']):
+
+                print(f"\n📦 自动添加文件到Xcode项目...")
+
+                # 检查pbxproj库是否可用
+                if not check_pbxproj_availability():
+                    print(f"  ⚠️  mod-pbxproj库未安装，跳过自动添加")
+                    print(f"  ℹ️  安装方法: pip install pbxproj")
+                    print(f"  ℹ️  请手动将生成的文件添加到Xcode项目")
+                else:
+                    try:
+                        # 初始化Xcode项目管理器
+                        xcode_manager = XcodeProjectManager(self.project_structure.root_path)
+
+                        if not xcode_manager.load_project():
+                            print(f"  ⚠️  无法加载Xcode项目，跳过自动添加")
+                            print(f"  ℹ️  请手动将生成的文件添加到Xcode项目")
+                        else:
+                            # 收集所有需要添加的文件
+                            decryption_files = []
+                            if self.files_with_encryption['objc']:
+                                decryption_files.append(str(Path(output_dir) / "StringDecryption.h"))
+                            if self.files_with_encryption['swift']:
+                                decryption_files.append(str(Path(output_dir) / "StringDecryption.swift"))
+
+                            # 获取目标target（使用第一个target）
+                            targets = xcode_manager.get_targets()
+                            target_name = targets[0] if targets else None
+
+                            # 添加混淆生成的文件
+                            garbage_results, decryption_results = xcode_manager.add_obfuscation_files(
+                                garbage_files=self.garbage_files,
+                                decryption_files=decryption_files,
+                                target_name=target_name
+                            )
+
+                            # 保存项目修改
+                            if xcode_manager.save_project():
+                                # 打印摘要
+                                xcode_manager.print_summary(garbage_results, decryption_results)
+                                print(f"  ✅ 文件已自动添加到Xcode项目")
+                            else:
+                                print(f"  ⚠️  保存Xcode项目失败")
+                                print(f"  ℹ️  请手动将生成的文件添加到Xcode项目")
+
+                    except Exception as e:
+                        print(f"  ⚠️  自动添加文件失败: {e}")
+                        print(f"  ℹ️  请手动将生成的文件添加到Xcode项目")
+            elif not auto_add_to_xcode:
+                print(f"  ℹ️  自动添加功能已禁用")
+                print(f"  ℹ️  请手动将生成的文件添加到Xcode项目")
+
+            print(f"\n✅ P2深度集成后处理完成\n")
 
         except Exception as e:
             print(f"❌ P2后处理异常: {e}")

@@ -14,6 +14,9 @@ h2>=4.0.0                 # HTTP/2协议
 pymobiledevice3>=3.0.0     # iOS设备通信库
 Pillow>=10.0.0             # 图片预览支持
 
+# iOS代码混淆依赖
+pbxproj>=3.5.0             # Xcode项目文件操作（自动添加文件到项目）
+
 # 打包工具依赖（可选）
 pyinstaller>=6.0.0      # 应用打包工具
 

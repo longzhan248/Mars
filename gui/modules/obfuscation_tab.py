@@ -310,6 +310,31 @@ class ObfuscationTab(ttk.Frame):
         )
         complexity_combo.pack(side=tk.LEFT, padx=2)
 
+        # P2.3调用关系生成配置（第二行）
+        call_config_frame = ttk.Frame(right_options)
+        call_config_frame.pack(anchor=tk.W, fill=tk.X, pady=2)
+
+        # 启用调用关系
+        self.enable_call_relationships = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            call_config_frame,
+            text="调用关系 🔗",
+            variable=self.enable_call_relationships,
+            width=10
+        ).pack(side=tk.LEFT)
+
+        # 调用密度
+        ttk.Label(call_config_frame, text="密度:", width=5, font=("Arial", 8)).pack(side=tk.LEFT, padx=(5, 0))
+        self.call_density = tk.StringVar(value="medium")
+        density_combo = ttk.Combobox(
+            call_config_frame,
+            textvariable=self.call_density,
+            values=["low", "medium", "high"],
+            state="readonly",
+            width=6
+        )
+        density_combo.pack(side=tk.LEFT, padx=2)
+
         # P2字符串加密配置（当checkbox启用时生效）
         string_config_frame = ttk.Frame(right_options)
         string_config_frame.pack(anchor=tk.W, fill=tk.X, pady=5)
@@ -672,6 +697,11 @@ class ObfuscationTab(ttk.Frame):
             config.string_encryption = self.string_encryption.get()
             config.encryption_algorithm = self.encryption_algorithm.get()
             config.string_min_length = self.string_min_length.get()
+
+            # 添加P2.3调用关系生成配置
+            config.enable_call_relationships = self.enable_call_relationships.get()
+            config.call_density = self.call_density.get()
+            config.max_call_depth = 3  # 固定深度为3
 
             # 创建混淆引擎
             engine = self.obfuscation_engine_class(config)

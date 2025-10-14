@@ -14,7 +14,8 @@
       "Bash(touch:*)",
       "Bash(python -m pytest tests/ -v --tb=short)",
       "Bash(python:*)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

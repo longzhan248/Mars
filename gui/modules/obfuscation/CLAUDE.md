@@ -30,7 +30,8 @@ gui/modules/obfuscation/
 ├── obfuscation_engine.py         # 混淆引擎核心 ✅
 ├── obfuscation_tab.py            # GUI标签页 ✅ (含导入路径修复)
 ├── obfuscation_cli.py            # CLI命令行工具 ✅ (v2.1.0新增)
-├── garbage_generator.py          # 垃圾代码生成器 ✅ (v2.2.0新增)
+├── garbage_generator.py          # 垃圾代码生成器 ✅ (v2.2.0新增，v2.2.3增强)
+├── call_graph_generator.py       # 调用图生成器 ✅ (v2.2.3新增)
 ├── string_encryptor.py           # 字符串加密器 ✅ (v2.2.0新增)
 └── incremental_manager.py        # 增量编译管理器 ✅ (v2.2.0新增)
 ```
@@ -690,6 +691,64 @@ python -m gui.modules.obfuscation.obfuscation_cli \
     --report /path/to/report.json
 ```
 
+### 垃圾代码调用关系生成示例 🆕
+
+```python
+from gui.modules.obfuscation.garbage_generator import (
+    GarbageCodeGenerator,
+    CodeLanguage,
+    ComplexityLevel
+)
+
+# 启用调用关系生成
+gen = GarbageCodeGenerator(
+    language=CodeLanguage.OBJC,
+    complexity=ComplexityLevel.MODERATE,
+    name_prefix="GC",
+    seed="my_seed",
+    enable_call_relationships=True,  # 🆕 启用调用关系
+    call_density="medium",            # 🆕 调用密度（low/medium/high）
+    max_call_depth=3                  # 🆕 最大调用深度
+)
+
+# 生成垃圾类（会自动生成调用关系）
+classes = gen.generate_classes(count=20)
+
+# 导出文件
+gen.export_to_files("/path/to/output")
+
+# 查看统计（包含调用关系统计）
+stats = gen.get_statistics()
+print(f"生成了 {stats['classes_generated']} 个类")
+print(f"启用了调用关系: {stats['call_relationships_enabled']}")
+```
+
+**生成的调用关系示例**（Objective-C）：
+```objc
+- (void)someMethod {
+    // Generated call relationships
+    GCClass2 *gcClass2Instance = [[GCClass2 alloc] init];
+    [gcClass2Instance methodName];
+
+    if (gcClass3Instance) {
+        [gcClass3Instance anotherMethod];
+    }
+
+    // Original method body
+    // ... 原有方法体 ...
+}
+```
+
+**调用密度说明**：
+- **low**: 每个类调用1-2个其他类，调用关系稀疏
+- **medium**: 每个类调用3-5个其他类，平衡效果和编译时间
+- **high**: 每个类调用6-10个其他类，最大化混淆效果
+
+**调用类型**：
+- **direct**: 直接调用 `[object method]`
+- **conditional**: 条件调用 `if (object) { [object method]; }`
+- **loop**: 循环调用 `for (int i=0; i<n; i++) { [object method]; }`
+
 ## 开发计划
 
 ### ✅ 核心功能已完成 (v2.0.0 - 2025-10-13)
@@ -1212,8 +1271,107 @@ manager.finalize(processed_files)
 **后续优化方向**:
 - 🔜 自动修改.xcodeproj文件，将垃圾文件加入项目
 - 🔜 支持更多加密算法（AES、RSA等）
-- 🔜 垃圾代码调用关系生成，增强混淆效果
+- ✅ 垃圾代码调用关系生成，增强混淆效果 (v2.2.3完成)
 - 🔜 字符串加密白名单可视化编辑
+
+### v2.2.3 (2025-10-14) - 垃圾代码调用关系生成 🔗
+
+**新增功能**:
+1. ✅ **call_graph_generator.py** - 调用图生成器 ⭐ (329行)
+   - **核心功能**:
+     - 建立垃圾类之间的真实调用关系
+     - 三种调用密度（LOW/MEDIUM/HIGH）
+     - 三种调用类型（direct/conditional/loop）
+     - 自动生成实例和方法调用代码
+     - 支持Objective-C和Swift
+   - **调用密度**:
+     - LOW (10-30%): 每类调用1-2个其他类，关系稀疏
+     - MEDIUM (30-60%): 每类调用3-5个其他类，效果平衡（默认）
+     - HIGH (60-100%): 每类调用6-10个其他类，最大混淆
+   - **调用类型**:
+     - direct: 直接方法调用 `[object method]`
+     - conditional: 条件调用 `if (object) { [object method]; }`
+     - loop: 循环调用 `for (i=0; i<n; i++) { [object method]; }`
+   - **代码质量**: 9.0/10
+
+2. ✅ **garbage_generator.py** - 集成调用关系生成增强
+   - **新增参数**:
+     - `enable_call_relationships`: 是否启用调用关系（默认True）
+     - `call_density`: 调用密度字符串（low/medium/high）
+     - `max_call_depth`: 最大调用深度（默认3）
+   - **自动集成**: 在`generate_classes()`中自动构建和注入调用关系
+   - **统计信息**: `get_statistics()`包含调用关系启用状态
+
+**测试验证**:
+3. ✅ **tests/test_call_relationships.py** - 完整测试套件 (12/12通过)
+   - **测试用例**:
+     - test_call_graph_generator_initialization - 初始化测试 ✅
+     - test_instance_name_generation - 实例名生成 ✅
+     - test_build_call_graph_objc - ObjC调用图构建 ✅
+     - test_build_call_graph_swift - Swift调用图构建 ✅
+     - test_generate_objc_call_code - ObjC代码生成 ✅
+     - test_generate_swift_call_code - Swift代码生成 ✅
+     - test_inject_calls_into_methods - 方法注入 ✅
+     - test_garbage_generator_with_call_relationships - 启用调用关系 ✅
+     - test_garbage_generator_without_call_relationships - 禁用调用关系 ✅
+     - test_call_density_configuration - 密度配置 ✅
+     - test_call_relationships_statistics - 统计信息 ✅
+     - test_export_with_call_relationships - 文件导出 ✅
+   - **测试结果**: 12/12 tests passed, 0.007秒 ✅
+
+**使用示例**:
+```python
+from gui.modules.obfuscation.garbage_generator import (
+    GarbageCodeGenerator, CodeLanguage, ComplexityLevel
+)
+
+# 启用调用关系生成
+gen = GarbageCodeGenerator(
+    language=CodeLanguage.OBJC,
+    complexity=ComplexityLevel.MODERATE,
+    name_prefix="GC",
+    seed="my_seed",
+    enable_call_relationships=True,  # 🆕 启用
+    call_density="medium",            # 🆕 密度
+    max_call_depth=3                  # 🆕 深度
+)
+
+# 生成类（自动生成调用关系）
+classes = gen.generate_classes(count=20)
+gen.export_to_files("/path/to/output")
+```
+
+**生成的调用示例**（Objective-C）:
+```objc
+- (void)someMethod {
+    // Generated call relationships
+    GCClass2 *gcClass2Instance = [[GCClass2 alloc] init];
+    [gcClass2Instance methodName];
+
+    if (gcClass3Instance) {
+        [gcClass3Instance anotherMethod];
+    }
+
+    for (int i = 0; i < 5; i++) {
+        [gcClass4Instance loopMethod];
+    }
+
+    // Original method body
+    // ... 原有方法体 ...
+}
+```
+
+**技术优势**:
+- **真实性增强**: 垃圾类之间有真实的调用关系，更难被识别
+- **配置灵活**: 可调节调用密度和深度，平衡混淆效果和编译时间
+- **语言支持**: 同时支持Objective-C和Swift，生成对应语言的调用代码
+- **自动化**: 无需手动配置，自动生成合理的调用关系图
+
+**后续优化**:
+- 🔜 支持链式调用（chain）模式
+- 🔜 跨语言调用（ObjC调用Swift类，反之亦然）
+- 🔜 循环依赖检测和避免
+- 🔜 调用关系可视化图表
 
 ### v2.1.1 (2025-10-13) - 集成测试完成 ✅
 

@@ -268,7 +268,10 @@ class GarbageCodeGenerator:
         language: CodeLanguage = CodeLanguage.OBJC,
         complexity: ComplexityLevel = ComplexityLevel.MODERATE,
         name_prefix: str = "GC",  # Garbage Code prefix
-        seed: Optional[str] = None
+        seed: Optional[str] = None,
+        enable_call_relationships: bool = True,  # 🆕 是否启用调用关系
+        call_density: str = "medium",  # 🆕 调用密度（low/medium/high）
+        max_call_depth: int = 3  # 🆕 最大调用深度
     ):
         """
         初始化垃圾代码生成器
@@ -278,10 +281,16 @@ class GarbageCodeGenerator:
             complexity: 复杂度级别
             name_prefix: 名称前缀
             seed: 随机种子（用于确定性生成）
+            enable_call_relationships: 是否启用调用关系生成
+            call_density: 调用密度（low/medium/high）
+            max_call_depth: 最大调用深度
         """
         self.language = language
         self.complexity = complexity
         self.name_prefix = name_prefix
+        self.enable_call_relationships = enable_call_relationships
+        self.call_density = call_density
+        self.max_call_depth = max_call_depth
         self.generated_classes: List[GarbageClass] = []
         self.class_name_index = 1
 
@@ -510,6 +519,32 @@ class GarbageCodeGenerator:
             gc = self.generate_class(num_props, num_methods)
             classes.append(gc)
 
+        # 🆕 生成调用关系
+        if self.enable_call_relationships and len(classes) >= 2:
+            from .call_graph_generator import CallGraphGenerator, CallDensity
+
+            # 转换调用密度字符串到枚举
+            density_map = {
+                "low": CallDensity.LOW,
+                "medium": CallDensity.MEDIUM,
+                "high": CallDensity.HIGH
+            }
+            density = density_map.get(self.call_density.lower(), CallDensity.MEDIUM)
+
+            # 创建调用图生成器
+            call_gen = CallGraphGenerator(
+                density=density,
+                max_depth=self.max_call_depth,
+                seed=None  # 使用全局随机状态
+            )
+
+            # 构建调用图
+            language_str = self.language.value
+            call_graph = call_gen.build_call_graph(classes, language_str)
+
+            # 将调用注入到方法体中
+            call_gen.inject_calls_into_methods(classes, call_graph, language_str)
+
         return classes
 
     def export_to_files(self, output_dir: str) -> Dict[str, str]:
@@ -551,22 +586,25 @@ class GarbageCodeGenerator:
 
         return file_map
 
-    def get_statistics(self) -> Dict[str, int]:
+    def get_statistics(self) -> Dict:
         """
         获取统计信息
 
         Returns:
-            Dict[str, int]: 统计数据
+            Dict: 统计数据
         """
         total_properties = sum(len(gc.properties) for gc in self.generated_classes)
         total_methods = sum(len(gc.methods) for gc in self.generated_classes)
 
-        return {
+        stats = {
             'classes_generated': len(self.generated_classes),
             'properties_generated': total_properties,
             'methods_generated': total_methods,
-            'files_exported': len(self.generated_classes) * (2 if self.language == CodeLanguage.OBJC else 1)
+            'files_exported': len(self.generated_classes) * (2 if self.language == CodeLanguage.OBJC else 1),
+            'call_relationships_enabled': self.enable_call_relationships
         }
+
+        return stats
 
 
 if __name__ == "__main__":
