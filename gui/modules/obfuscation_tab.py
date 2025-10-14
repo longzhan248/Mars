@@ -345,7 +345,7 @@ class ObfuscationTab(ttk.Frame):
         algorithm_combo = ttk.Combobox(
             string_config_frame,
             textvariable=self.encryption_algorithm,
-            values=["xor", "base64", "shift", "rot13"],
+            values=["xor", "base64", "shift", "rot13", "aes128", "aes256"],
             state="readonly",
             width=8
         )

@@ -19,11 +19,21 @@
 import re
 import base64
 import hashlib
+import os
 from typing import List, Dict, Set, Optional, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 import random
 import string
+
+# 导入AES加密库
+try:
+    from Crypto.Cipher import AES
+    from Crypto.Util.Padding import pad, unpad
+    from Crypto.Random import get_random_bytes
+    AES_AVAILABLE = True
+except ImportError:
+    AES_AVAILABLE = False
 
 
 class EncryptionAlgorithm(Enum):
@@ -32,6 +42,8 @@ class EncryptionAlgorithm(Enum):
     XOR = "xor"                # XOR异或加密
     SIMPLE_SHIFT = "shift"     # 简单位移加密
     ROT13 = "rot13"            # ROT13加密（字母）
+    AES128 = "aes128"          # AES-128加密（需要pycryptodome）
+    AES256 = "aes256"          # AES-256加密（需要pycryptodome）
 
 
 class CodeLanguage(Enum):
@@ -334,6 +346,310 @@ func decryptStringShift(_ encrypted: String) -> String {{
 }}
 '''
 
+    def _encrypt_aes128(self, text: str) -> str:
+        """AES-128加密"""
+        if not AES_AVAILABLE:
+            raise ImportError("PyCryptodome库未安装，请运行: pip install pycryptodome")
+
+        # 生成16字节密钥（AES-128）
+        key_bytes = self.key.encode('utf-8')
+        key = hashlib.md5(key_bytes).digest()  # 16字节
+
+        # 生成随机IV
+        iv = get_random_bytes(AES.block_size)
+
+        # 创建AES加密器
+        cipher = AES.new(key, AES.MODE_CBC, iv)
+
+        # 填充并加密
+        plaintext = text.encode('utf-8')
+        ciphertext = cipher.encrypt(pad(plaintext, AES.block_size))
+
+        # 返回 IV + 密文 的十六进制表示
+        return (iv + ciphertext).hex()
+
+    def _encrypt_aes256(self, text: str) -> str:
+        """AES-256加密"""
+        if not AES_AVAILABLE:
+            raise ImportError("PyCryptodome库未安装，请运行: pip install pycryptodome")
+
+        # 生成32字节密钥（AES-256）
+        key_bytes = self.key.encode('utf-8')
+        key = hashlib.sha256(key_bytes).digest()  # 32字节
+
+        # 生成随机IV
+        iv = get_random_bytes(AES.block_size)
+
+        # 创建AES加密器
+        cipher = AES.new(key, AES.MODE_CBC, iv)
+
+        # 填充并加密
+        plaintext = text.encode('utf-8')
+        ciphertext = cipher.encrypt(pad(plaintext, AES.block_size))
+
+        # 返回 IV + 密文 的十六进制表示
+        return (iv + ciphertext).hex()
+
+    def _decrypt_aes128_code(self) -> str:
+        """生成AES-128解密代码"""
+        # 生成密钥（与加密时相同）
+        key_bytes = self.key.encode('utf-8')
+        key_hex = hashlib.md5(key_bytes).hexdigest()
+
+        if self.language == CodeLanguage.OBJC:
+            return f'''
+#import <CommonCrypto/CommonCrypto.h>
+
+#define AES128_KEY @"{key_hex}"
+
+NSString* decryptStringAES128(NSString *encrypted) {{
+    if (!encrypted || encrypted.length == 0) return @"";
+
+    // 解析密钥
+    NSMutableData *keyData = [NSMutableData data];
+    for (int i = 0; i < AES128_KEY.length; i += 2) {{
+        NSString *hexByte = [AES128_KEY substringWithRange:NSMakeRange(i, 2)];
+        unsigned int byte;
+        [[NSScanner scannerWithString:hexByte] scanHexInt:&byte];
+        uint8_t b = byte;
+        [keyData appendBytes:&b length:1];
+    }}
+
+    // 解析加密数据（十六进制）
+    NSMutableData *encryptedData = [NSMutableData data];
+    for (int i = 0; i < encrypted.length; i += 2) {{
+        NSString *hexByte = [encrypted substringWithRange:NSMakeRange(i, 2)];
+        unsigned int byte;
+        [[NSScanner scannerWithString:hexByte] scanHexInt:&byte];
+        uint8_t b = byte;
+        [encryptedData appendBytes:&b length:1];
+    }}
+
+    // 提取IV（前16字节）
+    NSData *iv = [encryptedData subdataWithRange:NSMakeRange(0, kCCBlockSizeAES128)];
+    NSData *ciphertext = [encryptedData subdataWithRange:NSMakeRange(kCCBlockSizeAES128, encryptedData.length - kCCBlockSizeAES128)];
+
+    // 解密
+    size_t bufferSize = ciphertext.length + kCCBlockSizeAES128;
+    void *buffer = malloc(bufferSize);
+    size_t numBytesDecrypted = 0;
+
+    CCCryptorStatus cryptStatus = CCCrypt(kCCDecrypt,
+                                          kCCAlgorithmAES128,
+                                          kCCOptionPKCS7Padding,
+                                          keyData.bytes,
+                                          keyData.length,
+                                          iv.bytes,
+                                          ciphertext.bytes,
+                                          ciphertext.length,
+                                          buffer,
+                                          bufferSize,
+                                          &numBytesDecrypted);
+
+    if (cryptStatus == kCCSuccess) {{
+        NSData *decryptedData = [NSData dataWithBytes:buffer length:numBytesDecrypted];
+        free(buffer);
+        return [[NSString alloc] initWithData:decryptedData encoding:NSUTF8StringEncoding];
+    }}
+
+    free(buffer);
+    return @"";
+}}
+
+#define DECRYPT_STRING_AES128(str) decryptStringAES128(str)
+'''
+        else:  # Swift
+            return f'''
+import CommonCrypto
+
+let AES128_KEY = "{key_hex}"
+
+func decryptStringAES128(_ encrypted: String) -> String {{
+    guard !encrypted.isEmpty else {{ return "" }}
+
+    // 解析密钥
+    var keyBytes: [UInt8] = []
+    var index = AES128_KEY.startIndex
+    while index < AES128_KEY.endIndex {{
+        let nextIndex = AES128_KEY.index(index, offsetBy: 2)
+        let hexByte = String(AES128_KEY[index..<nextIndex])
+        if let byte = UInt8(hexByte, radix: 16) {{
+            keyBytes.append(byte)
+        }}
+        index = nextIndex
+    }}
+
+    // 解析加密数据
+    var encryptedBytes: [UInt8] = []
+    index = encrypted.startIndex
+    while index < encrypted.endIndex {{
+        let nextIndex = encrypted.index(index, offsetBy: 2)
+        let hexByte = String(encrypted[index..<nextIndex])
+        if let byte = UInt8(hexByte, radix: 16) {{
+            encryptedBytes.append(byte)
+        }}
+        index = nextIndex
+    }}
+
+    // 提取IV和密文
+    let ivSize = kCCBlockSizeAES128
+    guard encryptedBytes.count > ivSize else {{ return "" }}
+
+    let iv = Array(encryptedBytes[0..<ivSize])
+    let ciphertext = Array(encryptedBytes[ivSize...])
+
+    // 解密
+    var decryptedBytes = [UInt8](repeating: 0, count: ciphertext.count + kCCBlockSizeAES128)
+    var numBytesDecrypted = 0
+
+    let cryptStatus = CCCrypt(
+        CCOperation(kCCDecrypt),
+        CCAlgorithm(kCCAlgorithmAES128),
+        CCOptions(kCCOptionPKCS7Padding),
+        keyBytes, keyBytes.count,
+        iv,
+        ciphertext, ciphertext.count,
+        &decryptedBytes, decryptedBytes.count,
+        &numBytesDecrypted
+    )
+
+    guard cryptStatus == kCCSuccess else {{ return "" }}
+
+    let decryptedData = Data(bytes: decryptedBytes, count: numBytesDecrypted)
+    return String(data: decryptedData, encoding: .utf8) ?? ""
+}}
+'''
+
+    def _decrypt_aes256_code(self) -> str:
+        """生成AES-256解密代码"""
+        # 生成密钥（与加密时相同）
+        key_bytes = self.key.encode('utf-8')
+        key_hex = hashlib.sha256(key_bytes).hexdigest()
+
+        if self.language == CodeLanguage.OBJC:
+            return f'''
+#import <CommonCrypto/CommonCrypto.h>
+
+#define AES256_KEY @"{key_hex}"
+
+NSString* decryptStringAES256(NSString *encrypted) {{
+    if (!encrypted || encrypted.length == 0) return @"";
+
+    // 解析密钥
+    NSMutableData *keyData = [NSMutableData data];
+    for (int i = 0; i < AES256_KEY.length; i += 2) {{
+        NSString *hexByte = [AES256_KEY substringWithRange:NSMakeRange(i, 2)];
+        unsigned int byte;
+        [[NSScanner scannerWithString:hexByte] scanHexInt:&byte];
+        uint8_t b = byte;
+        [keyData appendBytes:&b length:1];
+    }}
+
+    // 解析加密数据（十六进制）
+    NSMutableData *encryptedData = [NSMutableData data];
+    for (int i = 0; i < encrypted.length; i += 2) {{
+        NSString *hexByte = [encrypted substringWithRange:NSMakeRange(i, 2)];
+        unsigned int byte;
+        [[NSScanner scannerWithString:hexByte] scanHexInt:&byte];
+        uint8_t b = byte;
+        [encryptedData appendBytes:&b length:1];
+    }}
+
+    // 提取IV（前16字节）
+    NSData *iv = [encryptedData subdataWithRange:NSMakeRange(0, kCCBlockSizeAES128)];
+    NSData *ciphertext = [encryptedData subdataWithRange:NSMakeRange(kCCBlockSizeAES128, encryptedData.length - kCCBlockSizeAES128)];
+
+    // 解密
+    size_t bufferSize = ciphertext.length + kCCBlockSizeAES128;
+    void *buffer = malloc(bufferSize);
+    size_t numBytesDecrypted = 0;
+
+    CCCryptorStatus cryptStatus = CCCrypt(kCCDecrypt,
+                                          kCCAlgorithmAES,
+                                          kCCOptionPKCS7Padding,
+                                          keyData.bytes,
+                                          keyData.length,
+                                          iv.bytes,
+                                          ciphertext.bytes,
+                                          ciphertext.length,
+                                          buffer,
+                                          bufferSize,
+                                          &numBytesDecrypted);
+
+    if (cryptStatus == kCCSuccess) {{
+        NSData *decryptedData = [NSData dataWithBytes:buffer length:numBytesDecrypted];
+        free(buffer);
+        return [[NSString alloc] initWithData:decryptedData encoding:NSUTF8StringEncoding];
+    }}
+
+    free(buffer);
+    return @"";
+}}
+
+#define DECRYPT_STRING_AES256(str) decryptStringAES256(str)
+'''
+        else:  # Swift
+            return f'''
+import CommonCrypto
+
+let AES256_KEY = "{key_hex}"
+
+func decryptStringAES256(_ encrypted: String) -> String {{
+    guard !encrypted.isEmpty else {{ return "" }}
+
+    // 解析密钥
+    var keyBytes: [UInt8] = []
+    var index = AES256_KEY.startIndex
+    while index < AES256_KEY.endIndex {{
+        let nextIndex = AES256_KEY.index(index, offsetBy: 2)
+        let hexByte = String(AES256_KEY[index..<nextIndex])
+        if let byte = UInt8(hexByte, radix: 16) {{
+            keyBytes.append(byte)
+        }}
+        index = nextIndex
+    }}
+
+    // 解析加密数据
+    var encryptedBytes: [UInt8] = []
+    index = encrypted.startIndex
+    while index < encrypted.endIndex {{
+        let nextIndex = encrypted.index(index, offsetBy: 2)
+        let hexByte = String(encrypted[index..<nextIndex])
+        if let byte = UInt8(hexByte, radix: 16) {{
+            encryptedBytes.append(byte)
+        }}
+        index = nextIndex
+    }}
+
+    // 提取IV和密文
+    let ivSize = kCCBlockSizeAES128
+    guard encryptedBytes.count > ivSize else {{ return "" }}
+
+    let iv = Array(encryptedBytes[0..<ivSize])
+    let ciphertext = Array(encryptedBytes[ivSize...])
+
+    // 解密
+    var decryptedBytes = [UInt8](repeating: 0, count: ciphertext.count + kCCBlockSizeAES128)
+    var numBytesDecrypted = 0
+
+    let cryptStatus = CCCrypt(
+        CCOperation(kCCDecrypt),
+        CCAlgorithm(kCCAlgorithmAES),
+        CCOptions(kCCOptionPKCS7Padding),
+        keyBytes, keyBytes.count,
+        iv,
+        ciphertext, ciphertext.count,
+        &decryptedBytes, decryptedBytes.count,
+        &numBytesDecrypted
+    )
+
+    guard cryptStatus == kCCSuccess else {{ return "" }}
+
+    let decryptedData = Data(bytes: decryptedBytes, count: numBytesDecrypted)
+    return String(data: decryptedData, encoding: .utf8) ?? ""
+}}
+'''
+
     def _encrypt_rot13(self, text: str) -> str:
         """ROT13加密（仅对字母）"""
         result = []
@@ -417,6 +733,10 @@ func decryptStringROT13(_ encrypted: String) -> String {{
             return self._encrypt_shift(text)
         elif self.algorithm == EncryptionAlgorithm.ROT13:
             return self._encrypt_rot13(text)
+        elif self.algorithm == EncryptionAlgorithm.AES128:
+            return self._encrypt_aes128(text)
+        elif self.algorithm == EncryptionAlgorithm.AES256:
+            return self._encrypt_aes256(text)
         else:
             return text
 
@@ -439,6 +759,12 @@ func decryptStringROT13(_ encrypted: String) -> String {{
         elif self.algorithm == EncryptionAlgorithm.ROT13:
             code = self._decrypt_rot13_code()
             name = "DECRYPT_STRING_ROT13" if self.language == CodeLanguage.OBJC else "decryptStringROT13"
+        elif self.algorithm == EncryptionAlgorithm.AES128:
+            code = self._decrypt_aes128_code()
+            name = "DECRYPT_STRING_AES128" if self.language == CodeLanguage.OBJC else "decryptStringAES128"
+        elif self.algorithm == EncryptionAlgorithm.AES256:
+            code = self._decrypt_aes256_code()
+            name = "DECRYPT_STRING_AES256" if self.language == CodeLanguage.OBJC else "decryptStringAES256"
         else:
             code = ""
             name = ""
@@ -488,8 +814,14 @@ func decryptStringROT13(_ encrypted: String) -> String {{
                     replacement = f'DECRYPT_STRING_XOR(@"{encrypted}")'
                 elif self.algorithm == EncryptionAlgorithm.SIMPLE_SHIFT:
                     replacement = f'DECRYPT_STRING_SHIFT(@"{encrypted}")'
-                else:  # ROT13
+                elif self.algorithm == EncryptionAlgorithm.ROT13:
                     replacement = f'DECRYPT_STRING_ROT13(@"{encrypted}")'
+                elif self.algorithm == EncryptionAlgorithm.AES128:
+                    replacement = f'DECRYPT_STRING_AES128(@"{encrypted}")'
+                elif self.algorithm == EncryptionAlgorithm.AES256:
+                    replacement = f'DECRYPT_STRING_AES256(@"{encrypted}")'
+                else:
+                    replacement = f'@"{encrypted}"'
             else:  # Swift
                 if self.algorithm == EncryptionAlgorithm.BASE64:
                     replacement = f'decryptStringB64("{encrypted}")'
@@ -497,8 +829,14 @@ func decryptStringROT13(_ encrypted: String) -> String {{
                     replacement = f'decryptStringXOR("{encrypted}")'
                 elif self.algorithm == EncryptionAlgorithm.SIMPLE_SHIFT:
                     replacement = f'decryptStringShift("{encrypted}")'
-                else:  # ROT13
+                elif self.algorithm == EncryptionAlgorithm.ROT13:
                     replacement = f'decryptStringROT13("{encrypted}")'
+                elif self.algorithm == EncryptionAlgorithm.AES128:
+                    replacement = f'decryptStringAES128("{encrypted}")'
+                elif self.algorithm == EncryptionAlgorithm.AES256:
+                    replacement = f'decryptStringAES256("{encrypted}")'
+                else:
+                    replacement = f'"{encrypted}"'
 
             # 替换
             start = match.start()
