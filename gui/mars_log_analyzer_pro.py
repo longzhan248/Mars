@@ -205,6 +205,9 @@ class MarsLogAnalyzerPro:
         # ============ LinkMap分析标签页 ============
         self.create_linkmap_analysis_tab()
 
+        # ============ iOS混淆标签页 ============
+        self.create_obfuscation_tab()
+
     def create_log_viewer(self):
         """创建日志查看器"""
         viewer_frame = ttk.Frame(self.log_frame)
@@ -3808,6 +3811,62 @@ except Exception as e:
                     messagebox.showinfo("成功", "LinkMap分析模块加载成功！")
                 except ImportError as e:
                     messagebox.showerror("错误", f"仍无法加载LinkMap分析模块：\n{str(e)}")
+
+            ttk.Button(error_frame,
+                      text="重试加载",
+                      command=retry_load).pack(pady=10)
+
+    def create_obfuscation_tab(self):
+        """创建iOS代码混淆标签页"""
+        obfuscation_frame = ttk.Frame(self.main_notebook, padding="10")
+        self.main_notebook.add(obfuscation_frame, text="iOS混淆")
+
+        try:
+            sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'gui', 'modules'))
+            from obfuscation_tab import ObfuscationTab
+            self.obfuscation_tab = ObfuscationTab(obfuscation_frame, self)
+            self.obfuscation_tab.pack(fill=tk.BOTH, expand=True)
+        except ImportError as e:
+            error_frame = ttk.Frame(obfuscation_frame)
+            error_frame.pack(fill=tk.BOTH, expand=True)
+
+            ttk.Label(error_frame,
+                     text="无法加载iOS混淆模块",
+                     font=('', 14, 'bold')).pack(pady=20)
+
+            ttk.Label(error_frame,
+                     text=f"错误详情: {str(e)}",
+                     font=('', 10),
+                     foreground='red').pack(pady=20)
+
+            ttk.Label(error_frame,
+                     text="可能的原因：",
+                     font=('', 10, 'bold')).pack(pady=(20, 5))
+
+            reasons_text = """
+            1. 模块文件不存在或路径不正确
+            2. 缺少依赖的Python包
+            3. 模块导入错误
+
+            请检查 gui/modules/obfuscation_tab.py 文件是否存在
+            """
+            ttk.Label(error_frame,
+                     text=reasons_text,
+                     font=('', 10),
+                     justify='left').pack(pady=5)
+
+            def retry_load():
+                """重试加载iOS混淆模块"""
+                try:
+                    for widget in obfuscation_frame.winfo_children():
+                        widget.destroy()
+
+                    from obfuscation_tab import ObfuscationTab
+                    self.obfuscation_tab = ObfuscationTab(obfuscation_frame, self)
+                    self.obfuscation_tab.pack(fill=tk.BOTH, expand=True)
+                    messagebox.showinfo("成功", "iOS混淆模块加载成功！")
+                except ImportError as e:
+                    messagebox.showerror("错误", f"仍无法加载iOS混淆模块：\n{str(e)}")
 
             ttk.Button(error_frame,
                       text="重试加载",

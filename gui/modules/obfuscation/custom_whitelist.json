@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "updated": "2025-10-14T12:00:00",
+  "items": [
+    {
+      "name": "TestClass",
+      "type": "class",
+      "reason": "测试用途"
+    },
+    {
+      "name": "testMethod:",
+      "type": "method",
+      "reason": "示例方法"
+    },
+    {
+      "name": "testProperty",
+      "type": "property",
+      "reason": "示例属性"
+    }
+  ]
+}

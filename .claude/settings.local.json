@@ -11,7 +11,10 @@
       "Bash(grep:*)",
       "Bash(find:*)",
       "Bash(./scripts/build_app.sh:*)",
-      "Bash(touch:*)"
+      "Bash(touch:*)",
+      "Bash(python -m pytest tests/ -v --tb=short)",
+      "Bash(python:*)",
+      "Bash(awk:*)"
     ],
     "deny": [],
     "ask": []

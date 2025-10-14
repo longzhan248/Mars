@@ -251,6 +251,17 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
         self.linkmap_tab = LinkMapTab(linkmap_frame)
         self.linkmap_tab.frame.pack(fill=tk.BOTH, expand=True)
 
+    def create_obfuscation_tab(self):
+        """创建iOS代码混淆标签页"""
+        from modules.obfuscation_tab import ObfuscationTab
+
+        obfuscation_frame = ttk.Frame(self.main_notebook, padding="10")
+        self.main_notebook.add(obfuscation_frame, text="iOS混淆")
+
+        # 使用模块化的混淆标签页
+        self.obfuscation_tab = ObfuscationTab(obfuscation_frame, self)
+        self.obfuscation_tab.pack(fill=tk.BOTH, expand=True)
+
     def load_group_logs(self, group):
         """加载文件组的日志 - 阶段二优化：自动构建索引"""
         # 调用父类方法完成基本加载
