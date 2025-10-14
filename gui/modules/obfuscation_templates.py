@@ -18,6 +18,7 @@ OBFUSCATION_TEMPLATES = {
         "images": False,
         "audio": False,
         "fonts": False,
+        "auto_add_to_xcode": False,  # P2高级资源处理：最小化模式不自动添加
         "auto_detect": True,
         "fixed_seed": False,
         # P2高级混淆选项
@@ -39,6 +40,7 @@ OBFUSCATION_TEMPLATES = {
         "images": False,
         "audio": False,
         "fonts": False,
+        "auto_add_to_xcode": True,  # P2高级资源处理：标准模式自动添加
         "auto_detect": True,
         "fixed_seed": False,
         # P2高级混淆选项
@@ -60,6 +62,7 @@ OBFUSCATION_TEMPLATES = {
         "images": True,
         "audio": True,
         "fonts": True,
+        "auto_add_to_xcode": True,  # P2高级资源处理：激进模式自动添加
         "auto_detect": True,
         "fixed_seed": False,
         # P2高级混淆选项

@@ -250,6 +250,14 @@ class ObfuscationTab(ttk.Frame):
             variable=self.modify_fonts
         ).pack(anchor=tk.W, pady=1)
 
+        # 自动添加到Xcode项目
+        self.auto_add_to_xcode = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            middle_options,
+            text="自动添加到Xcode",
+            variable=self.auto_add_to_xcode
+        ).pack(anchor=tk.W, pady=1)
+
         # 右列 - 高级选项
         ttk.Label(right_options, text="⚡ 高级选项", font=("Arial", 9, "bold")).pack(anchor=tk.W, pady=(0, 5))
 
@@ -556,6 +564,7 @@ class ObfuscationTab(ttk.Frame):
             self.modify_images.set(t["images"])
             self.modify_audio.set(t["audio"])
             self.modify_fonts.set(t["fonts"])
+            self.auto_add_to_xcode.set(t.get("auto_add_to_xcode", True))  # P2高级资源处理配置
             self.auto_detect_third_party.set(t["auto_detect"])
             self.use_fixed_seed.set(t["fixed_seed"])
 
@@ -653,11 +662,13 @@ class ObfuscationTab(ttk.Frame):
                 self.log("加载混淆模块...")
                 from .obfuscation.config_manager import ObfuscationConfig, ConfigManager
                 from .obfuscation.obfuscation_engine import ObfuscationEngine, ObfuscationResult
+                from .obfuscation.xcode_project_manager import check_pbxproj_availability
 
                 self.config_manager = ConfigManager
                 self.obfuscation_engine_class = ObfuscationEngine
                 self.obfuscation_config_class = ObfuscationConfig
                 self.obfuscation_result_class = ObfuscationResult
+                self.check_pbxproj = check_pbxproj_availability
 
             # 加载自定义白名单
             custom_whitelist = []
@@ -700,6 +711,15 @@ class ObfuscationTab(ttk.Frame):
             config.image_intensity = self.image_intensity.get()
             config.modify_audio_files = self.modify_audio.get()
             config.modify_font_files = self.modify_fonts.get()
+            config.auto_add_to_xcode = self.auto_add_to_xcode.get()  # 自动添加到Xcode项目
+
+            # 检查pbxproj库依赖
+            if config.auto_add_to_xcode and not self.check_pbxproj():
+                self.log("⚠️  警告: auto_add_to_xcode已启用，但pbxproj库未安装")
+                self.log("ℹ️  安装方法: pip install pbxproj")
+                self.log("ℹ️  或者: source venv/bin/activate && pip install pbxproj")
+                self.log("ℹ️  文件将生成但不会自动添加到Xcode项目，需手动添加")
+                self.log("")
 
             # 加载字符串加密白名单
             string_whitelist = []

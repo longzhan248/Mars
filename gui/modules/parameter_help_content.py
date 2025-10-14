@@ -93,6 +93,32 @@ PARAMETER_HELP_CONTENT = """
   - 字体资源混淆
 • ⚠️ 注意：修改后测试字体渲染是否正常
 
+🎨 自动添加到Xcode
+• 说明：自动将生成的垃圾代码和字符串解密文件添加到Xcode项目中
+• 适用场景：
+  - 启用了垃圾代码生成或字符串加密
+  - 希望自动化混淆流程，无需手动拖拽文件
+• 依赖要求：
+  - 需要安装mod-pbxproj库：pip install pbxproj
+  - 或在虚拟环境中：source venv/bin/activate && pip install pbxproj
+• 工作原理：
+  - 使用pbxproj库修改.xcodeproj项目文件
+  - 自动添加垃圾代码文件到Obfuscation/GarbageCode组
+  - 自动添加解密头文件到Obfuscation/StringDecryption组
+• 如果未安装pbxproj库：
+  - 混淆功能正常运行
+  - 文件会正常生成到输出目录
+  - 但不会自动添加到Xcode项目
+  - 需要手动将文件拖拽到Xcode项目中
+• 生成的文件位置：
+  - 垃圾代码：输出目录/Obfuscation/GarbageCode/
+  - 解密文件：输出目录/Obfuscation/StringDecryption/
+• 💡 提示：
+  - 点击复选框旁的ℹ️按钮可查看实时库状态
+  - 建议安装pbxproj库实现完全自动化
+  - 首次使用可以不安装，手动添加文件体验流程
+• ⚠️ 注意：仅在启用垃圾代码或字符串加密时需要此功能
+
 
 === 高级选项 ===
 

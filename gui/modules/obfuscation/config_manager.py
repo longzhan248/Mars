@@ -55,10 +55,16 @@ class ObfuscationConfig:
     garbage_prefix: str = "GC"  # 垃圾代码类名前缀
 
     # 字符串加密配置
-    encryption_algorithm: str = "xor"  # base64/xor/shift/rot13
+    encryption_algorithm: str = "xor"  # base64/xor/shift/rot13/aes128/aes256
     encryption_key: str = "DefaultKey"  # 加密密钥
     string_min_length: int = 4  # 最小加密字符串长度
     string_whitelist_patterns: List[str] = field(default_factory=list)  # 字符串白名单模式
+
+    # P2高级资源处理配置
+    auto_add_to_xcode: bool = True  # 是否自动添加生成的文件到Xcode项目
+    image_intensity: float = 0.02  # 图片像素修改强度（0.0-1.0，建议0.01-0.05）
+    modify_audio_files: bool = False  # 是否修改音频文件hash
+    modify_font_files: bool = False  # 是否修改字体文件
 
     # 名称生成策略
     naming_strategy: str = "random"  # random, prefix, pattern, dictionary
@@ -132,6 +138,11 @@ class ConfigManager:
             "string_encryption": False,
             "modify_color_values": False,
             "modify_resource_files": False,
+            # P2高级资源处理（最小化模式全部禁用）
+            "auto_add_to_xcode": False,  # 最小化模式不自动添加
+            "image_intensity": 0.01,  # 即使启用，也使用最低强度
+            "modify_audio_files": False,
+            "modify_font_files": False,
             "naming_strategy": "prefix",
             "name_prefix": "WHC",
             "min_name_length": 8,
@@ -158,6 +169,11 @@ class ConfigManager:
             "string_encryption": False,
             "modify_color_values": True,
             "modify_resource_files": False,
+            # P2高级资源处理（标准模式部分启用）
+            "auto_add_to_xcode": True,  # 自动添加到项目
+            "image_intensity": 0.02,  # 标准强度2%
+            "modify_audio_files": False,  # 不修改音频（可选功能）
+            "modify_font_files": False,  # 不修改字体（可选功能）
             "naming_strategy": "random",
             "name_prefix": "WHC",
             "min_name_length": 10,
@@ -186,6 +202,11 @@ class ConfigManager:
             "string_encryption": True,
             "modify_color_values": True,
             "modify_resource_files": True,
+            # P2高级资源处理（激进模式全部启用）
+            "auto_add_to_xcode": True,  # 自动添加到项目
+            "image_intensity": 0.03,  # 较高强度3%
+            "modify_audio_files": True,  # 修改音频文件
+            "modify_font_files": True,  # 修改字体文件
             "naming_strategy": "random",
             "name_prefix": "",
             "min_name_length": 12,
@@ -392,6 +413,11 @@ class ConfigManager:
         if config.use_fixed_seed and not config.fixed_seed:
             errors.append("启用确定性混淆时必须指定固定种子")
 
+        # 检查P2高级资源处理配置
+        if hasattr(config, 'image_intensity'):
+            if config.image_intensity < 0.0 or config.image_intensity > 1.0:
+                errors.append(f"图片修改强度必须在0.0-1.0之间: {config.image_intensity}")
+
         return len(errors) == 0, errors
 
     def merge_configs(self, base: ObfuscationConfig, override: Dict[str, Any]) -> ObfuscationConfig:
@@ -461,6 +487,10 @@ class ConfigManager:
                 "string_encryption": "是否加密字符串",
                 "modify_color_values": "是否修改颜色值",
                 "modify_resource_files": "是否修改资源文件",
+                "auto_add_to_xcode": "是否自动添加生成的文件到Xcode项目（需要pbxproj库）",
+                "image_intensity": "图片像素修改强度（0.0-1.0，建议0.01-0.05）",
+                "modify_audio_files": "是否修改音频文件hash值",
+                "modify_font_files": "是否修改字体文件（名称和元数据）",
                 "naming_strategy": "命名策略: random(随机)/prefix(前缀)/pattern(模式)/dictionary(词典)",
                 "name_prefix": "名称前缀",
                 "min_name_length": "最小名称长度",

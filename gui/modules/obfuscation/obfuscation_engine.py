@@ -357,6 +357,8 @@ class ObfuscationEngine:
                 'xor': EncryptionAlgorithm.XOR,
                 'shift': EncryptionAlgorithm.SIMPLE_SHIFT,
                 'rot13': EncryptionAlgorithm.ROT13,
+                'aes128': EncryptionAlgorithm.AES128,
+                'aes256': EncryptionAlgorithm.AES256,
             }
 
             algorithm = algorithm_map.get(
