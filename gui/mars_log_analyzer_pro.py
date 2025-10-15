@@ -303,6 +303,19 @@ class MarsLogAnalyzerPro:
 
         ttk.Label(left_frame, text="模块列表", font=("Arial", 12, "bold")).pack(pady=5)
 
+        # 模块搜索框
+        module_list_search_frame = ttk.Frame(left_frame)
+        module_list_search_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        ttk.Label(module_list_search_frame, text="搜索:").pack(side=tk.LEFT)
+        self.module_list_search_var = tk.StringVar()
+        self.module_list_search_var.trace_add('write', lambda *args: self.filter_module_list())
+        module_list_search_entry = ttk.Entry(module_list_search_frame, textvariable=self.module_list_search_var, width=15)
+        module_list_search_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+
+        clear_btn = ttk.Button(module_list_search_frame, text="×", width=3, command=lambda: self.module_list_search_var.set(""))
+        clear_btn.pack(side=tk.LEFT)
+
         list_frame = ttk.Frame(left_frame)
         list_frame.pack(fill=tk.BOTH, expand=True)
 
@@ -1396,6 +1409,66 @@ class MarsLogAnalyzerPro:
         # 恢复之前选中的模块
         if self.current_module_name:
             self.restore_module_selection()
+
+    def filter_module_list(self):
+        """根据搜索框过滤模块列表"""
+        search_text = self.module_list_search_var.get().lower().strip()
+
+        # 准备排序后的模块列表
+        module_list = list(self.modules_data.keys())
+        sorted_modules = []
+
+        # Crash模块置顶
+        if 'Crash' in module_list:
+            sorted_modules.append('Crash')
+            module_list.remove('Crash')
+
+        # 其他模块按字母排序
+        sorted_modules.extend(sorted(module_list))
+
+        # 清空列表框
+        self.module_listbox.delete(0, tk.END)
+
+        # 如果搜索框为空，显示所有模块
+        if not search_text:
+            for module in sorted_modules:
+                entries = self.modules_data[module]
+                count_stats = Counter(e.level for e in entries)
+                total_count = len(entries)
+
+                display_text = f"{module} ({total_count}条"
+                if count_stats.get('CRASH', 0) > 0:
+                    display_text += f", {count_stats['CRASH']}崩溃"
+                elif count_stats.get('ERROR', 0) > 0:
+                    display_text += f", {count_stats['ERROR']}E"
+                if count_stats.get('WARNING', 0) > 0:
+                    display_text += f", {count_stats['WARNING']}W"
+                display_text += ")"
+
+                self.module_listbox.insert(tk.END, display_text)
+        else:
+            # 过滤包含搜索文本的模块
+            for module in sorted_modules:
+                if search_text in module.lower():
+                    entries = self.modules_data[module]
+                    count_stats = Counter(e.level for e in entries)
+                    total_count = len(entries)
+
+                    display_text = f"{module} ({total_count}条"
+                    if count_stats.get('CRASH', 0) > 0:
+                        display_text += f", {count_stats['CRASH']}崩溃"
+                    elif count_stats.get('ERROR', 0) > 0:
+                        display_text += f", {count_stats['ERROR']}E"
+                    if count_stats.get('WARNING', 0) > 0:
+                        display_text += f", {count_stats['WARNING']}W"
+                    display_text += ")"
+
+                    self.module_listbox.insert(tk.END, display_text)
+
+        # 如果当前选中的模块仍在过滤后的列表中，恢复选择
+        if self.current_module_name:
+            if not search_text or search_text in self.current_module_name.lower():
+                self.restore_module_selection()
 
     def restore_module_selection(self):
         """恢复模块选择"""

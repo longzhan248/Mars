@@ -26,6 +26,16 @@ cd /path/to/project
 ## 最新更新
 
 ### 2025-10-15
+- **模块列表搜索功能** 🔍 - 快速定位目标模块
+  - **实时搜索**: 输入即搜索，无需点击按钮
+  - **智能过滤**: 不区分大小写的部分匹配
+  - **保持排序**: Crash模块始终置顶，其他按字母排序
+  - **统计完整**: 保留每个模块的日志数、崩溃数、错误数统计
+  - **一键清除**: "×"按钮快速恢复显示全部模块
+  - **选择保持**: 当前选中模块仍在过滤结果中时自动保持选中
+  - **位置**: 模块分组标签页 > 模块列表上方
+  - **Python 3.13兼容**: 使用 `trace_add()` 替代旧的 `trace()` 方法
+  - **技术文档**: `docs/technical/MODULE_LIST_SEARCH.md`
 - **iOS代码混淆性能验证** 🚀⚡ - 并行处理功能完整验证 (v2.3.0)
   - **多线程并行解析**: 智能阈值自动选择串行/并行，性能提升 **3-5x**
   - **多进程代码转换**: 绕过Python GIL，处理超大文件性能提升 **2-6x**
@@ -375,7 +385,8 @@ cd /path/to/project
   - `SANDBOX_BUGFIX.md` - iOS沙盒浏览Bug修复记录
   - `SANDBOX_REFACTORING.md` - iOS沙盒浏览模块重构总结
   - `DSYM_LINKMAP.md` - dSYM和LinkMap分析技术文档
-  - `PARALLEL_PROCESSING_VALIDATION.md` - 并行处理功能验证报告 🆕
+  - `PARALLEL_PROCESSING_VALIDATION.md` - 并行处理功能验证报告
+  - `MODULE_LIST_SEARCH.md` - 模块列表搜索功能技术文档 🆕
 
 ## 使用命令
 
@@ -730,7 +741,8 @@ pip install -r requirements.txt
 │   │   ├── IOS_OBFUSCATION_PROGRESS.md       # iOS混淆开发进度报告
 │   │   ├── IOS_OBFUSCATION_DESIGN.md         # iOS混淆设计文档
 │   │   ├── IOS_OBFUSCATION_ROADMAP.md        # iOS混淆后续开发计划
-│   │   └── PARALLEL_PROCESSING_VALIDATION.md # 并行处理功能验证报告 🆕
+│   │   ├── PARALLEL_PROCESSING_VALIDATION.md # 并行处理功能验证报告
+│   │   └── MODULE_LIST_SEARCH.md             # 模块列表搜索功能 🆕
 │   └── CLAUDE.md                             # 项目指南（本文件）
 ├── MarsLogAnalyzer.spec                      # PyInstaller配置文件
 ├── build/                                    # 构建临时文件（自动生成）
@@ -753,7 +765,9 @@ pip install -r requirements.txt
   - 模块过滤
   - 时间范围过滤
   - 导出功能
-- **模块分组标签页**：独立的模块内搜索功能
+- **模块分组标签页**：
+  - 模块列表实时搜索：快速定位目标模块 🆕
+  - 模块内搜索：在选定模块的日志中搜索
 - 紧凑的2行布局设计，非全屏模式下完整显示所有功能
 
 ### 文本选择和复制
@@ -837,6 +851,40 @@ GUI提供强大的时间过滤功能，支持多种时间格式输入：
   }
 ]
 ```
+
+### 模块列表搜索功能 🔍
+
+#### 功能介绍
+在模块分组标签页的模块列表上方提供实时搜索功能，帮助用户在大量模块中快速定位目标模块。
+
+#### 使用方法
+1. 切换到"模块分组"标签页
+2. 在模块列表上方的搜索框中输入关键词
+3. 列表自动过滤，只显示包含关键词的模块
+4. 点击"×"按钮或清空搜索框恢复显示所有模块
+
+#### 功能特性
+- **实时搜索**: 输入即搜索，无需点击按钮
+- **不区分大小写**: 自动忽略大小写进行匹配
+- **部分匹配**: 只要模块名包含关键词即可匹配
+- **保持排序**: Crash模块始终置顶，其他模块按字母排序
+- **统计完整**: 保留每个模块的日志数、崩溃数、错误数、警告数统计
+- **一键清除**: "×"按钮快速清空搜索并显示所有模块
+- **选择保持**: 当前选中模块仍在过滤结果中时自动保持选中状态
+
+#### 使用示例
+```
+搜索"net"    → 显示：NetworkManager, NetworkService
+搜索"anim"   → 显示：AnimationCenter, AnimationEngine
+搜索"cache"  → 显示：CacheManager
+清空搜索     → 显示所有模块
+```
+
+#### 技术实现
+- 位置：`gui/mars_log_analyzer_pro.py:306-317` (UI组件)
+- 过滤方法：`gui/mars_log_analyzer_pro.py:1413-1471` (filter_module_list)
+- Python 3.13兼容：使用 `trace_add('write')` 实现实时监听
+- 详细文档：`docs/technical/MODULE_LIST_SEARCH.md`
 
 ### iOS沙盒浏览功能 🆕
 
