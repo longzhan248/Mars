@@ -265,7 +265,7 @@ class ObfuscationEngine:
                 print(f"导入旧映射失败: {e}")
 
     def _parse_source_files(self, progress_callback: Optional[Callable] = None) -> bool:
-        """解析源文件（支持增量编译）"""
+        """解析源文件（支持增量编译和并行处理）"""
         try:
             # 获取所有源文件
             source_files = self.project_analyzer.get_source_files(
@@ -304,7 +304,7 @@ class ObfuscationEngine:
                     print("没有文件需要重新处理，跳过解析")
                     return True
 
-            # 解析文件
+            # 解析文件（性能优化：并行处理）
             self.code_parser = CodeParser(self.whitelist_manager)
 
             def parser_callback(progress, file_path):
@@ -313,7 +313,30 @@ class ObfuscationEngine:
                 if progress_callback:
                     progress_callback(total_progress, f"解析: {Path(file_path).name}")
 
-            self.parsed_files = self.code_parser.parse_files(files_to_parse, callback=parser_callback)
+            # P2性能优化：启用并行处理
+            if self.config.parallel_processing and len(files_to_parse) >= 10:
+                # 使用并行解析器
+                try:
+                    from .parallel_parser import ParallelCodeParser
+
+                    print(f"⚡ 启用并行解析 ({len(files_to_parse)}个文件, {self.config.max_workers}线程)...")
+
+                    parallel_parser = ParallelCodeParser(max_workers=self.config.max_workers)
+                    self.parsed_files = parallel_parser.parse_files_parallel(
+                        files_to_parse,
+                        self.code_parser,
+                        callback=parser_callback
+                    )
+
+                    # 打印性能统计
+                    parallel_parser.print_statistics()
+
+                except ImportError:
+                    print("⚠️ 并行解析器不可用，使用标准解析器")
+                    self.parsed_files = self.code_parser.parse_files(files_to_parse, callback=parser_callback)
+            else:
+                # 使用标准串行解析
+                self.parsed_files = self.code_parser.parse_files(files_to_parse, callback=parser_callback)
 
             return len(self.parsed_files) > 0
 
@@ -322,7 +345,7 @@ class ObfuscationEngine:
             return False
 
     def _transform_code(self, progress_callback: Optional[Callable] = None) -> bool:
-        """转换代码"""
+        """转换代码（支持多进程并行）"""
         try:
             self.code_transformer = CodeTransformer(
                 self.name_generator,
@@ -335,10 +358,38 @@ class ObfuscationEngine:
                 if progress_callback:
                     progress_callback(total_progress, f"转换: {Path(file_path).name}")
 
-            self.transform_results = self.code_transformer.transform_files(
-                self.parsed_files,
-                callback=transformer_callback
-            )
+            # P2性能优化：判断是否使用多进程
+            total_lines = sum(parsed.get('total_lines', 0) for parsed in self.parsed_files.values())
+
+            if self.config.parallel_processing and (len(self.parsed_files) >= 4 and total_lines > 50000):
+                # 使用多进程转换器（适用于超大项目）
+                try:
+                    from .multiprocess_transformer import MultiProcessTransformer
+
+                    print(f"⚡ 启用多进程转换 (总代码行数: {total_lines}, {self.config.max_workers//2}进程)...")
+
+                    mp_transformer = MultiProcessTransformer(max_workers=self.config.max_workers // 2)
+                    self.transform_results = mp_transformer.transform_large_files(
+                        self.parsed_files,
+                        self.name_generator.get_all_mappings(),
+                        callback=transformer_callback
+                    )
+
+                    # 打印性能统计
+                    mp_transformer.print_statistics()
+
+                except ImportError as e:
+                    print(f"⚠️ 多进程转换器不可用，使用标准转换器: {e}")
+                    self.transform_results = self.code_transformer.transform_files(
+                        self.parsed_files,
+                        callback=transformer_callback
+                    )
+            else:
+                # 使用标准转换器
+                self.transform_results = self.code_transformer.transform_files(
+                    self.parsed_files,
+                    callback=transformer_callback
+                )
 
             return len(self.transform_results) > 0
 
