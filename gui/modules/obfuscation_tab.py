@@ -416,6 +416,19 @@ class ObfuscationTab(ttk.Frame):
         )
         prefix_entry.pack(side=tk.LEFT, padx=3, fill=tk.X, expand=True)
 
+        # 分隔线
+        ttk.Separator(right_options, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=8)
+
+        # P1缓存机制 🆕
+        ttk.Label(right_options, text="📦 性能优化", font=("Arial", 9, "bold")).pack(anchor=tk.W, pady=(0, 5))
+
+        self.enable_parse_cache = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            right_options,
+            text="解析缓存 🆕",
+            variable=self.enable_parse_cache
+        ).pack(anchor=tk.W, pady=1)
+
         # 图片修改强度
         intensity_frame = ttk.Frame(middle_options)
         intensity_frame.pack(anchor=tk.W, fill=tk.X, pady=5)
@@ -575,6 +588,9 @@ class ObfuscationTab(ttk.Frame):
             self.string_encryption.set(t.get("string_encryption", False))
             self.encryption_algorithm.set(t.get("encryption_algorithm", "xor"))
             self.string_min_length.set(t.get("string_min_length", 4))
+
+            # 加载P1缓存选项
+            self.enable_parse_cache.set(t.get("enable_parse_cache", True))
 
             self.log(f"✅ 已加载 '{template_name}' 配置模板")
 
@@ -753,6 +769,9 @@ class ObfuscationTab(ttk.Frame):
             config.enable_call_relationships = self.enable_call_relationships.get()
             config.call_density = self.call_density.get()
             config.max_call_depth = 3  # 固定深度为3
+
+            # 添加P1缓存配置 🆕
+            config.enable_parse_cache = self.enable_parse_cache.get()
 
             # 创建混淆引擎
             engine = self.obfuscation_engine_class(config)

@@ -265,7 +265,7 @@ class ObfuscationEngine:
                 print(f"导入旧映射失败: {e}")
 
     def _parse_source_files(self, progress_callback: Optional[Callable] = None) -> bool:
-        """解析源文件（支持增量编译和并行处理）"""
+        """解析源文件（支持增量编译、并行处理和缓存）"""
         try:
             # 获取所有源文件
             source_files = self.project_analyzer.get_source_files(
@@ -304,6 +304,37 @@ class ObfuscationEngine:
                     print("没有文件需要重新处理，跳过解析")
                     return True
 
+            # P2性能优化：初始化缓存管理器
+            cache_manager = None
+            if self.config.enable_parse_cache:
+                try:
+                    from .parse_cache_manager import ParseCacheManager
+                    import os
+
+                    # 确定缓存目录（使用输出目录下的缓存子目录）
+                    if hasattr(self.config, 'output_dir') and self.config.output_dir:
+                        cache_dir = os.path.join(self.config.output_dir, self.config.cache_dir)
+                    else:
+                        cache_dir = os.path.join(self.project_structure.root_path, self.config.cache_dir)
+
+                    cache_manager = ParseCacheManager(
+                        cache_dir=cache_dir,
+                        max_memory_cache=self.config.max_memory_cache,
+                        max_disk_cache=self.config.max_disk_cache,
+                        enable_memory_cache=True,
+                        enable_disk_cache=True
+                    )
+
+                    # 清空缓存（如果配置要求）
+                    if self.config.clear_cache:
+                        print("🗑️  清空解析缓存...")
+                        cache_manager.invalidate_all()
+
+                    print(f"📦 启用解析缓存: {cache_dir}")
+
+                except ImportError as e:
+                    print(f"⚠️  缓存管理器不可用，使用标准解析: {e}")
+
             # 解析文件（性能优化：并行处理）
             self.code_parser = CodeParser(self.whitelist_manager)
 
@@ -322,26 +353,67 @@ class ObfuscationEngine:
                     print(f"⚡ 启用并行解析 ({len(files_to_parse)}个文件, {self.config.max_workers}线程)...")
 
                     parallel_parser = ParallelCodeParser(max_workers=self.config.max_workers)
-                    self.parsed_files = parallel_parser.parse_files_parallel(
-                        files_to_parse,
-                        self.code_parser,
-                        callback=parser_callback
-                    )
+
+                    # 如果启用缓存，使用缓存版本的解析
+                    if cache_manager:
+                        self.parsed_files = parallel_parser.parse_files_parallel(
+                            files_to_parse,
+                            self.code_parser,
+                            callback=parser_callback,
+                            cache_manager=cache_manager  # 传递缓存管理器
+                        )
+                    else:
+                        self.parsed_files = parallel_parser.parse_files_parallel(
+                            files_to_parse,
+                            self.code_parser,
+                            callback=parser_callback
+                        )
 
                     # 打印性能统计
                     parallel_parser.print_statistics()
 
                 except ImportError:
                     print("⚠️ 并行解析器不可用，使用标准解析器")
-                    self.parsed_files = self.code_parser.parse_files(files_to_parse, callback=parser_callback)
+
+                    # 使用标准解析器（带缓存）
+                    if cache_manager:
+                        self.parsed_files = cache_manager.batch_get_or_parse(
+                            files_to_parse,
+                            self.code_parser,
+                            callback=parser_callback
+                        )
+                    else:
+                        self.parsed_files = self.code_parser.parse_files(files_to_parse, callback=parser_callback)
             else:
-                # 使用标准串行解析
-                self.parsed_files = self.code_parser.parse_files(files_to_parse, callback=parser_callback)
+                # 使用标准串行解析（带缓存）
+                if cache_manager:
+                    print(f"📦 使用缓存解析 ({len(files_to_parse)}个文件)...")
+                    self.parsed_files = cache_manager.batch_get_or_parse(
+                        files_to_parse,
+                        self.code_parser,
+                        callback=parser_callback
+                    )
+                else:
+                    self.parsed_files = self.code_parser.parse_files(files_to_parse, callback=parser_callback)
+
+            # P2性能优化：打印缓存统计
+            if cache_manager and self.config.cache_statistics:
+                stats = cache_manager.get_statistics()
+                total_requests = stats['cache_hits'] + stats['cache_misses']
+                print(f"\n📊 解析缓存统计:")
+                print(f"  缓存命中: {stats['cache_hits']}/{total_requests} ({stats['hit_rate']*100:.1f}%)")
+                print(f"  缓存未命中: {stats['cache_misses']}")
+                print(f"  内存缓存: {stats['memory_cache_size']}/{self.config.max_memory_cache}")
+                if stats['effective_speedup'] > 1:
+                    print(f"  有效加速: {stats['effective_speedup']:.1f}x")
+                print()
 
             return len(self.parsed_files) > 0
 
         except Exception as e:
             print(f"源文件解析失败: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     def _transform_code(self, progress_callback: Optional[Callable] = None) -> bool:

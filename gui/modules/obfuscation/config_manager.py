@@ -92,6 +92,14 @@ class ObfuscationConfig:
     max_workers: int = 8
     batch_size: int = 100
 
+    # 缓存配置 🆕
+    enable_parse_cache: bool = True  # 启用解析缓存
+    cache_dir: str = ".obfuscation_cache"  # 缓存目录
+    max_memory_cache: int = 1000  # 内存缓存最大条目数
+    max_disk_cache: int = 10000  # 磁盘缓存最大条目数
+    clear_cache: bool = False  # 清空缓存
+    cache_statistics: bool = True  # 显示缓存统计
+
     # 输出配置
     output_mapping: bool = True
     mapping_format: str = "json"  # json, csv
@@ -151,6 +159,9 @@ class ConfigManager:
             "whitelist_system_api": True,
             "whitelist_third_party": True,
             "parallel_processing": True,
+            # 缓存配置（最小化模式启用缓存）
+            "enable_parse_cache": True,
+            "cache_statistics": True,
         },
         "standard": {
             "name": "standard",
@@ -184,6 +195,9 @@ class ConfigManager:
             "auto_detect_third_party": True,
             "parallel_processing": True,
             "max_workers": 8,
+            # 缓存配置（标准模式启用缓存）
+            "enable_parse_cache": True,
+            "cache_statistics": True,
         },
         "aggressive": {
             "name": "aggressive",
@@ -218,6 +232,10 @@ class ConfigManager:
             "parallel_processing": True,
             "max_workers": 16,
             "batch_size": 200,
+            # 缓存配置（激进模式启用缓存）
+            "enable_parse_cache": True,
+            "cache_statistics": True,
+            "max_memory_cache": 2000,  # 激进模式更大缓存
         }
     }
 
@@ -502,7 +520,13 @@ class ConfigManager:
                 "whitelist_third_party": "是否白名单第三方库",
                 "auto_detect_third_party": "是否自动检测第三方库",
                 "parallel_processing": "是否并行处理",
-                "max_workers": "最大线程数"
+                "max_workers": "最大线程数",
+                "enable_parse_cache": "是否启用解析缓存（100-300x加速重复构建）",
+                "cache_dir": "缓存目录路径",
+                "max_memory_cache": "内存缓存最大条目数",
+                "max_disk_cache": "磁盘缓存最大条目数",
+                "clear_cache": "是否清空现有缓存",
+                "cache_statistics": "是否显示缓存统计信息"
             }
         }
 
