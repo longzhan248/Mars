@@ -25,6 +25,15 @@ cd /path/to/project
 
 ## 最新更新
 
+### 2025-10-15
+- **iOS代码混淆性能验证** 🚀⚡ - 并行处理功能完整验证 (v2.3.0)
+  - **多线程并行解析**: 智能阈值自动选择串行/并行，性能提升 **3-5x**
+  - **多进程代码转换**: 绕过Python GIL，处理超大文件性能提升 **2-6x**
+  - **两级缓存系统**: 内存+磁盘缓存，重复构建性能提升 **100-300x**
+  - **测试验证**: 14/15测试通过（1个跳过），综合加速比 **103x**
+  - **使用简单**: 配置文件默认启用，无需手动配置
+  - **技术文档**: `docs/technical/PARALLEL_PROCESSING_VALIDATION.md`
+
 ### 2025-10-14
 - **iOS代码混淆功能** 🔐 - 应对App Store审核(4.3/2.1)的完整解决方案
   - **核心功能完成** (v2.2.0): 完整的混淆引擎，支持ObjC/Swift
@@ -366,6 +375,7 @@ cd /path/to/project
   - `SANDBOX_BUGFIX.md` - iOS沙盒浏览Bug修复记录
   - `SANDBOX_REFACTORING.md` - iOS沙盒浏览模块重构总结
   - `DSYM_LINKMAP.md` - dSYM和LinkMap分析技术文档
+  - `PARALLEL_PROCESSING_VALIDATION.md` - 并行处理功能验证报告 🆕
 
 ## 使用命令
 
@@ -719,7 +729,8 @@ pip install -r requirements.txt
 │   │   ├── DSYM_LINKMAP.md                   # dSYM和LinkMap分析技术文档
 │   │   ├── IOS_OBFUSCATION_PROGRESS.md       # iOS混淆开发进度报告
 │   │   ├── IOS_OBFUSCATION_DESIGN.md         # iOS混淆设计文档
-│   │   └── IOS_OBFUSCATION_ROADMAP.md        # iOS混淆后续开发计划 🆕
+│   │   ├── IOS_OBFUSCATION_ROADMAP.md        # iOS混淆后续开发计划
+│   │   └── PARALLEL_PROCESSING_VALIDATION.md # 并行处理功能验证报告 🆕
 │   └── CLAUDE.md                             # 项目指南（本文件）
 ├── MarsLogAnalyzer.spec                      # PyInstaller配置文件
 ├── build/                                    # 构建临时文件（自动生成）
