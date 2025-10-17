@@ -25,6 +25,30 @@ cd /path/to/project
 
 ## 最新更新
 
+### 2025-10-17
+- **AI助手跳转功能增强** 🎯✨ - 完整的交互式日志导航体验 (v1.1.0)
+  - **三种跳转格式**: 时间戳 `[...]` / 行号 `#123` / 模块名 `@Module`
+  - **跳转历史记录**: 浏览器风格的前进/后退按钮 (◀▶)
+    - 历史栈管理：`[(log_index, timestamp), ...]`
+    - 智能历史清除（后退后新跳转清除前进历史）
+    - 按钮状态自动管理（禁用/启用）
+    - 实时位置显示 "历史 2/5"
+  - **渐变动画效果**: 2秒平滑淡出高亮
+    - 7步颜色渐变：`#FFFF00 → #FFFFFF`
+    - 递归 `after()` 帧动画实现
+    - 视觉效果自然流畅
+  - **上下文预览**: 悬停显示周边日志
+    - 鼠标悬停显示预览窗口
+    - 显示前后各2行（共5行上下文）
+    - 目标行用 ➤ 标记并高亮
+    - 无边框Toplevel窗口，跟随鼠标位置
+    - 手型光标反馈
+  - **完整测试**: 所有优化功能通过测试
+  - **技术文档**: `docs/technical/AI_JUMP_FEATURES.md` (v1.1.0)
+  - **测试脚本**:
+    - `test_jump_features.py` - 基础功能测试
+    - `test_jump_optimizations.py` - 优化功能测试
+
 ### 2025-10-16
 - **AI智能诊断功能** 🤖✨ - 完整的AI驱动日志分析系统 (Phase 1-3完成)
   - **多AI服务支持**: Claude Code（推荐）、Claude API、OpenAI、Ollama本地模型
@@ -460,6 +484,7 @@ cd /path/to/project
   - `AI_INTEGRATION_PHASE1_SUMMARY.md` - AI集成Phase 1总结
   - `AI_INTEGRATION_PHASE2_COMPLETE.md` - AI集成Phase 2完成报告
   - `AI_INTEGRATION_PHASE3_COMPLETE.md` - AI集成Phase 3完成报告
+  - `AI_JUMP_FEATURES.md` - AI助手跳转功能技术文档 🎯🆕
 
 ## 使用命令
 

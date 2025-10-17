@@ -278,3 +278,93 @@ class LogPreprocessor:
             'modules': dict(module_counter.most_common(10)),
             'levels': dict(level_counter)
         }
+
+    # ========== Mars模块感知功能（新增） ==========
+
+    def extract_module_specific_logs(self, entries: List[LogEntry],
+                                     module: str) -> List[LogEntry]:
+        """
+        提取特定模块的日志（支持Mars模块分组）
+
+        Args:
+            entries: 日志条目列表
+            module: 模块名称
+
+        Returns:
+            指定模块的日志列表
+        """
+        return [e for e in entries if e.module == module]
+
+    def get_module_health(self, entries: List[LogEntry]) -> Dict[str, Dict]:
+        """
+        分析各模块健康状况（Mars特有）
+
+        计算每个模块的健康分数，基于崩溃、错误、警告数量。
+
+        Returns:
+            模块健康统计字典:
+            {
+                'ModuleName': {
+                    'total': 100,           # 总日志数
+                    'errors': 5,            # 错误数
+                    'warnings': 10,         # 警告数
+                    'crashes': 0,           # 崩溃数
+                    'health_score': 0.85    # 健康分数(0-1)
+                }
+            }
+        """
+        module_stats = {}
+
+        # 获取所有模块
+        modules = set(e.module for e in entries)
+
+        for module in modules:
+            module_logs = self.extract_module_specific_logs(entries, module)
+
+            error_count = sum(1 for e in module_logs if e.level == "ERROR")
+            warning_count = sum(1 for e in module_logs if e.level == "WARNING")
+            crash_count = sum(1 for e in module_logs if self._is_crash_log(e))
+
+            # 计算健康分数 (0-1)
+            total = len(module_logs)
+            if total == 0:
+                health_score = 1.0
+            else:
+                # 崩溃权重最高(10)，错误次之(5)，警告最低(1)
+                penalty = (crash_count * 10 + error_count * 5 + warning_count * 1) / total
+                health_score = max(0, 1 - penalty / 10)
+
+            module_stats[module] = {
+                'total': total,
+                'errors': error_count,
+                'warnings': warning_count,
+                'crashes': crash_count,
+                'health_score': round(health_score, 2)
+            }
+
+        return module_stats
+
+    def get_unhealthy_modules(self, entries: List[LogEntry],
+                             threshold: float = 0.7) -> List[str]:
+        """
+        获取不健康的模块列表
+
+        Args:
+            entries: 日志条目列表
+            threshold: 健康分数阈值，低于此值视为不健康
+
+        Returns:
+            不健康模块名称列表，按健康分数升序排列（最不健康的在前）
+        """
+        health_stats = self.get_module_health(entries)
+
+        unhealthy = [
+            (module, stats['health_score'])
+            for module, stats in health_stats.items()
+            if stats['health_score'] < threshold
+        ]
+
+        # 按健康分数升序排序（最不健康的在前）
+        unhealthy.sort(key=lambda x: x[1])
+
+        return [module for module, score in unhealthy]
