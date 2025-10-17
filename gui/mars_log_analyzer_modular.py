@@ -91,8 +91,19 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
         self.indexer_ready = False
         self.index_building = False
 
+        # AI助手面板（延迟初始化）
+        self.ai_assistant = None
+
         # 调用父类初始化
         super().__init__(root)
+
+    def create_widgets(self):
+        """重写create_widgets以添加AI助手按钮"""
+        # 调用父类方法创建基础UI
+        super().create_widgets()
+
+        # 添加AI助手按钮到工具栏
+        self.add_ai_assistant_button()
 
     # 重写使用模块化组件的方法
     def parse_time_string(self, time_str):
@@ -321,6 +332,268 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
 
         except Exception as e:
             messagebox.showerror("错误", f"导出失败: {str(e)}")
+
+    def add_ai_assistant_button(self):
+        """在工具栏添加AI助手按钮"""
+        try:
+            # 等待一会儿让父类完成UI创建
+            def add_button_delayed():
+                try:
+                    # 查找search_frame（搜索与过滤的LabelFrame）
+                    if hasattr(self, 'log_frame'):
+                        for widget in self.log_frame.winfo_children():
+                            # 找到第一层Frame
+                            if isinstance(widget, ttk.Frame):
+                                for child in widget.winfo_children():
+                                    # 找到LabelFrame，text="搜索与过滤"
+                                    if isinstance(child, ttk.LabelFrame):
+                                        try:
+                                            if child.cget('text') == '搜索与过滤':
+                                                # 找到了search_frame，添加AI助手按钮
+                                                ai_button = ttk.Button(
+                                                    child,
+                                                    text="🤖 AI助手",
+                                                    command=self.open_ai_assistant_window
+                                                )
+                                                # 放在第2行第9列（"导出报告"后面）
+                                                ai_button.grid(row=1, column=9, padx=2, pady=3)
+                                                print("✅ AI助手按钮已添加")
+                                                return
+                                        except tk.TclError:
+                                            continue
+
+                    print("❌ 未找到搜索过滤区域")
+
+                except Exception as e:
+                    print(f"❌ 添加按钮失败: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+
+            # 延迟100ms执行，确保父类UI已完成创建
+            self.root.after(100, add_button_delayed)
+
+            # 添加右键菜单到日志文本组件
+            self.setup_context_menu()
+
+        except Exception as e:
+            print(f"❌ AI助手按钮初始化失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+    def open_ai_assistant_window(self):
+        """打开AI助手窗口"""
+        try:
+            # 如果窗口已存在，直接显示
+            if hasattr(self, 'ai_window') and self.ai_window.winfo_exists():
+                self.ai_window.deiconify()
+                self.ai_window.lift()
+                return
+
+            # 导入AI助手面板
+            try:
+                from modules.ai_assistant_panel import AIAssistantPanel
+            except ImportError:
+                from gui.modules.ai_assistant_panel import AIAssistantPanel
+
+            # 创建新窗口
+            self.ai_window = tk.Toplevel(self.root)
+            self.ai_window.title("AI智能诊断助手")
+            self.ai_window.geometry("500x700")
+
+            # 设置窗口图标（如果有的话）
+            try:
+                self.ai_window.iconbitmap(self.root.iconbitmap())
+            except:
+                pass
+
+            # 创建AI助手面板
+            self.ai_assistant = AIAssistantPanel(self.ai_window, self)
+            # AIAssistantPanel已经在内部pack了self.frame，不需要再次pack
+
+            # 窗口关闭时隐藏而不是销毁
+            self.ai_window.protocol("WM_DELETE_WINDOW", self.ai_window.withdraw)
+
+        except Exception as e:
+            messagebox.showerror("错误", f"无法打开AI助手窗口:\n{str(e)}")
+            import traceback
+            traceback.print_exc()
+
+    def setup_context_menu(self):
+        """设置日志查看器的右键菜单"""
+        try:
+            # 创建右键菜单
+            self.log_context_menu = tk.Menu(self.log_text, tearoff=0)
+
+            # 添加AI分析菜单项
+            self.log_context_menu.add_command(
+                label="🤖 AI分析此日志",
+                command=self.ai_analyze_selected_log
+            )
+            self.log_context_menu.add_command(
+                label="🤖 AI解释错误原因",
+                command=self.ai_explain_error
+            )
+            self.log_context_menu.add_command(
+                label="🤖 AI查找相关日志",
+                command=self.ai_find_related_logs
+            )
+
+            self.log_context_menu.add_separator()
+
+            # 添加标准操作
+            self.log_context_menu.add_command(
+                label="📋 复制",
+                command=self.copy_selected_text
+            )
+            self.log_context_menu.add_command(
+                label="🔍 搜索此内容",
+                command=self.search_selected_text
+            )
+
+            # 绑定右键点击事件
+            self.log_text.bind("<Button-3>", self.show_context_menu)
+            # macOS可能使用Button-2或Control-Button-1
+            self.log_text.bind("<Button-2>", self.show_context_menu)
+            self.log_text.bind("<Control-Button-1>", self.show_context_menu)
+
+        except Exception as e:
+            print(f"右键菜单设置失败: {str(e)}")
+
+    def show_context_menu(self, event):
+        """显示右键菜单"""
+        try:
+            # 设置菜单显示位置
+            self.log_context_menu.post(event.x_root, event.y_root)
+        except Exception as e:
+            print(f"显示右键菜单失败: {str(e)}")
+
+    def get_selected_log_context(self):
+        """获取选中日志及其上下文"""
+        try:
+            # 获取选中的文本
+            if self.log_text.tag_ranges("sel"):
+                selected_text = self.log_text.get("sel.first", "sel.last")
+            else:
+                # 如果没有选中，获取当前行
+                current_line = self.log_text.index("insert").split('.')[0]
+                selected_text = self.log_text.get(f"{current_line}.0", f"{current_line}.end")
+
+            if not selected_text.strip():
+                return None, None, None
+
+            # 尝试从filtered_entries中查找匹配的日志
+            matched_entries = []
+            for entry in self.filtered_entries if hasattr(self, 'filtered_entries') else self.log_entries:
+                if selected_text.strip() in entry.content or selected_text.strip() in entry.raw_line:
+                    matched_entries.append(entry)
+
+            if not matched_entries:
+                return selected_text, [], []
+
+            # 获取第一个匹配的日志
+            target_entry = matched_entries[0]
+
+            # 从所有日志中找到这条日志的位置
+            all_entries = self.log_entries
+            try:
+                target_idx = all_entries.index(target_entry)
+            except ValueError:
+                return selected_text, [], []
+
+            # 获取上下文（前后各5条）
+            context_before = all_entries[max(0, target_idx-5):target_idx]
+            context_after = all_entries[target_idx+1:min(len(all_entries), target_idx+6)]
+
+            return target_entry, context_before, context_after
+
+        except Exception as e:
+            print(f"获取日志上下文失败: {str(e)}")
+            return None, None, None
+
+    def ai_analyze_selected_log(self):
+        """AI分析选中的日志"""
+        if not self.ai_assistant:
+            messagebox.showwarning("警告", "AI助手未初始化")
+            return
+
+        target, context_before, context_after = self.get_selected_log_context()
+
+        if not target:
+            messagebox.showinfo("提示", "请选择要分析的日志")
+            return
+
+        # 构建分析问题
+        if isinstance(target, str):
+            question = f"分析这条日志:\n{target}"
+        else:
+            question = f"分析这条{target.level}日志:\n{target.content}"
+
+        # 设置AI助手的输入框并触发提问
+        self.ai_assistant.question_var.set(question)
+        self.ai_assistant.ask_question()
+
+    def ai_explain_error(self):
+        """AI解释错误原因"""
+        if not self.ai_assistant:
+            messagebox.showwarning("警告", "AI助手未初始化")
+            return
+
+        target, context_before, context_after = self.get_selected_log_context()
+
+        if not target:
+            messagebox.showinfo("提示", "请选择要解释的错误")
+            return
+
+        # 构建问题
+        if isinstance(target, str):
+            question = f"解释这个错误的原因和如何修复:\n{target}"
+        else:
+            question = f"解释这个{target.level}的原因和如何修复:\n{target.content}"
+
+        self.ai_assistant.question_var.set(question)
+        self.ai_assistant.ask_question()
+
+    def ai_find_related_logs(self):
+        """AI查找相关日志"""
+        if not self.ai_assistant:
+            messagebox.showwarning("警告", "AI助手未初始化")
+            return
+
+        target, context_before, context_after = self.get_selected_log_context()
+
+        if not target:
+            messagebox.showinfo("提示", "请选择参考日志")
+            return
+
+        # 构建问题
+        if isinstance(target, str):
+            question = f"在日志中查找与此相关的其他日志:\n{target}"
+        else:
+            question = f"在日志中查找与此{target.level}相关的其他日志:\n{target.content}"
+
+        self.ai_assistant.question_var.set(question)
+        self.ai_assistant.ask_question()
+
+    def copy_selected_text(self):
+        """复制选中的文本"""
+        try:
+            if self.log_text.tag_ranges("sel"):
+                selected_text = self.log_text.get("sel.first", "sel.last")
+                self.root.clipboard_clear()
+                self.root.clipboard_append(selected_text)
+        except Exception as e:
+            print(f"复制文本失败: {str(e)}")
+
+    def search_selected_text(self):
+        """搜索选中的文本"""
+        try:
+            if self.log_text.tag_ranges("sel"):
+                selected_text = self.log_text.get("sel.first", "sel.last").strip()
+                if selected_text:
+                    self.search_var.set(selected_text)
+                    self.search_logs()
+        except Exception as e:
+            print(f"搜索文本失败: {str(e)}")
 
 
 def main():

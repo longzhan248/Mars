@@ -15,7 +15,11 @@
       "Bash(python -m pytest tests/ -v --tb=short)",
       "Bash(python:*)",
       "Bash(awk:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(pkill:*)",
+      "Bash(claude --version)",
+      "Bash(cat:*)",
+      "Bash(claude:*)"
     ],
     "deny": [],
     "ask": []

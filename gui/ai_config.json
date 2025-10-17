@@ -1,0 +1,14 @@
+{
+  "ai_service": "ClaudeCode",
+  "api_key": "",
+  "model": "claude-3-5-sonnet-20241022",
+  "auto_detect": true,
+  "auto_summary": true,
+  "privacy_filter": true,
+  "max_tokens": 32000,
+  "timeout": 60,
+  "context_size": "标准",
+  "project_dirs": [
+    "/Volumes/long/心娱/项目/oxygen_1"
+  ]
+}

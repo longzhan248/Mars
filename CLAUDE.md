@@ -25,6 +25,57 @@ cd /path/to/project
 
 ## 最新更新
 
+### 2025-10-16
+- **AI智能诊断功能** 🤖✨ - 完整的AI驱动日志分析系统 (Phase 1-3完成)
+  - **多AI服务支持**: Claude Code（推荐）、Claude API、OpenAI、Ollama本地模型
+  - **智能分析能力**:
+    - 🔥 崩溃分析：自动识别崩溃堆栈并提供修复建议
+    - ⚡ 性能诊断：检测性能瓶颈和资源使用问题
+    - 📊 问题总结：生成完整的问题报告和优先级建议
+    - 🔍 智能搜索：基于AI的语义搜索和日志关联
+    - 💬 自由对话：针对日志内容的交互式问答
+  - **AI助手侧边栏**:
+    - 4个快捷操作按钮（崩溃分析/性能诊断/问题总结/智能搜索）
+    - 实时聊天界面with历史记录
+    - 自由问答输入框
+    - 状态管理和进度反馈
+  - **右键菜单增强**:
+    - 🤖 AI分析此日志：分析选中的日志条目
+    - 🤖 AI解释错误原因：深度分析错误成因
+    - 🤖 AI查找相关日志：智能关联日志搜索
+  - **隐私保护**:
+    - 自动过滤敏感信息（手机号/邮箱/IP/身份证等）
+    - 内置白名单机制
+    - 可自定义过滤规则
+  - **日志预处理**:
+    - 崩溃提取器：自动提取崩溃堆栈和上下文
+    - 错误模式识别：识别10种常见错误模式
+    - 日志摘要生成：智能压缩日志内容
+  - **灵活配置**:
+    - GUI配置对话框：服务选择、API Key管理、模型配置
+    - 自动检测：优先级自动选择最佳可用服务
+    - 环境变量支持：API Key通过环境变量配置
+  - **异步处理**：所有AI请求异步执行，不阻塞UI
+  - **核心模块** 🆕:
+    - `gui/modules/ai_diagnosis/` - AI诊断核心（5个模块，约2240行）
+    - `gui/modules/ai_assistant_panel.py` - AI助手面板（600行）
+    - `gui/modules/ai_diagnosis_settings.py` - AI设置对话框（400行）
+  - **完整文档**:
+    - `docs/technical/AI_INTEGRATION_COMPLETE.md` - 总体完成报告
+    - `gui/modules/ai_diagnosis/CLAUDE.md` - 技术文档
+    - `docs/technical/AI_INTEGRATION_PROGRESS.md` - 进度跟踪
+  - **使用简单**:
+    ```bash
+    # 启动主程序
+    ./scripts/run_analyzer.sh
+
+    # 右侧AI助手面板自动显示
+    # 1. 点击"AI设置"配置服务（推荐使用自动检测）
+    # 2. 点击快捷操作按钮进行分析
+    # 3. 或在输入框中自由提问
+    # 4. 右键日志可快速AI分析
+    ```
+
 ### 2025-10-15
 - **模块列表搜索功能** 🔍 - 快速定位目标模块
   - **实时搜索**: 输入即搜索，无需点击按钮
@@ -306,6 +357,23 @@ cd /path/to/project
   - 性能监控装饰器
   - 日志轮转管理
   - 上下文管理器
+- `ai_assistant_panel.py` - AI助手面板（2025-10-16新增 🤖🆕）
+  - AI助手侧边栏UI（600行）
+  - 4个快捷操作按钮
+  - 聊天历史显示
+  - 自由问答输入
+- `ai_diagnosis_settings.py` - AI设置对话框（2025-10-16新增 🤖🆕）
+  - AI服务配置对话框（400行）
+  - API Key管理
+  - 自动检测功能
+  - 测试连接
+- `ai_diagnosis/` - AI诊断核心模块（2025-10-16新增 🤖🆕）
+  - `ai_client.py` - AI客户端抽象层和工厂（590行）
+  - `config.py` - 配置管理（245行）
+  - `log_preprocessor.py` - 日志预处理器（610行）
+  - `prompt_templates.py` - 提示词模板库（515行）
+  - `claude_code_client.py` - Claude Code代理客户端（433行）
+  - 技术文档：`CLAUDE.md`
 - `ips_tab.py` - IPS崩溃分析标签页
   - iOS崩溃报告解析
   - 符号化支持
@@ -380,13 +448,18 @@ cd /path/to/project
 - `technical/` - 技术文档目录 🆕
   - `OPTIMIZATION_ANALYSIS.md` - 性能优化分析报告（28KB）
   - `PHASE_ONE_OPTIMIZATION_REPORT.md` - 阶段一优化实施报告（11KB）
-  - `PHASE_TWO_OPTIMIZATION_REPORT.md` - 阶段二优化实施报告（新增）
+  - `PHASE_TWO_OPTIMIZATION_REPORT.md` - 阶段二优化实施报告
   - `BUGFIX_PHASE_ONE.md` - 阶段一Bug修复记录（4.4KB）
   - `SANDBOX_BUGFIX.md` - iOS沙盒浏览Bug修复记录
   - `SANDBOX_REFACTORING.md` - iOS沙盒浏览模块重构总结
   - `DSYM_LINKMAP.md` - dSYM和LinkMap分析技术文档
   - `PARALLEL_PROCESSING_VALIDATION.md` - 并行处理功能验证报告
-  - `MODULE_LIST_SEARCH.md` - 模块列表搜索功能技术文档 🆕
+  - `MODULE_LIST_SEARCH.md` - 模块列表搜索功能技术文档
+  - `AI_INTEGRATION_COMPLETE.md` - AI集成总体完成报告 🤖🆕
+  - `AI_INTEGRATION_PROGRESS.md` - AI集成进度跟踪
+  - `AI_INTEGRATION_PHASE1_SUMMARY.md` - AI集成Phase 1总结
+  - `AI_INTEGRATION_PHASE2_COMPLETE.md` - AI集成Phase 2完成报告
+  - `AI_INTEGRATION_PHASE3_COMPLETE.md` - AI集成Phase 3完成报告
 
 ## 使用命令
 
@@ -401,14 +474,18 @@ python3 gui/mars_log_analyzer_modular.py
 ```
 
 #### 功能说明
-主程序包含七个标签页：
-1. **Mars日志分析** - 解码和分析xlog文件
+主程序包含七个标签页 + AI助手侧边栏：
+1. **Mars日志分析** - 解码和分析xlog文件 + **AI助手侧边栏** 🤖🆕
+   - 左侧（75%）：传统日志查看、搜索、过滤功能
+   - 右侧（25%）：AI智能诊断助手
+     - 崩溃分析、性能诊断、问题总结、智能搜索
+     - 自由对话、右键菜单AI分析
 2. **IPS崩溃解析** - 解析iOS崩溃报告
 3. **iOS推送测试** - APNS推送测试工具
 4. **iOS沙盒浏览** - iOS应用沙盒文件浏览器
 5. **dSYM分析** - iOS崩溃符号化和代码定位
 6. **LinkMap分析** - iOS应用二进制大小分析
-7. **iOS代码混淆** - iOS项目代码混淆工具 🆕
+7. **iOS代码混淆** - iOS项目代码混淆工具
 
 ### 独立启动iOS推送工具：
 ```bash
