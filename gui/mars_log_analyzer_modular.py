@@ -522,11 +522,25 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
             messagebox.showinfo("提示", "请选择要分析的日志")
             return
 
-        # 构建分析问题
+        # 获取上下文参数配置
+        params = self.ai_assistant.get_context_params()
+        context_limit = params.get('crash_before', 5)  # 使用crash_before参数作为上下文大小
+
+        # 构建分析问题（包含上下文）
         if isinstance(target, str):
             question = f"分析这条日志:\n{target}"
         else:
-            question = f"分析这条{target.level}日志:\n{target.content}"
+            # 包含上下文信息
+            context_info = ""
+            if context_before:
+                context_info += f"\n\n【上下文 - 前{min(len(context_before), context_limit)}条日志】:\n"
+                for entry in context_before[-context_limit:]:
+                    context_info += f"[{entry.level}] {entry.content[:200]}\n"
+
+            question = f"分析这条{target.level}日志:\n【目标日志】: {target.content}"
+
+            if context_info:
+                question += context_info
 
         # 设置AI助手的输入框并触发提问
         self.ai_assistant.question_var.set(question)
@@ -544,11 +558,31 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
             messagebox.showinfo("提示", "请选择要解释的错误")
             return
 
-        # 构建问题
+        # 获取上下文参数配置
+        params = self.ai_assistant.get_context_params()
+        context_before_limit = params.get('crash_before', 5)
+        context_after_limit = params.get('crash_after', 3)
+
+        # 构建问题（包含上下文）
         if isinstance(target, str):
             question = f"解释这个错误的原因和如何修复:\n{target}"
         else:
-            question = f"解释这个{target.level}的原因和如何修复:\n{target.content}"
+            # 包含前后上下文
+            context_info = ""
+            if context_before:
+                context_info += f"\n\n【上下文 - 前{min(len(context_before), context_before_limit)}条日志】:\n"
+                for entry in context_before[-context_before_limit:]:
+                    context_info += f"[{entry.level}] {entry.content[:200]}\n"
+
+            if context_after:
+                context_info += f"\n\n【上下文 - 后{min(len(context_after), context_after_limit)}条日志】:\n"
+                for entry in context_after[:context_after_limit]:
+                    context_info += f"[{entry.level}] {entry.content[:200]}\n"
+
+            question = f"解释这个{target.level}的原因和如何修复:\n【目标日志】: {target.content}"
+
+            if context_info:
+                question += context_info
 
         self.ai_assistant.question_var.set(question)
         self.ai_assistant.ask_question()
@@ -565,11 +599,50 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
             messagebox.showinfo("提示", "请选择参考日志")
             return
 
-        # 构建问题
+        # 获取上下文参数配置
+        params = self.ai_assistant.get_context_params()
+        search_logs_limit = params.get('search_logs', 500)  # 用于搜索的日志数量
+
+        # 构建问题（包含周围日志样本）
         if isinstance(target, str):
             question = f"在日志中查找与此相关的其他日志:\n{target}"
         else:
-            question = f"在日志中查找与此{target.level}相关的其他日志:\n{target.content}"
+            # 提供周围日志作为搜索范围参考
+            context_info = ""
+
+            # 获取目标日志在全部日志中的位置
+            try:
+                all_entries = self.log_entries if hasattr(self, 'log_entries') else []
+                target_idx = all_entries.index(target)
+
+                # 获取目标日志前后各一半的日志作为搜索范围
+                half_limit = search_logs_limit // 2
+                start_idx = max(0, target_idx - half_limit)
+                end_idx = min(len(all_entries), target_idx + half_limit)
+
+                sample_logs = all_entries[start_idx:end_idx]
+
+                if sample_logs:
+                    context_info += f"\n\n【搜索范围 - 共{len(sample_logs)}条日志】:\n"
+                    # 显示前10条和后10条作为样本
+                    for i, entry in enumerate(sample_logs[:10]):
+                        context_info += f"[{entry.level}] {entry.content[:150]}\n"
+
+                    if len(sample_logs) > 20:
+                        context_info += f"... (中间省略{len(sample_logs) - 20}条)\n"
+
+                    for entry in sample_logs[-10:]:
+                        context_info += f"[{entry.level}] {entry.content[:150]}\n"
+
+            except (ValueError, AttributeError):
+                pass
+
+            question = f"在日志中查找与此{target.level}相关的其他日志:\n【目标日志】: {target.content}"
+
+            if context_info:
+                question += context_info
+            else:
+                question += "\n\n请在当前加载的所有日志中搜索。"
 
         self.ai_assistant.question_var.set(question)
         self.ai_assistant.ask_question()
