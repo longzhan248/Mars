@@ -4294,6 +4294,8 @@ except Exception as e:
                 label="💡 AI解释错误原因",
                 command=lambda text=selected_text: self.ai_explain_error(text)
             )
+            # 添加自定义Prompt子菜单
+            self._add_custom_prompt_submenu(menu, selected_text)
             menu.add_separator()
             menu.add_command(label="📋 复制", command=lambda text=selected_text: self.copy_text(text))
         elif current_line and len(current_line.strip()) > 0:
@@ -4306,6 +4308,8 @@ except Exception as e:
                 label="💡 AI解释错误原因",
                 command=lambda line=current_line: self.ai_explain_error(line)
             )
+            # 添加自定义Prompt子菜单
+            self._add_custom_prompt_submenu(menu, current_line)
             menu.add_separator()
             menu.add_command(label="📋 复制此行", command=lambda line=current_line: self.copy_text(line))
         else:
@@ -4320,6 +4324,58 @@ except Exception as e:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
             menu.grab_release()
+
+    def _add_custom_prompt_submenu(self, parent_menu, log_text):
+        """
+        添加自定义Prompt子菜单到右键菜单
+
+        Args:
+            parent_menu: 父菜单对象
+            log_text: 选中的日志文本或当前行
+        """
+        try:
+            from modules.custom_prompt_selector import CustomPromptSelector
+
+            # 创建选择器实例
+            selector = CustomPromptSelector(
+                self.root,
+                on_prompt_selected=lambda prompt_id: self._use_custom_prompt_on_log(prompt_id, log_text)
+            )
+
+            # 添加子菜单
+            selector.create_menu(parent_menu)
+
+        except Exception as e:
+            print(f"无法添加自定义Prompt菜单: {e}")
+            # 如果加载失败，添加一个禁用的菜单项
+            parent_menu.add_command(
+                label="📝 使用自定义Prompt (不可用)",
+                state=tk.DISABLED
+            )
+
+    def _use_custom_prompt_on_log(self, prompt_id, log_text):
+        """
+        使用自定义Prompt分析日志
+
+        Args:
+            prompt_id: 自定义Prompt的ID
+            log_text: 日志文本
+        """
+        # 兼容两种命名：ai_panel（原始版）和 ai_assistant（模块化版）
+        ai_panel = getattr(self, 'ai_panel', None) or getattr(self, 'ai_assistant', None)
+
+        if not ai_panel:
+            # AI助手未初始化，尝试打开窗口
+            if hasattr(self, 'open_ai_assistant_window'):
+                self.open_ai_assistant_window()
+                # 延迟执行，等待窗口初始化
+                self.root.after(200, lambda: self._use_custom_prompt_on_log(prompt_id, log_text))
+            else:
+                messagebox.showinfo("提示", "AI助手未初始化")
+            return
+
+        # 调用AI助手面板的use_custom_prompt方法
+        ai_panel.use_custom_prompt(prompt_id, context_log=log_text)
 
     def ai_analyze_module(self, module_name):
         """AI分析指定模块"""
@@ -4461,6 +4517,8 @@ except Exception as e:
                 label="💡 AI解释错误原因",
                 command=lambda text=selected_text: self.ai_explain_error(text)
             )
+            # 添加自定义Prompt子菜单
+            self._add_custom_prompt_submenu(menu, selected_text)
             menu.add_separator()
             menu.add_command(label="📋 复制", command=lambda text=selected_text: self.copy_text(text))
         elif current_line and len(current_line.strip()) > 0:
@@ -4473,6 +4531,8 @@ except Exception as e:
                 label="💡 AI解释错误原因",
                 command=lambda line=current_line: self.ai_explain_error(line)
             )
+            # 添加自定义Prompt子菜单
+            self._add_custom_prompt_submenu(menu, current_line)
             menu.add_separator()
             menu.add_command(label="📋 复制此行", command=lambda line=current_line: self.copy_text(line))
 

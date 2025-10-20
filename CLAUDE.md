@@ -49,6 +49,52 @@ cd /path/to/project
     - `test_jump_features.py` - 基础功能测试
     - `test_jump_optimizations.py` - 优化功能测试
 
+### 2025-10-20
+- **自定义Prompt功能** 📝✨ - 用户可创建和管理自己的AI提示词模板 (v1.0.0)
+  - **灵活的模板系统**:
+    - 支持变量替换 `{variable_name}` 语法
+    - 自动提取模板变量
+    - 支持Markdown格式编写
+    - 变量自动填充（如logs变量）
+  - **完整的CRUD操作**:
+    - 创建、编辑、删除、复制模板
+    - 启用/禁用控制
+    - 分类管理（崩溃分析/性能诊断/自定义分析等）
+    - 搜索和过滤功能
+  - **持久化存储**:
+    - JSON格式存储在 `gui/custom_prompts.json`
+    - 支持导入/导出模板
+    - ID冲突自动处理
+  - **GUI管理界面**:
+    - 📝 按钮快速访问（AI助手标题栏）
+    - 直观的列表管理
+    - 实时变量预览
+    - 右键菜单快捷操作
+  - **快捷选择访问** 🎯:
+    - 📝▼ 快捷按钮（AI助手输入框旁）：一键选择自定义Prompt
+    - 右键菜单集成：选中日志后右键菜单"📝 使用自定义Prompt"子菜单
+    - 分类展示：按类别组织Prompt，易于查找
+    - 自动填充：选中日志自动作为上下文传入
+  - **内置示例模板**:
+    - 语音问题专项分析：针对音频录制、播放、编解码问题
+    - 网络问题专项分析：针对HTTP请求、连接、超时问题
+  - **核心模块** 🆕:
+    - `gui/modules/ai_diagnosis/custom_prompt_manager.py` - 管理器核心（475行）
+    - `gui/modules/custom_prompt_dialog.py` - GUI对话框（200行）
+    - `gui/modules/custom_prompt_selector.py` - 快捷选择器（403行）
+  - **完整文档**:
+    - `docs/technical/CUSTOM_PROMPTS_GUIDE.md` - 使用指南
+    - 包含快速开始、详细功能说明、高级使用、最佳实践
+  - **使用简单**:
+    ```bash
+    # 1. 启动主程序
+    ./scripts/run_analyzer.sh
+
+    # 2. 在AI助手面板点击📝按钮管理模板
+    # 3. 点击📝▼快捷按钮或右键菜单选择Prompt
+    # 4. 自动应用到当前日志
+    ```
+
 ### 2025-10-16
 - **AI智能诊断功能** 🤖✨ - 完整的AI驱动日志分析系统 (Phase 1-3完成)
   - **多AI服务支持**: Claude Code（推荐）、Claude API、OpenAI、Ollama本地模型
@@ -60,6 +106,7 @@ cd /path/to/project
     - 💬 自由对话：针对日志内容的交互式问答
   - **AI助手侧边栏**:
     - 4个快捷操作按钮（崩溃分析/性能诊断/问题总结/智能搜索）
+    - 📝 自定义Prompt按钮（2025-10-20新增）
     - 实时聊天界面with历史记录
     - 自由问答输入框
     - 状态管理和进度反馈
@@ -81,13 +128,15 @@ cd /path/to/project
     - 环境变量支持：API Key通过环境变量配置
   - **异步处理**：所有AI请求异步执行，不阻塞UI
   - **核心模块** 🆕:
-    - `gui/modules/ai_diagnosis/` - AI诊断核心（5个模块，约2240行）
+    - `gui/modules/ai_diagnosis/` - AI诊断核心（6个模块，约2715行）
     - `gui/modules/ai_assistant_panel.py` - AI助手面板（600行）
     - `gui/modules/ai_diagnosis_settings.py` - AI设置对话框（400行）
+    - `gui/modules/custom_prompt_dialog.py` - 自定义Prompt对话框（200行）
   - **完整文档**:
     - `docs/technical/AI_INTEGRATION_COMPLETE.md` - 总体完成报告
     - `gui/modules/ai_diagnosis/CLAUDE.md` - 技术文档
     - `docs/technical/AI_INTEGRATION_PROGRESS.md` - 进度跟踪
+    - `docs/technical/CUSTOM_PROMPTS_GUIDE.md` - 自定义Prompt使用指南
   - **使用简单**:
     ```bash
     # 启动主程序
@@ -98,6 +147,7 @@ cd /path/to/project
     # 2. 点击快捷操作按钮进行分析
     # 3. 或在输入框中自由提问
     # 4. 右键日志可快速AI分析
+    # 5. 点击📝按钮使用自定义Prompt模板
     ```
 
 ### 2025-10-15
@@ -485,6 +535,7 @@ cd /path/to/project
   - `AI_INTEGRATION_PHASE2_COMPLETE.md` - AI集成Phase 2完成报告
   - `AI_INTEGRATION_PHASE3_COMPLETE.md` - AI集成Phase 3完成报告
   - `AI_JUMP_FEATURES.md` - AI助手跳转功能技术文档 🎯🆕
+  - `CUSTOM_PROMPTS_GUIDE.md` - 自定义Prompt功能使用指南 📝🆕
 
 ## 使用命令
 
