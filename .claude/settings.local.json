@@ -19,7 +19,9 @@
       "Bash(pkill:*)",
       "Bash(claude --version)",
       "Bash(cat:*)",
-      "Bash(claude:*)"
+      "Bash(claude:*)",
+      "Bash(timeout 5 python3:*)",
+      "Bash(sed:*)"
     ],
     "deny": [],
     "ask": []

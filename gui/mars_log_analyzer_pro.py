@@ -279,6 +279,9 @@ class MarsLogAnalyzerPro:
         self.log_text = LazyLoadText(viewer_frame, batch_size=100, width=100, height=20)
         self.log_text.pack(fill=tk.BOTH, expand=True)
 
+        # 绑定右键菜单
+        self.log_text.text.bind('<Button-3>', self.show_log_context_menu)
+
         # 配置文本标签样式 - 增大字体，调整颜色
         self.log_text.tag_config("FATAL", foreground="white", background="#DC143C", font=("Courier", 12, "bold"), lmargin2=20)  # 深红背景
         self.log_text.tag_config("ERROR", foreground="#DC143C", font=("Courier", 12, "bold"), lmargin2=20)  # 深红色
@@ -327,6 +330,8 @@ class MarsLogAnalyzerPro:
         scrollbar.config(command=self.module_listbox.yview)
 
         self.module_listbox.bind('<<ListboxSelect>>', self.on_module_select)
+        # 绑定右键菜单
+        self.module_listbox.bind('<Button-3>', self.show_module_context_menu)
 
         # 自定义规则按钮
         rule_button_frame = ttk.Frame(left_frame)
@@ -410,6 +415,8 @@ class MarsLogAnalyzerPro:
         # 绑定焦点事件，保护模块选择
         self.module_log_text.text.bind('<FocusIn>', on_text_focus_in)
         self.module_log_text.text.bind('<Button-1>', on_text_focus_in)
+        # 绑定右键菜单
+        self.module_log_text.text.bind('<Button-3>', self.show_module_log_context_menu)
 
         # 配置样式
         self.module_log_text.tag_config("FATAL", foreground="white", background="#DC143C", font=("Arial", 10, "bold"), lmargin2=15)  # 深红背景
@@ -4218,6 +4225,269 @@ except Exception as e:
         close_frame = ttk.Frame(main_frame)
         close_frame.pack(fill=tk.X, pady=(10, 0))
         ttk.Button(close_frame, text="关闭", command=dialog.destroy).pack(pady=5)
+
+    def show_module_context_menu(self, event):
+        """显示模块列表的右键菜单"""
+        # 获取点击位置的模块
+        index = self.module_listbox.nearest(event.y)
+        if index < 0:
+            return
+
+        # 选中该模块
+        self.module_listbox.selection_clear(0, tk.END)
+        self.module_listbox.selection_set(index)
+        self.module_listbox.activate(index)
+
+        # 获取模块名
+        module_text = self.module_listbox.get(index)
+        module_name = module_text.split(' (')[0]
+
+        # 创建右键菜单
+        menu = tk.Menu(self.root, tearoff=0)
+        menu.add_command(
+            label="🤖 AI分析此模块",
+            command=lambda: self.ai_analyze_module(module_name)
+        )
+        menu.add_command(
+            label="🔍 AI查找相关问题",
+            command=lambda: self.ai_search_module_issues(module_name)
+        )
+        menu.add_separator()
+        menu.add_command(
+            label="📊 显示模块统计",
+            command=lambda: self.show_module_statistics(module_name)
+        )
+
+        # 显示菜单
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+
+    def show_module_log_context_menu(self, event):
+        """显示模块日志文本的右键菜单"""
+        # 获取文本组件
+        text_widget = self.module_log_text.text
+
+        # 检查是否有选中文本
+        try:
+            selected_text = text_widget.get(tk.SEL_FIRST, tk.SEL_LAST)
+            has_selection = True
+        except tk.TclError:
+            has_selection = False
+            selected_text = ""
+
+        # 获取当前行
+        current_line = text_widget.get("@%d,%d linestart" % (event.x, event.y),
+                                       "@%d,%d lineend" % (event.x, event.y))
+
+        # 创建右键菜单
+        menu = tk.Menu(self.root, tearoff=0)
+
+        if has_selection and len(selected_text.strip()) > 0:
+            # 有选中文本时的菜单
+            menu.add_command(
+                label="🤖 AI分析选中日志",
+                command=lambda text=selected_text: self.ai_analyze_selected_log(text)
+            )
+            menu.add_command(
+                label="💡 AI解释错误原因",
+                command=lambda text=selected_text: self.ai_explain_error(text)
+            )
+            menu.add_separator()
+            menu.add_command(label="📋 复制", command=lambda text=selected_text: self.copy_text(text))
+        elif current_line and len(current_line.strip()) > 0:
+            # 没有选中但有当前行时的菜单
+            menu.add_command(
+                label="🤖 AI分析此日志",
+                command=lambda line=current_line: self.ai_analyze_selected_log(line)
+            )
+            menu.add_command(
+                label="💡 AI解释错误原因",
+                command=lambda line=current_line: self.ai_explain_error(line)
+            )
+            menu.add_separator()
+            menu.add_command(label="📋 复制此行", command=lambda line=current_line: self.copy_text(line))
+        else:
+            # 空白处的菜单
+            menu.add_command(
+                label="🤖 AI分析当前模块",
+                command=lambda: self.ai_analyze_current_module()
+            )
+
+        # 显示菜单
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+
+    def ai_analyze_module(self, module_name):
+        """AI分析指定模块"""
+        if not hasattr(self, 'ai_panel') or not self.ai_panel:
+            messagebox.showinfo("提示", "AI助手未初始化")
+            return
+
+        # 获取该模块的所有日志
+        module_logs = [entry for entry in self.log_entries if entry.module == module_name]
+
+        if not module_logs:
+            messagebox.showinfo("提示", f"模块 {module_name} 没有日志")
+            return
+
+        # 切换到AI助手标签页
+        if hasattr(self, 'notebook'):
+            self.notebook.select(0)
+
+        # 使用AI助手面板的方法
+        question = f"分析模块 {module_name} 的健康状况和主要问题"
+        self.ai_panel.question_var.set(question)
+        self.ai_panel.ask_question()
+
+    def ai_search_module_issues(self, module_name):
+        """AI搜索模块相关问题"""
+        if not hasattr(self, 'ai_panel') or not self.ai_panel:
+            messagebox.showinfo("提示", "AI助手未初始化")
+            return
+
+        # 切换到AI助手标签页
+        if hasattr(self, 'notebook'):
+            self.notebook.select(0)
+
+        # 使用智能搜索功能
+        question = f"搜索模块 {module_name} 的所有错误和警告，并分析根本原因"
+        self.ai_panel.question_var.set(question)
+        self.ai_panel.ask_question()
+
+    def ai_analyze_selected_log(self, log_text):
+        """AI分析选中的日志"""
+        if not hasattr(self, 'ai_panel') or not self.ai_panel:
+            messagebox.showinfo("提示", "AI助手未初始化")
+            return
+
+        # 切换到AI助手标签页
+        if hasattr(self, 'notebook'):
+            self.notebook.select(0)
+
+        # 设置问题
+        question = f"分析以下日志的问题和原因：\n\n{log_text[:500]}"
+        self.ai_panel.question_var.set(question)
+        self.ai_panel.ask_question()
+
+    def ai_explain_error(self, log_text):
+        """AI解释错误原因"""
+        if not hasattr(self, 'ai_panel') or not self.ai_panel:
+            messagebox.showinfo("提示", "AI助手未初始化")
+            return
+
+        # 切换到AI助手标签页
+        if hasattr(self, 'notebook'):
+            self.notebook.select(0)
+
+        # 设置问题
+        question = f"解释以下错误的原因、影响和解决方案：\n\n{log_text[:500]}"
+        self.ai_panel.question_var.set(question)
+        self.ai_panel.ask_question()
+
+    def ai_analyze_current_module(self):
+        """AI分析当前选中的模块"""
+        selection = self.module_listbox.curselection()
+        if not selection:
+            messagebox.showinfo("提示", "请先选择一个模块")
+            return
+
+        index = selection[0]
+        module_text = self.module_listbox.get(index)
+        module_name = module_text.split(' (')[0]
+        self.ai_analyze_module(module_name)
+
+    def show_module_statistics(self, module_name):
+        """显示模块统计信息"""
+        # 获取该模块的所有日志
+        module_logs = [entry for entry in self.log_entries if entry.module == module_name]
+
+        if not module_logs:
+            messagebox.showinfo("提示", f"模块 {module_name} 没有日志")
+            return
+
+        # 统计各级别数量
+        level_counts = {}
+        for entry in module_logs:
+            level_counts[entry.level] = level_counts.get(entry.level, 0) + 1
+
+        # 构建统计信息
+        stats_text = f"=== 模块 {module_name} 统计 ===\n\n"
+        stats_text += f"总日志数: {len(module_logs)}\n\n"
+        stats_text += "日志级别分布:\n"
+        for level in ["FATAL", "ERROR", "WARNING", "INFO", "DEBUG", "VERBOSE"]:
+            if level in level_counts:
+                stats_text += f"  {level}: {level_counts[level]}\n"
+
+        # 时间范围
+        if module_logs:
+            stats_text += f"\n时间范围:\n"
+            stats_text += f"  开始: {module_logs[0].timestamp}\n"
+            stats_text += f"  结束: {module_logs[-1].timestamp}\n"
+
+        # 显示统计信息
+        messagebox.showinfo(f"模块统计 - {module_name}", stats_text)
+
+    def show_log_context_menu(self, event):
+        """显示主日志文本的右键菜单"""
+        # 获取文本组件
+        text_widget = self.log_text.text
+
+        # 检查是否有选中文本
+        try:
+            selected_text = text_widget.get(tk.SEL_FIRST, tk.SEL_LAST)
+            has_selection = True
+        except tk.TclError:
+            has_selection = False
+            selected_text = ""
+
+        # 获取当前行
+        current_line = text_widget.get("@%d,%d linestart" % (event.x, event.y),
+                                       "@%d,%d lineend" % (event.x, event.y))
+
+        # 创建右键菜单
+        menu = tk.Menu(self.root, tearoff=0)
+
+        if has_selection and len(selected_text.strip()) > 0:
+            # 有选中文本时的菜单
+            menu.add_command(
+                label="🤖 AI分析选中日志",
+                command=lambda text=selected_text: self.ai_analyze_selected_log(text)
+            )
+            menu.add_command(
+                label="💡 AI解释错误原因",
+                command=lambda text=selected_text: self.ai_explain_error(text)
+            )
+            menu.add_separator()
+            menu.add_command(label="📋 复制", command=lambda text=selected_text: self.copy_text(text))
+        elif current_line and len(current_line.strip()) > 0:
+            # 没有选中但有当前行时的菜单
+            menu.add_command(
+                label="🤖 AI分析此日志",
+                command=lambda line=current_line: self.ai_analyze_selected_log(line)
+            )
+            menu.add_command(
+                label="💡 AI解释错误原因",
+                command=lambda line=current_line: self.ai_explain_error(line)
+            )
+            menu.add_separator()
+            menu.add_command(label="📋 复制此行", command=lambda line=current_line: self.copy_text(line))
+
+        # 显示菜单
+        if menu.index(tk.END) is not None:  # 只有在菜单有项目时才显示
+            try:
+                menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                menu.grab_release()
+
+    def copy_text(self, text):
+        """复制文本到剪贴板"""
+        self.root.clipboard_clear()
+        self.root.clipboard_append(text)
+        self.set_status(f"已复制 {len(text)} 个字符到剪贴板")
 
 
 def main():

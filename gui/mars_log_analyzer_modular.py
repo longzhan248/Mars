@@ -510,12 +510,36 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
             print(f"获取日志上下文失败: {str(e)}")
             return None, None, None
 
-    def ai_analyze_selected_log(self):
-        """AI分析选中的日志"""
+    def ai_analyze_selected_log(self, log_text=None):
+        """AI分析选中的日志
+
+        Args:
+            log_text: 可选的日志文本。如果提供，直接分析该文本；否则获取选中的日志
+        """
+        # 如果AI助手未初始化，自动打开窗口并初始化
         if not self.ai_assistant:
-            messagebox.showwarning("警告", "AI助手未初始化")
+            self.open_ai_assistant_window()
+            # 给窗口一点时间完成初始化，然后执行分析
+            self.root.after(200, lambda: self._do_ai_analyze(log_text))
             return
 
+        self._do_ai_analyze(log_text)
+
+    def _do_ai_analyze(self, log_text=None):
+        """执行AI分析（内部方法）"""
+        if not self.ai_assistant:
+            messagebox.showwarning("警告", "AI助手初始化失败，请手动点击'🤖 AI助手'按钮")
+            return
+
+        # 如果提供了log_text参数，使用父类的逻辑
+        if log_text is not None:
+            # 直接分析提供的文本
+            question = f"分析以下日志的问题和原因：\n\n{log_text[:500]}"
+            self.ai_assistant.question_var.set(question)
+            self.ai_assistant.ask_question()
+            return
+
+        # 否则使用原有的上下文获取逻辑
         target, context_before, context_after = self.get_selected_log_context()
 
         if not target:
@@ -546,12 +570,35 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
         self.ai_assistant.question_var.set(question)
         self.ai_assistant.ask_question()
 
-    def ai_explain_error(self):
-        """AI解释错误原因"""
+    def ai_explain_error(self, log_text=None):
+        """AI解释错误原因
+
+        Args:
+            log_text: 可选的日志文本。如果提供，直接解释该文本；否则获取选中的日志
+        """
+        # 如果AI助手未初始化，自动打开窗口并初始化
         if not self.ai_assistant:
-            messagebox.showwarning("警告", "AI助手未初始化")
+            self.open_ai_assistant_window()
+            # 给窗口一点时间完成初始化，然后执行解释
+            self.root.after(200, lambda: self._do_ai_explain(log_text))
             return
 
+        self._do_ai_explain(log_text)
+
+    def _do_ai_explain(self, log_text=None):
+        """执行AI错误解释（内部方法）"""
+        if not self.ai_assistant:
+            messagebox.showwarning("警告", "AI助手初始化失败，请手动点击'🤖 AI助手'按钮")
+            return
+
+        # 如果提供了log_text参数，使用简化逻辑
+        if log_text is not None:
+            question = f"解释以下错误的原因、影响和解决方案：\n\n{log_text[:500]}"
+            self.ai_assistant.question_var.set(question)
+            self.ai_assistant.ask_question()
+            return
+
+        # 否则使用原有的上下文获取逻辑
         target, context_before, context_after = self.get_selected_log_context()
 
         if not target:
@@ -589,8 +636,19 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
 
     def ai_find_related_logs(self):
         """AI查找相关日志"""
+        # 如果AI助手未初始化，自动打开窗口并初始化
         if not self.ai_assistant:
-            messagebox.showwarning("警告", "AI助手未初始化")
+            self.open_ai_assistant_window()
+            # 给窗口一点时间完成初始化，然后执行查找
+            self.root.after(200, self._do_ai_find_related)
+            return
+
+        self._do_ai_find_related()
+
+    def _do_ai_find_related(self):
+        """执行AI查找相关日志（内部方法）"""
+        if not self.ai_assistant:
+            messagebox.showwarning("警告", "AI助手初始化失败，请手动点击'🤖 AI助手'按钮")
             return
 
         target, context_before, context_after = self.get_selected_log_context()

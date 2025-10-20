@@ -18,18 +18,21 @@ def safe_import_ai_diagnosis():
         from ai_diagnosis import AIClientFactory, AIConfig
         from ai_diagnosis.log_preprocessor import LogPreprocessor
         from ai_diagnosis.prompt_templates import PromptTemplates
-        return AIClientFactory, AIConfig, LogPreprocessor, PromptTemplates
+        from ai_diagnosis.token_optimizer import TokenOptimizer
+        return AIClientFactory, AIConfig, LogPreprocessor, PromptTemplates, TokenOptimizer
     except ImportError:
         try:
             from modules.ai_diagnosis import AIClientFactory, AIConfig
             from modules.ai_diagnosis.log_preprocessor import LogPreprocessor
             from modules.ai_diagnosis.prompt_templates import PromptTemplates
-            return AIClientFactory, AIConfig, LogPreprocessor, PromptTemplates
+            from modules.ai_diagnosis.token_optimizer import TokenOptimizer
+            return AIClientFactory, AIConfig, LogPreprocessor, PromptTemplates, TokenOptimizer
         except ImportError:
             from gui.modules.ai_diagnosis import AIClientFactory, AIConfig
             from gui.modules.ai_diagnosis.log_preprocessor import LogPreprocessor
             from gui.modules.ai_diagnosis.prompt_templates import PromptTemplates
-            return AIClientFactory, AIConfig, LogPreprocessor, PromptTemplates
+            from gui.modules.ai_diagnosis.token_optimizer import TokenOptimizer
+            return AIClientFactory, AIConfig, LogPreprocessor, PromptTemplates, TokenOptimizer
 
 
 class AIAssistantPanel:
@@ -62,6 +65,9 @@ class AIAssistantPanel:
         # AI客户端（延迟初始化）
         self._ai_client = None
 
+        # Token优化器（延迟初始化）
+        self._token_optimizer = None
+
         # 评分记录（用于收集用户反馈）
         self.ratings = []
 
@@ -80,7 +86,7 @@ class AIAssistantPanel:
         """延迟初始化AI客户端"""
         if self._ai_client is None:
             try:
-                AIClientFactory, AIConfig, _, _ = safe_import_ai_diagnosis()
+                AIClientFactory, AIConfig, _, _, _ = safe_import_ai_diagnosis()
                 config = AIConfig.load()
 
                 # 如果启用自动检测,使用auto_detect
@@ -102,6 +108,25 @@ class AIAssistantPanel:
                 return None
         return self._ai_client
 
+    @property
+    def token_optimizer(self):
+        """延迟初始化Token优化器"""
+        if self._token_optimizer is None:
+            try:
+                _, AIConfig, _, _, TokenOptimizer = safe_import_ai_diagnosis()
+                config = AIConfig.load()
+                model = config.get('model', 'claude-3-5-sonnet-20241022')
+                self._token_optimizer = TokenOptimizer(model=model)
+            except Exception as e:
+                print(f"Token优化器初始化失败: {str(e)}")
+                # 使用默认配置
+                try:
+                    _, _, _, _, TokenOptimizer = safe_import_ai_diagnosis()
+                    self._token_optimizer = TokenOptimizer()
+                except:
+                    return None
+        return self._token_optimizer
+
     def get_project_context(self, max_chars: int = 8000) -> str:
         """
         读取项目代码作为上下文
@@ -114,7 +139,7 @@ class AIAssistantPanel:
         """
         import os
 
-        _, AIConfig, _, _ = safe_import_ai_diagnosis()
+        _, AIConfig, _, _, _ = safe_import_ai_diagnosis()
         config = AIConfig.load()
         project_dirs = config.get('project_dirs', [])
 
@@ -1042,7 +1067,7 @@ class AIAssistantPanel:
             }
         }
 
-        _, AIConfig, _, _ = safe_import_ai_diagnosis()
+        _, AIConfig, _, _, _ = safe_import_ai_diagnosis()
         config = AIConfig.load()
         context_size = config.get('context_size', '标准')
         return CONTEXT_PARAMS.get(context_size, CONTEXT_PARAMS['标准'])
@@ -1069,38 +1094,30 @@ class AIAssistantPanel:
                 # 检查停止标志
                 if self.stop_flag:
                     return
-                # 导入模块
-                _, _, LogPreprocessor, PromptTemplates = safe_import_ai_diagnosis()
 
-                # 获取上下文参数
-                params = self.get_context_params()
-
-                # 预处理日志
-                preprocessor = LogPreprocessor()
-                crash_logs = preprocessor.extract_crash_logs(self.main_app.log_entries)
-
-                if not crash_logs:
-                    self.main_app.root.after(0, self.append_chat, "system", "未发现崩溃日志")
+                # 使用Token优化器
+                optimizer = self.token_optimizer
+                if not optimizer:
+                    self.main_app.root.after(0, self.append_chat, "system", "Token优化器初始化失败")
                     return
 
-                # 取第一个崩溃
-                crash = crash_logs[0]
+                # 优化崩溃分析提示词
+                optimized = optimizer.optimize_for_crash_analysis(self.main_app.log_entries)
 
-                # 获取项目代码上下文
-                project_context = self.get_project_context(max_chars=5000)
+                # 检查token预算
+                within_budget, message = optimizer.check_budget(optimized.estimated_tokens)
+                if not within_budget:
+                    self.main_app.root.after(0, self.append_chat, "system", f"⚠️ {message}")
+                    return
 
-                # 构建提示词（使用上下文参数）
-                crash_info = {
-                    'crash_time': crash.crash_time,
-                    'crash_exception': crash.crash_entry.content,
-                    'crash_stack': crash.crash_entry.content,  # 崩溃堆栈就是内容本身
-                    'context_before': preprocessor.summarize_logs(crash.context_before[:params['crash_before']] if crash.context_before else []),
-                    'context_after': preprocessor.summarize_logs(crash.context_after[:params['crash_after']] if crash.context_after else [])
-                }
+                # 显示token使用情况
+                self.main_app.root.after(0, self.set_status, f"📊 {message} | 压缩比: {optimized.compression_ratio:.1%}")
 
-                prompt = PromptTemplates.format_crash_analysis(crash_info)
+                # 使用优化后的提示词
+                prompt = optimized.prompt
 
                 # 如果有项目代码上下文，添加到提示词末尾
+                project_context = self.get_project_context(max_chars=5000)
                 if project_context:
                     prompt += f"\n\n{project_context}\n\n请结合以上项目代码进行分析，找出崩溃可能涉及的具体代码位置和原因。"
 
@@ -1148,36 +1165,27 @@ class AIAssistantPanel:
             try:
                 if self.stop_flag:
                     return
-                _, _, LogPreprocessor, PromptTemplates = safe_import_ai_diagnosis()
 
-                # 获取上下文参数
-                params = self.get_context_params()
-
-                preprocessor = LogPreprocessor()
-
-                # 提取性能相关日志（ERROR和WARNING），使用上下文参数
-                perf_logs = [
-                    e for e in self.main_app.log_entries
-                    if e.level in ['ERROR', 'WARNING']
-                ][:params['perf_logs']]
-
-                if not perf_logs:
-                    self.main_app.root.after(0, self.append_chat, "system", "未发现性能相关问题")
+                # 使用Token优化器
+                optimizer = self.token_optimizer
+                if not optimizer:
+                    self.main_app.root.after(0, self.append_chat, "system", "Token优化器初始化失败")
                     return
 
-                # 统计信息
-                stats = preprocessor.get_statistics(self.main_app.log_entries)
+                # 优化性能分析提示词
+                optimized = optimizer.optimize_for_performance_analysis(self.main_app.log_entries)
 
-                # 构建提示词
-                perf_info = {
-                    'total_logs': len(self.main_app.log_entries),
-                    'error_count': stats.get('ERROR', 0),
-                    'warning_count': stats.get('WARNING', 0),
-                    'top_modules': ', '.join([f"{k}({v})" for k, v in stats.get('modules', {}).items()][:5]),
-                    'sample_logs': preprocessor.summarize_logs(perf_logs)
-                }
+                # 检查token预算
+                within_budget, message = optimizer.check_budget(optimized.estimated_tokens)
+                if not within_budget:
+                    self.main_app.root.after(0, self.append_chat, "system", f"⚠️ {message}")
+                    return
 
-                prompt = PromptTemplates.format_performance_analysis(perf_info)
+                # 显示token使用情况
+                self.main_app.root.after(0, self.set_status, f"📊 {message} | 压缩比: {optimized.compression_ratio:.1%}")
+
+                # 使用优化后的提示词
+                prompt = optimized.prompt
 
                 # 调用AI
                 if not self.ai_client:
@@ -1222,33 +1230,27 @@ class AIAssistantPanel:
             try:
                 if self.stop_flag:
                     return
-                _, _, LogPreprocessor, PromptTemplates = safe_import_ai_diagnosis()
 
-                # 获取上下文参数
-                params = self.get_context_params()
+                # 使用Token优化器
+                optimizer = self.token_optimizer
+                if not optimizer:
+                    self.main_app.root.after(0, self.append_chat, "system", "Token优化器初始化失败")
+                    return
 
-                preprocessor = LogPreprocessor()
+                # 优化问题总结提示词
+                optimized = optimizer.optimize_for_issue_summary(self.main_app.log_entries)
 
-                # 提取错误模式（使用上下文参数）
-                error_patterns = preprocessor.extract_error_patterns(self.main_app.log_entries)
+                # 检查token预算
+                within_budget, message = optimizer.check_budget(optimized.estimated_tokens)
+                if not within_budget:
+                    self.main_app.root.after(0, self.append_chat, "system", f"⚠️ {message}")
+                    return
 
-                # 统计信息
-                stats = preprocessor.get_statistics(self.main_app.log_entries)
+                # 显示token使用情况
+                self.main_app.root.after(0, self.set_status, f"📊 {message} | 压缩比: {optimized.compression_ratio:.1%}")
 
-                # 构建提示词（使用上下文参数限制错误模式数量）
-                issue_info = {
-                    'total_logs': len(self.main_app.log_entries),
-                    'error_count': stats.get('ERROR', 0),
-                    'warning_count': stats.get('WARNING', 0),
-                    'crash_count': len([e for e in self.main_app.log_entries if e.is_crash]),
-                    'error_patterns': '\n'.join([
-                        f"- {p.signature} (出现{p.count}次)"
-                        for p in error_patterns[:params['error_patterns']]
-                    ]),
-                    'top_modules': ', '.join([f"{k}({v})" for k, v in stats.get('modules', {}).items()][:5])
-                }
-
-                prompt = PromptTemplates.format_issue_summary(issue_info)
+                # 使用优化后的提示词
+                prompt = optimized.prompt
 
                 # 调用AI
                 if not self.ai_client:
@@ -1316,26 +1318,30 @@ class AIAssistantPanel:
                 try:
                     if self.stop_flag:
                         return
-                    _, _, LogPreprocessor, PromptTemplates = safe_import_ai_diagnosis()
 
-                    # 获取上下文参数
-                    params = self.get_context_params()
+                    # 使用Token优化器
+                    optimizer = self.token_optimizer
+                    if not optimizer:
+                        self.main_app.root.after(0, self.append_chat, "system", "Token优化器初始化失败")
+                        return
 
-                    preprocessor = LogPreprocessor()
-
-                    # 摘要日志（使用上下文参数）
-                    summary = preprocessor.summarize_logs(
-                        self.main_app.log_entries[:params['search_logs']],
-                        max_tokens=params['search_tokens']
+                    # 优化智能搜索提示词
+                    optimized = optimizer.optimize_for_interactive_qa(
+                        self.main_app.log_entries,
+                        user_question=description
                     )
 
-                    # 构建提示词
-                    search_info = {
-                        'search_description': description,
-                        'log_summary': summary
-                    }
+                    # 检查token预算
+                    within_budget, message = optimizer.check_budget(optimized.estimated_tokens)
+                    if not within_budget:
+                        self.main_app.root.after(0, self.append_chat, "system", f"⚠️ {message}")
+                        return
 
-                    prompt = PromptTemplates.format_smart_search(search_info)
+                    # 显示token使用情况
+                    self.main_app.root.after(0, self.set_status, f"📊 {message} | 压缩比: {optimized.compression_ratio:.1%}")
+
+                    # 使用优化后的提示词
+                    prompt = optimized.prompt
 
                     # 调用AI
                     if not self.ai_client:
@@ -1389,7 +1395,7 @@ class AIAssistantPanel:
                 if self.stop_flag:
                     return
 
-                _, _, LogPreprocessor, PromptTemplates = safe_import_ai_diagnosis()
+                _, _, LogPreprocessor, PromptTemplates, _ = safe_import_ai_diagnosis()
                 preprocessor = LogPreprocessor()
 
                 # 获取模块健康统计
@@ -1481,7 +1487,7 @@ class AIAssistantPanel:
                 if self.stop_flag:
                     return
 
-                _, _, LogPreprocessor, PromptTemplates = safe_import_ai_diagnosis()
+                _, _, LogPreprocessor, PromptTemplates, _ = safe_import_ai_diagnosis()
                 preprocessor = LogPreprocessor()
 
                 # 获取不健康的模块（健康分数<0.7）
@@ -1606,7 +1612,7 @@ class AIAssistantPanel:
                 if self.stop_flag:
                     return
                 # 加载配置
-                _, AIConfig, LogPreprocessor, PromptTemplates = safe_import_ai_diagnosis()
+                _, AIConfig, LogPreprocessor, PromptTemplates, _ = safe_import_ai_diagnosis()
                 config = AIConfig.load()
                 context_size = config.get('context_size', '标准')
                 show_token_usage = config.get('show_token_usage', True)
@@ -1625,54 +1631,41 @@ class AIAssistantPanel:
                         prompt += "注意：用户还没有加载日志文件。"
                     else:
                         prompt += "这是一个简单的问候，请友好地回复并简要介绍你可以提供的帮助。"
+
+                    # 估算token数（粗略估计：中文1字=1token，英文4字符=1token）
+                    estimated_tokens = len(prompt.replace(' ', '')) + len(prompt.split()) // 4
                 else:
-                    # 根据配置的上下文大小调整参数
-                    context_params = {
-                        '简化': {'log_count': 50, 'max_tokens': 1000, 'history_rounds': 2, 'module_count': 2},
-                        '标准': {'log_count': 100, 'max_tokens': 2000, 'history_rounds': 3, 'module_count': 3},
-                        '详细': {'log_count': 200, 'max_tokens': 4000, 'history_rounds': 5, 'module_count': 5}
-                    }
-                    params = context_params.get(context_size, context_params['标准'])
+                    # 完整模式：使用Token优化器
+                    optimizer = self.token_optimizer
+                    if not optimizer:
+                        self.main_app.root.after(0, self.append_chat, "system", "Token优化器初始化失败")
+                        return
 
-                    # 完整模式：包含日志上下文
-                    preprocessor = LogPreprocessor()
-
-                    # 摘要当前日志
+                    # 获取当前日志
                     current_logs = self.main_app.filtered_entries if hasattr(self.main_app, 'filtered_entries') and self.main_app.filtered_entries else self.main_app.log_entries
 
-                    summary = preprocessor.summarize_logs(
-                        current_logs[:params['log_count']],
-                        max_tokens=params['max_tokens']
+                    # 优化交互式问答提示词
+                    optimized = optimizer.optimize_for_interactive_qa(
+                        current_logs,
+                        user_question=question
                     )
 
-                    # 获取统计信息
-                    stats = preprocessor.get_statistics(current_logs)
+                    # 检查token预算
+                    within_budget, message = optimizer.check_budget(optimized.estimated_tokens)
+                    if not within_budget:
+                        self.main_app.root.after(0, self.append_chat, "system", f"⚠️ {message}")
+                        return
 
-                    # 构建提示词
-                    qa_info = {
-                        'filename': getattr(self.main_app, 'current_file', 'N/A'),
-                        'total_logs': len(self.main_app.log_entries),
-                        'current_logs': len(current_logs),
-                        'time_range': stats.get('time_range', 'N/A'),
-                        'main_modules': ', '.join([f"{k}({v})" for k, v in stats.get('modules', {}).items()][:params['module_count']]),
-                        'crash_count': stats.get('crashes', 0),
-                        'error_count': stats.get('errors', 0),
-                        'warning_count': stats.get('warnings', 0),
-                        'relevant_logs': summary[:5000],
-                        'user_question': question,
-                        'chat_history': '\n'.join([
-                            f"{h['role']}: {h['message'][:100]}"
-                            for h in self.chat_history[-params['history_rounds']:]
-                        ])
-                    }
+                    # 显示token使用情况（优化后）
+                    if show_token_usage:
+                        self.main_app.root.after(0, self.set_status, f"📊 {message} | 压缩比: {optimized.compression_ratio:.1%}")
 
-                    prompt = PromptTemplates.format_interactive_qa(qa_info)
+                    # 使用优化后的提示词
+                    prompt = optimized.prompt
+                    estimated_tokens = optimized.estimated_tokens
 
-                # 估算token数（粗略估计：中文1字=1token，英文4字符=1token）
-                estimated_tokens = len(prompt.replace(' ', '')) + len(prompt.split()) // 4
-
-                # 显示token使用情况
-                if show_token_usage:
+                # 显示token使用情况（仅简化模式需要，完整模式已在上面显示）
+                if (is_greeting or not has_logs) and show_token_usage:
                     token_info = f"📊 Token使用: 输入~{estimated_tokens}"
                     self.main_app.root.after(0, self.set_status, token_info)
 
