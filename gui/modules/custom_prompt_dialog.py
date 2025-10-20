@@ -22,16 +22,18 @@ import uuid
 class CustomPromptDialog:
     """自定义Prompt配置对话框"""
 
-    def __init__(self, parent):
+    def __init__(self, parent, on_shortcuts_changed=None):
         """
         初始化对话框
 
         Args:
             parent: 父窗口
+            on_shortcuts_changed: 快捷按钮变化时的回调函数
         """
         self.parent = parent
         self.dialog = None
         self.manager = None
+        self.on_shortcuts_changed = on_shortcuts_changed
 
         # 导入管理器
         try:
@@ -218,6 +220,28 @@ class CustomPromptDialog:
             row=row, column=0, columnspan=2, sticky=tk.W, pady=2
         )
 
+        # 显示为快捷按钮
+        row += 1
+        self.show_as_shortcut_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(info_frame, text="显示为快捷按钮", variable=self.show_as_shortcut_var).grid(
+            row=row, column=0, columnspan=2, sticky=tk.W, pady=2
+        )
+
+        # 快捷按钮顺序
+        row += 1
+        ttk.Label(info_frame, text="快捷按钮顺序:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        self.shortcut_order_var = tk.IntVar(value=0)
+        order_frame = ttk.Frame(info_frame)
+        order_frame.grid(row=row, column=1, sticky=tk.EW, pady=2)
+        ttk.Spinbox(
+            order_frame,
+            from_=0,
+            to=99,
+            textvariable=self.shortcut_order_var,
+            width=10
+        ).pack(side=tk.LEFT)
+        ttk.Label(order_frame, text="（数字越小越靠前）", font=("", 9), foreground="#666").pack(side=tk.LEFT, padx=(5, 0))
+
         info_frame.columnconfigure(1, weight=1)
 
         # 模板内容框架
@@ -314,18 +338,23 @@ class CustomPromptDialog:
         prompt = self.manager.get(prompt_id)
 
         if prompt:
+            # 先启用文本框，才能插入内容
+            self.template_text.config(state=tk.NORMAL)
+
             # 填充编辑表单
             self.id_var.set(prompt.id)
             self.name_var.set(prompt.name)
             self.edit_category_var.set(prompt.category)
             self.description_var.set(prompt.description)
             self.enabled_var.set(prompt.enabled)
+            self.show_as_shortcut_var.set(prompt.show_as_shortcut)
+            self.shortcut_order_var.set(prompt.shortcut_order)
 
             self.template_text.delete('1.0', tk.END)
             self.template_text.insert('1.0', prompt.template)
 
             self._update_variables_display()
-            self._set_edit_state(True)
+            # 注意：这里不需要再调用_set_edit_state(True)，因为已经启用了
 
     def _on_new(self):
         """创建新模板"""
@@ -336,6 +365,8 @@ class CustomPromptDialog:
         self.edit_category_var.set("自定义分析")
         self.description_var.set("")
         self.enabled_var.set(True)
+        self.show_as_shortcut_var.set(False)
+        self.shortcut_order_var.set(0)
         self.template_text.delete('1.0', tk.END)
         self.template_text.insert('1.0', "# 在此输入提示词模板\n\n## 变量示例\n{variable_name}\n")
 
@@ -364,8 +395,21 @@ class CustomPromptDialog:
             # 生成新ID
             new_id = f"{prompt.id}_copy_{uuid.uuid4().hex[:4]}"
 
-            # 创建副本
-            from gui.modules.ai_diagnosis.custom_prompt_manager import CustomPrompt
+            # 创建副本 - 使用与manager相同的导入路径
+            # CustomPrompt已经在manager初始化时导入，直接从manager模块获取
+            try:
+                from .ai_diagnosis.custom_prompt_manager import CustomPrompt
+            except ImportError:
+                try:
+                    from ai_diagnosis.custom_prompt_manager import CustomPrompt
+                except ImportError:
+                    import sys
+                    import os
+                    gui_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    if gui_dir not in sys.path:
+                        sys.path.insert(0, gui_dir)
+                    from modules.ai_diagnosis.custom_prompt_manager import CustomPrompt
+
             new_prompt = CustomPrompt(
                 id=new_id,
                 name=f"{prompt.name} (副本)",
@@ -396,6 +440,8 @@ class CustomPromptDialog:
             self._refresh_list()
             self._set_edit_state(False)
             messagebox.showinfo("成功", "模板已删除")
+            # 通知AI助手面板刷新快捷按钮
+            self._notify_shortcuts_changed()
         else:
             messagebox.showerror("错误", "删除失败")
 
@@ -406,8 +452,12 @@ class CustomPromptDialog:
             return
 
         prompt_id = selection[0]
+        prompt = self.manager.get(prompt_id)
         self.manager.enable(prompt_id)
         self._refresh_list()
+        # 如果是快捷按钮，通知刷新
+        if prompt and prompt.show_as_shortcut:
+            self._notify_shortcuts_changed()
 
     def _on_disable(self):
         """禁用选中的模板"""
@@ -416,8 +466,12 @@ class CustomPromptDialog:
             return
 
         prompt_id = selection[0]
+        prompt = self.manager.get(prompt_id)
         self.manager.disable(prompt_id)
         self._refresh_list()
+        # 如果是快捷按钮，通知刷新
+        if prompt and prompt.show_as_shortcut:
+            self._notify_shortcuts_changed()
 
     def _on_save(self):
         """保存当前编辑的模板"""
@@ -428,6 +482,8 @@ class CustomPromptDialog:
         description = self.description_var.get().strip()
         template = self.template_text.get('1.0', tk.END).strip()
         enabled = self.enabled_var.get()
+        show_as_shortcut = self.show_as_shortcut_var.get()
+        shortcut_order = self.shortcut_order_var.get()
 
         if not prompt_id:
             messagebox.showerror("错误", "缺少模板ID")
@@ -458,24 +514,42 @@ class CustomPromptDialog:
                 category=category,
                 description=description,
                 template=template,
-                enabled=enabled
+                enabled=enabled,
+                show_as_shortcut=show_as_shortcut,
+                shortcut_order=shortcut_order
             )
         else:
-            # 新建
-            from gui.modules.ai_diagnosis.custom_prompt_manager import CustomPrompt
+            # 新建 - 使用与manager相同的导入路径
+            try:
+                from .ai_diagnosis.custom_prompt_manager import CustomPrompt
+            except ImportError:
+                try:
+                    from ai_diagnosis.custom_prompt_manager import CustomPrompt
+                except ImportError:
+                    import sys
+                    import os
+                    gui_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    if gui_dir not in sys.path:
+                        sys.path.insert(0, gui_dir)
+                    from modules.ai_diagnosis.custom_prompt_manager import CustomPrompt
+
             new_prompt = CustomPrompt(
                 id=prompt_id,
                 name=name,
                 category=category,
                 description=description,
                 template=template,
-                enabled=enabled
+                enabled=enabled,
+                show_as_shortcut=show_as_shortcut,
+                shortcut_order=shortcut_order
             )
             success = self.manager.add(new_prompt)
 
         if success:
             self._refresh_list()
             messagebox.showinfo("成功", "模板已保存")
+            # 通知AI助手面板刷新快捷按钮
+            self._notify_shortcuts_changed()
         else:
             messagebox.showerror("错误", "保存失败")
 
@@ -556,8 +630,18 @@ class CustomPromptDialog:
             self.edit_category_var.set("")
             self.description_var.set("")
             self.enabled_var.set(True)
+            self.show_as_shortcut_var.set(False)
+            self.shortcut_order_var.set(0)
             self.template_text.delete('1.0', tk.END)
             self.variables_label.config(text="")
+
+    def _notify_shortcuts_changed(self):
+        """通知快捷按钮已变化"""
+        if self.on_shortcuts_changed:
+            try:
+                self.on_shortcuts_changed()
+            except Exception as e:
+                print(f"通知快捷按钮变化失败: {e}")
 
     def _show_tree_menu(self, event):
         """显示右键菜单"""
@@ -574,9 +658,15 @@ class CustomPromptDialog:
 
 
 # 便捷函数
-def show_custom_prompt_dialog(parent):
-    """显示自定义Prompt配置对话框"""
-    dialog = CustomPromptDialog(parent)
+def show_custom_prompt_dialog(parent, on_shortcuts_changed=None):
+    """
+    显示自定义Prompt配置对话框
+
+    Args:
+        parent: 父窗口
+        on_shortcuts_changed: 快捷按钮变化时的回调函数
+    """
+    dialog = CustomPromptDialog(parent, on_shortcuts_changed)
     dialog.show()
 
 

@@ -273,43 +273,12 @@ class AIAssistantPanel:
             command=self.export_chat
         ).pack(side=tk.RIGHT, padx=2)
 
-        # 快捷操作区域（合并快捷操作和常用问题，使用2列布局）
-        quick_frame = ttk.LabelFrame(self.frame, text="快捷操作", padding="5")
-        quick_frame.pack(fill=tk.X, pady=(0, 5))
+        # 快捷操作区域（动态生成自定义Prompt快捷按钮）
+        self.quick_frame = ttk.LabelFrame(self.frame, text="快捷操作", padding="5")
+        self.quick_frame.pack(fill=tk.X, pady=(0, 5))
 
-        # 定义所有按钮（快捷操作 + 常用问题 + Mars模块分析）
-        all_actions = [
-            # 第一行
-            ("🔍 崩溃", self.analyze_crashes),
-            ("📊 性能", self.analyze_performance),
-            # 第二行
-            ("📝 总结", self.summarize_issues),
-            ("🔎 搜索", self.smart_search),
-            # 第三行 - Mars模块分析（新增）
-            ("🏥 模块健康", self.analyze_module_health),
-            ("🔬 问题模块", self.analyze_unhealthy_modules),
-            # 第四行 - 常用问题
-            ("💡 性能优化", lambda: self.ask_common_question("如何提升应用性能？有哪些优化建议？")),
-            ("🐛 错误原因", lambda: self.ask_common_question("这些错误的常见原因有哪些？如何避免？")),
-            # 第五行 - 常用问题
-            ("📝 最佳实践", lambda: self.ask_common_question("日志记录的最佳实践是什么？")),
-            ("🔧 调试技巧", lambda: self.ask_common_question("如何高效地调试这类问题？")),
-        ]
-
-        # 创建5x2网格布局（5行2列）
-        for i, (label, command) in enumerate(all_actions):
-            row = i // 2
-            col = i % 2
-            btn = ttk.Button(
-                quick_frame,
-                text=label,
-                command=command
-            )
-            btn.grid(row=row, column=col, padx=2, pady=2, sticky="ew")
-
-        # 配置列权重，使按钮均分空间
-        quick_frame.columnconfigure(0, weight=1)
-        quick_frame.columnconfigure(1, weight=1)
+        # 动态加载快捷按钮
+        self._load_shortcut_buttons()
 
         # 对话历史区域
         chat_frame = ttk.LabelFrame(self.frame, text="对话历史", padding="5")
@@ -416,6 +385,112 @@ class AIAssistantPanel:
             length=200
         )
         # 初始不显示
+
+    def _load_shortcut_buttons(self):
+        """动态加载自定义Prompt快捷按钮"""
+        # 清空现有按钮
+        for widget in self.quick_frame.winfo_children():
+            widget.destroy()
+
+        # 获取自定义prompt管理器
+        try:
+            from .ai_diagnosis.custom_prompt_manager import get_custom_prompt_manager
+            manager = get_custom_prompt_manager()
+        except ImportError:
+            try:
+                from ai_diagnosis.custom_prompt_manager import get_custom_prompt_manager
+                manager = get_custom_prompt_manager()
+            except ImportError:
+                try:
+                    import sys
+                    import os
+                    gui_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    if gui_dir not in sys.path:
+                        sys.path.insert(0, gui_dir)
+                    from modules.ai_diagnosis.custom_prompt_manager import get_custom_prompt_manager
+                    manager = get_custom_prompt_manager()
+                except ImportError:
+                    # 无法加载管理器，显示提示
+                    ttk.Label(
+                        self.quick_frame,
+                        text="无法加载快捷操作。请在自定义Prompt中配置。",
+                        foreground="#666666"
+                    ).pack(pady=10)
+                    return
+
+        # 获取所有快捷按钮Prompt
+        shortcuts = manager.get_shortcuts()
+
+        if not shortcuts:
+            # 没有快捷按钮，显示提示
+            ttk.Label(
+                self.quick_frame,
+                text="暂无快捷操作。点击右上角📝按钮创建自定义Prompt并设置为快捷按钮。",
+                foreground="#666666",
+                wraplength=250
+            ).pack(pady=10)
+            return
+
+        # 创建按钮（2列布局）
+        for i, prompt in enumerate(shortcuts):
+            row = i // 2
+            col = i % 2
+
+            # 创建按钮（使用lambda捕获prompt.id）
+            btn = ttk.Button(
+                self.quick_frame,
+                text=f"{prompt.name[:15]}...",  # 限制按钮文本长度
+                command=lambda pid=prompt.id: self.use_custom_prompt(pid)
+            )
+            btn.grid(row=row, column=col, padx=2, pady=2, sticky="ew")
+
+            # 设置工具提示（显示完整名称和描述）
+            self._create_tooltip(btn, f"{prompt.name}\n{prompt.description}")
+
+        # 配置列权重，使按钮均分空间
+        self.quick_frame.columnconfigure(0, weight=1)
+        self.quick_frame.columnconfigure(1, weight=1)
+
+    def _create_tooltip(self, widget, text):
+        """为widget创建工具提示"""
+        def on_enter(event):
+            # 创建提示窗口
+            tooltip = tk.Toplevel()
+            tooltip.wm_overrideredirect(True)
+            tooltip.wm_attributes("-topmost", True)
+
+            # 设置位置
+            x = event.x_root + 10
+            y = event.y_root + 10
+            tooltip.wm_geometry(f"+{x}+{y}")
+
+            # 创建标签
+            label = tk.Label(
+                tooltip,
+                text=text,
+                background="#FFFFCC",
+                relief=tk.SOLID,
+                borderwidth=1,
+                font=("Arial", 9),
+                padx=5,
+                pady=5
+            )
+            label.pack()
+
+            # 保存引用
+            widget._tooltip = tooltip
+
+        def on_leave(event):
+            # 销毁提示窗口
+            if hasattr(widget, '_tooltip'):
+                try:
+                    widget._tooltip.destroy()
+                    del widget._tooltip
+                except:
+                    pass
+
+        widget.bind("<Enter>", on_enter)
+        widget.bind("<Leave>", on_leave)
 
     def append_chat(self, role: str, message: str):
         """
@@ -1825,7 +1900,7 @@ class AIAssistantPanel:
                         sys.path.insert(0, gui_dir)
                     from modules.custom_prompt_dialog import show_custom_prompt_dialog
 
-        show_custom_prompt_dialog(self.parent)
+        show_custom_prompt_dialog(self.parent, on_shortcuts_changed=self._load_shortcut_buttons)
 
     def show_prompt_selector(self):
         """显示自定义Prompt快捷选择器"""

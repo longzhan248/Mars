@@ -32,6 +32,8 @@ class CustomPrompt:
     created_at: str = ""       # 创建时间
     modified_at: str = ""      # 修改时间
     variables: List[str] = None  # 模板变量列表
+    show_as_shortcut: bool = False  # 是否显示为快捷按钮
+    shortcut_order: int = 0    # 快捷按钮显示顺序（数字越小越靠前）
 
     def __post_init__(self):
         """初始化时自动设置时间戳"""
@@ -97,6 +99,105 @@ class CustomPromptManager:
 
     # 内置示例模板
     EXAMPLE_TEMPLATES = [
+        # 快捷操作模板（设置为快捷按钮）
+        {
+            "id": "crash_analysis_shortcut",
+            "name": "崩溃分析",
+            "category": "崩溃分析",
+            "description": "快速分析崩溃日志，定位崩溃原因",
+            "template": """分析以下崩溃日志，提供详细的诊断报告：
+
+**相关日志**:
+```
+{logs}
+```
+
+请分析：
+1. 崩溃堆栈解读
+2. 崩溃原因分析
+3. 修复建议和代码示例
+4. 预防措施
+
+在分析中使用可点击格式引用日志：[时间戳]、#行号、@模块名
+""",
+            "enabled": True,
+            "show_as_shortcut": True,
+            "shortcut_order": 0
+        },
+        {
+            "id": "performance_analysis_shortcut",
+            "name": "性能诊断",
+            "category": "性能诊断",
+            "description": "快速诊断性能问题",
+            "template": """诊断以下日志中的性能问题：
+
+**相关日志**:
+```
+{logs}
+```
+
+请分析：
+1. 性能瓶颈识别
+2. 资源使用情况
+3. 优化建议
+4. 最佳实践
+
+在分析中使用可点击格式引用日志：[时间戳]、#行号、@模块名
+""",
+            "enabled": True,
+            "show_as_shortcut": True,
+            "shortcut_order": 1
+        },
+        {
+            "id": "issue_summary_shortcut",
+            "name": "问题总结",
+            "category": "问题总结",
+            "description": "快速生成问题总结报告",
+            "template": """总结以下日志中的问题：
+
+**相关日志**:
+```
+{logs}
+```
+
+请提供：
+1. 问题列表（按严重性排序）
+2. 影响评估
+3. 修复优先级建议
+4. 下一步行动计划
+
+在分析中使用可点击格式引用日志：[时间戳]、#行号、@模块名
+""",
+            "enabled": True,
+            "show_as_shortcut": True,
+            "shortcut_order": 2
+        },
+        {
+            "id": "error_analysis_shortcut",
+            "name": "错误分析",
+            "category": "问题总结",
+            "description": "分析错误日志并提供解决方案",
+            "template": """分析以下错误日志：
+
+**相关日志**:
+```
+{logs}
+```
+
+请分析：
+1. 错误类型和根本原因
+2. 错误影响范围
+3. 解决方案和代码示例
+4. 相关最佳实践
+
+在分析中使用可点击格式引用日志：[时间戳]、#行号、@模块名
+""",
+            "enabled": True,
+            "show_as_shortcut": True,
+            "shortcut_order": 3
+        },
+
+        # 专项分析模板（不设置为快捷按钮）
         {
             "id": "voice_issue_analysis",
             "name": "语音问题专项分析",
@@ -163,7 +264,9 @@ class CustomPromptManager:
 
 用中文回答，Markdown格式，注重实用性。
 """,
-            "enabled": True
+            "enabled": True,
+            "show_as_shortcut": False,
+            "shortcut_order": 99
         },
         {
             "id": "network_issue_analysis",
@@ -214,7 +317,9 @@ class CustomPromptManager:
 
 用中文回答，注重网络诊断经验。
 """,
-            "enabled": True
+            "enabled": True,
+            "show_as_shortcut": False,
+            "shortcut_order": 99
         }
     ]
 
@@ -402,6 +507,24 @@ class CustomPromptManager:
             prompts.sort(key=lambda p: p.created_at, reverse=True)
 
         return result
+
+    def get_shortcuts(self) -> List[CustomPrompt]:
+        """
+        获取所有快捷按钮Prompt
+
+        Returns:
+            按shortcut_order排序的Prompt列表
+        """
+        # 筛选启用且显示为快捷按钮的Prompt
+        shortcuts = [
+            p for p in self._prompts.values()
+            if p.enabled and p.show_as_shortcut
+        ]
+
+        # 按shortcut_order排序（数字越小越靠前）
+        shortcuts.sort(key=lambda p: p.shortcut_order)
+
+        return shortcuts
 
     def enable(self, prompt_id: str) -> bool:
         """启用Prompt"""

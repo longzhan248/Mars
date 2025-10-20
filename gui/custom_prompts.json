@@ -14,18 +14,84 @@
         "module_name",
         "issue_type",
         "timestamp"
-      ]
+      ],
+      "show_as_shortcut": false,
+      "shortcut_order": 0
     },
     {
       "id": "network_issue_analysis",
       "name": "网络问题专项分析",
       "category": "自定义分析",
       "description": "专门针对网络请求、连接、超时等问题的分析",
-      "template": "1",
-      "enabled": false,
+      "template": "{variable_name}",
+      "enabled": true,
       "created_at": "2025-10-20T09:50:15.613271",
-      "modified_at": "2025-10-20T10:09:38.813732",
-      "variables": []
+      "modified_at": "2025-10-20T11:20:33.124233",
+      "variables": [
+        "variable_name"
+      ],
+      "show_as_shortcut": false,
+      "shortcut_order": 0
+    },
+    {
+      "id": "crash_analysis_shortcut",
+      "name": "崩溃分析",
+      "category": "崩溃分析",
+      "description": "快速分析崩溃日志，定位崩溃原因",
+      "template": "分析以下崩溃日志，提供详细的诊断报告：\n\n**相关日志**:\n```\n{logs}\n```\n\n请分析：\n1. 崩溃堆栈解读\n2. 崩溃原因分析\n3. 修复建议和代码示例\n4. 预防措施\n\n在分析中使用可点击格式引用日志：[时间戳]、#行号、@模块名\n",
+      "enabled": true,
+      "created_at": "2025-10-20T11:25:29.619876",
+      "modified_at": "2025-10-20T11:25:29.619883",
+      "variables": [
+        "logs"
+      ],
+      "show_as_shortcut": true,
+      "shortcut_order": 0
+    },
+    {
+      "id": "performance_analysis_shortcut",
+      "name": "性能诊断",
+      "category": "性能诊断",
+      "description": "快速诊断性能问题",
+      "template": "诊断以下日志中的性能问题：\n\n**相关日志**:\n```\n{logs}\n```\n\n请分析：\n1. 性能瓶颈识别\n2. 资源使用情况\n3. 优化建议\n4. 最佳实践\n\n在分析中使用可点击格式引用日志：[时间戳]、#行号、@模块名\n",
+      "enabled": true,
+      "created_at": "2025-10-20T11:25:29.620222",
+      "modified_at": "2025-10-20T11:25:29.620224",
+      "variables": [
+        "logs"
+      ],
+      "show_as_shortcut": true,
+      "shortcut_order": 1
+    },
+    {
+      "id": "issue_summary_shortcut",
+      "name": "问题总结",
+      "category": "问题总结",
+      "description": "快速生成问题总结报告",
+      "template": "总结以下日志中的问题：\n\n**相关日志**:\n```\n{logs}\n```\n\n请提供：\n1. 问题列表（按严重性排序）\n2. 影响评估\n3. 修复优先级建议\n4. 下一步行动计划\n\n在分析中使用可点击格式引用日志：[时间戳]、#行号、@模块名\n",
+      "enabled": true,
+      "created_at": "2025-10-20T11:25:29.620895",
+      "modified_at": "2025-10-20T11:25:29.620899",
+      "variables": [
+        "logs"
+      ],
+      "show_as_shortcut": true,
+      "shortcut_order": 2
+    },
+    {
+      "id": "error_analysis_shortcut",
+      "name": "错误分析",
+      "category": "问题总结",
+      "description": "分析错误日志并提供解决方案",
+      "template": "分析以下错误日志：\n\n**相关日志**:\n```\n{logs}\n```\n\n请分析：\n1. 错误类型和根本原因\n2. 错误影响范围\n3. 解决方案和代码示例\n4. 相关最佳实践\n\n在分析中使用可点击格式引用日志：[时间戳]、#行号、@模块名\n",
+      "enabled": true,
+      "created_at": "2025-10-20T11:25:29.621202",
+      "modified_at": "2025-10-20T11:25:29.621204",
+      "variables": [
+        "logs"
+      ],
+      "show_as_shortcut": true,
+      "shortcut_order": 3
     }
   ]
 }
