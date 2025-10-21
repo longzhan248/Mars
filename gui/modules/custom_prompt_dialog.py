@@ -18,6 +18,12 @@ from tkinter import ttk, scrolledtext, messagebox, filedialog
 from typing import Optional
 import uuid
 
+# 使用统一的导入辅助模块
+try:
+    from .import_helper import import_custom_prompt_class, import_custom_prompt_manager
+except ImportError:
+    from import_helper import import_custom_prompt_class, import_custom_prompt_manager
+
 
 class CustomPromptDialog:
     """自定义Prompt配置对话框"""
@@ -37,26 +43,11 @@ class CustomPromptDialog:
 
         # 导入管理器
         try:
-            # 尝试相对导入
-            from .ai_diagnosis.custom_prompt_manager import get_custom_prompt_manager
+            get_custom_prompt_manager = import_custom_prompt_manager()
             self.manager = get_custom_prompt_manager()
-        except ImportError:
-            try:
-                from ai_diagnosis.custom_prompt_manager import get_custom_prompt_manager
-                self.manager = get_custom_prompt_manager()
-            except ImportError:
-                try:
-                    # 添加路径后导入
-                    import sys
-                    import os
-                    gui_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                    if gui_dir not in sys.path:
-                        sys.path.insert(0, gui_dir)
-                    from modules.ai_diagnosis.custom_prompt_manager import get_custom_prompt_manager
-                    self.manager = get_custom_prompt_manager()
-                except ImportError as e:
-                    messagebox.showerror("错误", f"无法加载自定义Prompt管理器: {e}")
-                    return
+        except ImportError as e:
+            messagebox.showerror("错误", f"无法加载自定义Prompt管理器: {e}")
+            return
 
         # 创建对话框
         self._create_dialog()
@@ -395,21 +386,8 @@ class CustomPromptDialog:
             # 生成新ID
             new_id = f"{prompt.id}_copy_{uuid.uuid4().hex[:4]}"
 
-            # 创建副本 - 使用与manager相同的导入路径
-            # CustomPrompt已经在manager初始化时导入，直接从manager模块获取
-            try:
-                from .ai_diagnosis.custom_prompt_manager import CustomPrompt
-            except ImportError:
-                try:
-                    from ai_diagnosis.custom_prompt_manager import CustomPrompt
-                except ImportError:
-                    import sys
-                    import os
-                    gui_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                    if gui_dir not in sys.path:
-                        sys.path.insert(0, gui_dir)
-                    from modules.ai_diagnosis.custom_prompt_manager import CustomPrompt
-
+            # 创建副本
+            CustomPrompt = import_custom_prompt_class()
             new_prompt = CustomPrompt(
                 id=new_id,
                 name=f"{prompt.name} (副本)",
@@ -519,20 +497,8 @@ class CustomPromptDialog:
                 shortcut_order=shortcut_order
             )
         else:
-            # 新建 - 使用与manager相同的导入路径
-            try:
-                from .ai_diagnosis.custom_prompt_manager import CustomPrompt
-            except ImportError:
-                try:
-                    from ai_diagnosis.custom_prompt_manager import CustomPrompt
-                except ImportError:
-                    import sys
-                    import os
-                    gui_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                    if gui_dir not in sys.path:
-                        sys.path.insert(0, gui_dir)
-                    from modules.ai_diagnosis.custom_prompt_manager import CustomPrompt
-
+            # 新建
+            CustomPrompt = import_custom_prompt_class()
             new_prompt = CustomPrompt(
                 id=prompt_id,
                 name=name,
