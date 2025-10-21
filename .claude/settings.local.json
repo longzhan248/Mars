@@ -34,7 +34,8 @@
       "Bash(for:*)",
       "Bash(do echo:*)",
       "Bash(wc:*)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(tree:*)"
     ],
     "deny": [],
     "ask": []

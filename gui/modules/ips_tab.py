@@ -8,6 +8,15 @@ import json
 import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
+from .exceptions import (
+    IPSAnalysisError,
+    FileOperationError,
+    UIError,
+    ErrorSeverity,
+    handle_exceptions,
+    get_global_error_collector
+)
+
 
 class IPSAnalysisTab:
     """IPS崩溃日志解析标签页"""
@@ -155,11 +164,67 @@ class IPSAnalysisTab:
         if filename:
             self.dsym_path_var.set(filename)
 
+    @handle_exceptions(IPSAnalysisError, reraise=False, default_return=None)
     def parse_ips_basic_info(self, filename):
         """解析并显示IPS文件的基本信息"""
+        if not filename or not filename.strip():
+            raise IPSAnalysisError(
+                message="IPS文件路径为空",
+                file_path=filename,
+                user_message="请选择有效的IPS文件",
+                severity=ErrorSeverity.MEDIUM
+            )
+
         try:
+            # 检查文件是否存在
+            import os
+            if not os.path.exists(filename):
+                raise IPSAnalysisError(
+                    message="IPS文件不存在",
+                    file_path=filename,
+                    user_message="选择的IPS文件不存在，请检查文件路径",
+                    severity=ErrorSeverity.HIGH
+                )
+
+            # 检查文件大小
+            file_size = os.path.getsize(filename)
+            if file_size == 0:
+                raise IPSAnalysisError(
+                    message="IPS文件为空",
+                    file_path=filename,
+                    user_message="选择的IPS文件为空，请选择有效的崩溃报告",
+                    severity=ErrorSeverity.HIGH
+                )
+            elif file_size > 50 * 1024 * 1024:  # 50MB限制
+                raise IPSAnalysisError(
+                    message=f"IPS文件过大 ({file_size/1024/1024:.1f}MB)",
+                    file_path=filename,
+                    user_message="IPS文件过大，请选择小于50MB的文件",
+                    severity=ErrorSeverity.MEDIUM
+                )
+
             with open(filename, 'r', encoding='utf-8') as f:
                 self.ips_data = json.load(f)
+
+            # 验证IPS数据结构
+            if not isinstance(self.ips_data, dict):
+                raise IPSAnalysisError(
+                    message="IPS文件格式无效，不是JSON对象",
+                    file_path=filename,
+                    user_message="IPS文件格式已损坏，请选择有效的崩溃报告",
+                    severity=ErrorSeverity.HIGH
+                )
+
+            # 检查关键字段
+            required_fields = ['incident_id', 'timestamp']
+            missing_fields = [field for field in required_fields if field not in self.ips_data]
+            if missing_fields:
+                raise IPSAnalysisError(
+                    message=f"IPS文件缺少关键字段: {', '.join(missing_fields)}",
+                    file_path=filename,
+                    user_message="IPS文件格式不完整，可能已损坏",
+                    severity=ErrorSeverity.MEDIUM
+                )
 
             # 显示基本信息
             info_text = self.extract_basic_info(self.ips_data)
@@ -171,8 +236,44 @@ class IPSAnalysisTab:
             self.raw_text.insert(tk.END, json.dumps(self.ips_data, indent=2, ensure_ascii=False))
 
             messagebox.showinfo("成功", "IPS文件基本信息解析完成")
+
+        except json.JSONDecodeError as e:
+            raise IPSAnalysisError(
+                message=f"JSON解析失败: {str(e)}",
+                file_path=filename,
+                user_message="IPS文件不是有效的JSON格式，可能已损坏",
+                cause=e,
+                severity=ErrorSeverity.HIGH
+            )
+        except UnicodeDecodeError as e:
+            raise IPSAnalysisError(
+                message=f"文件编码错误: {str(e)}",
+                file_path=filename,
+                user_message="IPS文件编码格式不支持，请确保为UTF-8格式",
+                cause=e,
+                severity=ErrorSeverity.HIGH
+            )
+        except PermissionError as e:
+            raise IPSAnalysisError(
+                message="文件权限不足，无法读取",
+                file_path=filename,
+                user_message="没有权限读取该文件，请检查文件权限设置",
+                cause=e,
+                severity=ErrorSeverity.HIGH
+            )
         except Exception as e:
-            messagebox.showerror("错误", f"解析IPS文件失败: {str(e)}")
+            # 重新抛出已经处理的异常
+            if isinstance(e, IPSAnalysisError):
+                raise e
+
+            # 处理其他未预期的异常
+            raise IPSAnalysisError(
+                message=f"解析IPS文件时发生未知错误: {str(e)}",
+                file_path=filename,
+                user_message="解析IPS文件时发生错误，请检查文件是否完整",
+                cause=e,
+                severity=ErrorSeverity.HIGH
+            )
 
     def parse_ips_file(self):
         """完整解析IPS文件"""
@@ -187,29 +288,100 @@ class IPSAnalysisTab:
                 self.dsym_path_var.get() if self.dsym_path_var.get() != "未选择" else None
             )
 
+    @handle_exceptions(FileOperationError, reraise=False, default_return=None)
     def export_ips_report(self):
         """导出IPS报告"""
         if not self.ips_data:
-            messagebox.showwarning("警告", "没有可导出的IPS数据")
-            return
+            raise UIError(
+                message="没有可导出的IPS数据",
+                widget="导出报告按钮",
+                action="导出IPS报告",
+                user_message="请先加载IPS文件后再导出报告",
+                severity=ErrorSeverity.MEDIUM
+            )
 
         filename = filedialog.asksaveasfilename(
             defaultextension=".txt",
             filetypes=[("文本文件", "*.txt"), ("JSON文件", "*.json"), ("所有文件", "*.*")]
         )
 
-        if filename:
-            try:
-                if filename.endswith('.json'):
-                    with open(filename, 'w', encoding='utf-8') as f:
-                        json.dump(self.ips_data, f, indent=2, ensure_ascii=False)
-                else:
-                    with open(filename, 'w', encoding='utf-8') as f:
-                        f.write(self.generate_report_text())
+        if not filename:
+            return  # 用户取消了保存
 
-                messagebox.showinfo("成功", f"报告已导出到: {filename}")
-            except Exception as e:
-                messagebox.showerror("错误", f"导出失败: {str(e)}")
+        try:
+            # 检查文件路径是否有效
+            import os
+            output_dir = os.path.dirname(filename)
+            if output_dir and not os.path.exists(output_dir):
+                raise FileOperationError(
+                    message="输出目录不存在",
+                    file_path=filename,
+                    operation="导出IPS报告",
+                    user_message="选择的保存路径不存在，请选择有效的目录",
+                    severity=ErrorSeverity.HIGH
+                )
+
+            # 检查是否有写入权限
+            if output_dir and not os.access(output_dir, os.W_OK):
+                raise FileOperationError(
+                    message="没有写入权限",
+                    file_path=filename,
+                    operation="导出IPS报告",
+                    user_message="没有权限在该目录写入文件，请选择其他目录",
+                    severity=ErrorSeverity.HIGH
+                )
+
+            if filename.endswith('.json'):
+                with open(filename, 'w', encoding='utf-8') as f:
+                    json.dump(self.ips_data, f, indent=2, ensure_ascii=False)
+            else:
+                report_content = self.generate_report_text()
+                if not report_content or report_content == "无数据":
+                    raise FileOperationError(
+                        message="生成的报告内容为空",
+                        file_path=filename,
+                        operation="导出IPS报告",
+                        user_message="IPS数据不完整，无法生成有效报告",
+                        severity=ErrorSeverity.MEDIUM
+                    )
+
+                with open(filename, 'w', encoding='utf-8') as f:
+                    f.write(report_content)
+
+            messagebox.showinfo("成功", f"报告已导出到: {filename}")
+
+        except PermissionError as e:
+            raise FileOperationError(
+                message="文件权限不足，无法写入",
+                file_path=filename,
+                operation="导出IPS报告",
+                user_message="没有权限写入该文件，请检查文件权限或选择其他路径",
+                cause=e,
+                severity=ErrorSeverity.HIGH
+            )
+        except UnicodeEncodeError as e:
+            raise FileOperationError(
+                message="文件编码错误，无法写入",
+                file_path=filename,
+                operation="导出IPS报告",
+                user_message="文件编码出现问题，请尝试其他保存位置",
+                cause=e,
+                severity=ErrorSeverity.MEDIUM
+            )
+        except Exception as e:
+            # 重新抛出已处理的异常
+            if isinstance(e, (FileOperationError, UIError)):
+                raise e
+
+            # 处理其他未预期的异常
+            raise FileOperationError(
+                message=f"导出IPS报告时发生未知错误: {str(e)}",
+                file_path=filename,
+                operation="导出IPS报告",
+                user_message="导出报告时发生错误，请稍后重试",
+                cause=e,
+                severity=ErrorSeverity.MEDIUM
+            )
 
     def extract_basic_info(self, ips_data):
         """从IPS数据中提取基本信息"""

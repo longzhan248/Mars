@@ -9,6 +9,14 @@ import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+from .exceptions import (
+    PushNotificationError,
+    UIError,
+    ErrorSeverity,
+    handle_exceptions,
+    get_global_error_collector
+)
+
 # 添加push_tools路径
 push_tools_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'push_tools')
 if push_tools_path not in sys.path:
@@ -30,6 +38,7 @@ class PushTestTab:
         self.push_gui = None
         self.create_widgets()
 
+    @handle_exceptions(UIError, reraise=False, default_return=None)
     def create_widgets(self):
         """创建iOS推送测试标签页"""
         # 尝试导入推送工具模块
@@ -41,10 +50,25 @@ class PushTestTab:
             self.push_gui.pack(fill=tk.BOTH, expand=True)
 
         except ImportError as e:
-            # 如果模块未找到，显示安装提示
+            # 如果模块未找到，转换为结构化异常
+            push_error = PushNotificationError(
+                message=f"推送工具模块导入失败: {str(e)}",
+                certificate_status="模块缺失",
+                user_message="推送功能模块未找到，请检查安装",
+                cause=e
+            )
+            get_global_error_collector().add_exception(push_error)
             self.show_dependency_error(e)
         except Exception as e:
-            # 其他错误
+            # 其他错误转换为UI异常
+            ui_error = UIError(
+                message=f"创建推送测试界面失败: {str(e)}",
+                widget="推送测试标签页",
+                action="界面初始化",
+                user_message="推送功能初始化失败，请稍后重试",
+                cause=e
+            )
+            get_global_error_collector().add_exception(ui_error)
             self.show_general_error(e)
 
     def show_dependency_error(self, error):
@@ -130,6 +154,7 @@ iOS推送功能加载失败
             command=self.refresh_tab
         ).pack(pady=10)
 
+    @handle_exceptions(PushNotificationError, reraise=False, default_return=None)
     def auto_install_dependencies(self):
         """自动安装依赖"""
         import subprocess
@@ -140,19 +165,51 @@ iOS推送功能加载失败
                 [sys.executable, "-m", "pip", "install",
                  "cryptography", "httpx", "pyjwt", "h2"],
                 capture_output=True,
-                text=True
+                text=True,
+                timeout=300  # 5分钟超时
             )
 
             if result.returncode == 0:
                 messagebox.showinfo("成功", "依赖安装成功！请刷新标签页。")
                 self.refresh_tab()
             else:
-                messagebox.showerror(
-                    "错误",
-                    f"依赖安装失败:\n{result.stderr}"
-                )
+                # 分析安装失败原因
+                error_msg = result.stderr
+                if "Permission denied" in error_msg:
+                    raise PushNotificationError(
+                        message="权限不足，无法安装依赖",
+                        certificate_status="安装失败",
+                        user_message="权限不足，请以管理员权限运行程序",
+                        severity=ErrorSeverity.HIGH
+                    )
+                elif "Network" in error_msg or "connection" in error_msg.lower():
+                    raise PushNotificationError(
+                        message="网络连接失败，无法安装依赖",
+                        certificate_status="安装失败",
+                        user_message="网络连接失败，请检查网络后重试",
+                        severity=ErrorSeverity.MEDIUM
+                    )
+                else:
+                    raise PushNotificationError(
+                        message=f"依赖安装失败: {error_msg}",
+                        certificate_status="安装失败",
+                        user_message="依赖安装失败，请手动安装: pip install cryptography httpx pyjwt h2"
+                    )
+
+        except subprocess.TimeoutExpired:
+            raise PushNotificationError(
+                message="依赖安装超时",
+                certificate_status="安装超时",
+                user_message="安装过程超时，请检查网络连接或手动安装依赖",
+                severity=ErrorSeverity.MEDIUM
+            )
         except Exception as e:
-            messagebox.showerror("错误", f"安装过程出错: {str(e)}")
+            raise PushNotificationError(
+                message=f"安装过程出错: {str(e)}",
+                certificate_status="安装异常",
+                user_message="依赖安装过程出现异常，请检查环境配置",
+                cause=e
+            )
 
     def refresh_tab(self):
         """刷新标签页"""

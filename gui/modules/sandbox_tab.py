@@ -18,6 +18,14 @@ from .sandbox import (
     SearchManager,
 )
 
+from .exceptions import (
+    SandboxAccessError,
+    UIError,
+    ErrorSeverity,
+    handle_exceptions,
+    get_global_error_collector
+)
+
 
 class SandboxBrowserTab:
     """iOS沙盒浏览标签页"""
@@ -45,12 +53,103 @@ class SandboxBrowserTab:
         if self.has_dependency:
             self._init_modules()
 
+    @handle_exceptions(SandboxAccessError, reraise=False, default_return=False)
     def _check_dependency(self):
         """检查是否安装了pymobiledevice3依赖"""
         try:
-            return True
+            import pymobiledevice3
+
+            # 检查新版pymobiledevice3的API兼容性
+            available_components = []
+            required_components = [
+                ('usbmux.list_devices', 'usbmux模块'),
+                ('usbmux.MuxDevice', 'MuxDevice类'),
+                ('services.afc.AfcService', 'AFC服务类'),
+                ('lockdown.LockdownClient', 'Lockdown客户端')
+            ]
+
+            # 检查API组件可用性
+            for component_name, description in required_components:
+                try:
+                    module_path = component_name.split('.')
+                    if len(module_path) == 2:
+                        module_name, class_name = module_path
+                        module = __import__(f"pymobiledevice3.{module_name}", fromlist=[class_name])
+                        component = getattr(module, class_name)
+                        available_components.append(component_name)
+                    else:
+                        available_components.append(component_name)
+                except (ImportError, AttributeError):
+                    pass  # 静默处理导入错误
+
+            # 测试核心功能
+            core_tests_passed = []
+            api_method = None
+
+            # 测试1: 设备列表功能
+            try:
+                from pymobiledevice3.usbmux import list_devices
+                devices = list_devices()
+                core_tests_passed.append("list_devices")
+                api_method = "usbmux.list_devices()"
+            except Exception:
+                pass
+
+            # 测试2: AFC服务
+            try:
+                from pymobiledevice3.services.afc import AfcService
+                core_tests_passed.append("AfcService")
+            except Exception:
+                pass
+
+            # 测试3: Lockdown客户端
+            try:
+                from pymobiledevice3.lockdown import LockdownClient
+                core_tests_passed.append("LockdownClient")
+            except Exception:
+                pass
+
+            # 评估兼容性
+            critical_components = ['usbmux.list_devices', 'services.afc.AfcService']
+            critical_available = [comp for comp in critical_components if comp in available_components]
+
+            if len(critical_available) >= 2:
+                return True
+            else:
+                # 构建详细的错误信息
+                error_message = f"pymobiledevice3 API兼容性不足。可用组件: {available_components}"
+                user_message = (
+                    "pymobiledevice3库版本不兼容，缺少必要的iOS设备访问组件。\n\n"
+                    "建议解决方案:\n"
+                    "1. 检查是否安装了完整版本: pip install pymobiledevice3[full]\n"
+                    "2. 或者升级到最新版本: pip install --upgrade pymobiledevice3\n"
+                    "3. 重新安装: pip uninstall pymobiledevice3 && pip install pymobiledevice3\n"
+                    "4. 查看项目文档获取推荐的版本信息"
+                )
+
+                raise SandboxAccessError(
+                    message=error_message,
+                    user_message=user_message,
+                    context={
+                        'available_components': available_components,
+                        'required_components': [comp[0] for comp in required_components],
+                        'core_tests_passed': core_tests_passed,
+                        'library_version': getattr(pymobiledevice3, '__version__', '未知'),
+                        'api_method_found': api_method
+                    }
+                )
+
         except ImportError:
-            return False
+            raise SandboxAccessError(
+                message="pymobiledevice3库未安装",
+                user_message="iOS沙盒浏览功能需要安装pymobiledevice3库",
+                context={
+                    'solution': 'pip install pymobiledevice3',
+                    'alternative': 'pip install -r requirements.txt',
+                    'additional_note': '建议使用完整版: pip install pymobiledevice3[full]'
+                },
+                severity=ErrorSeverity.HIGH
+            )
 
     def _init_modules(self):
         """初始化各个功能模块"""

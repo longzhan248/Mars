@@ -16,6 +16,14 @@ from datetime import datetime
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
 from .obfuscation_templates import get_template
+from .exceptions import (
+    ObfuscationError,
+    FileOperationError,
+    UIError,
+    ErrorSeverity,
+    handle_exceptions,
+    get_global_error_collector
+)
 
 # 导入辅助模块
 from .parameter_help_content import PARAMETER_HELP_CONTENT
@@ -594,50 +602,202 @@ class ObfuscationTab(ttk.Frame):
 
             self.log(f"✅ 已加载 '{template_name}' 配置模板")
 
+    @handle_exceptions(UIError, reraise=False, default_return=None)
     def select_project(self):
         """选择项目目录"""
         directory = filedialog.askdirectory(
             title="选择iOS项目目录"
         )
-        if directory:
+        if not directory:
+            return
+
+        try:
+            # 验证目录路径
+            if not os.path.exists(directory):
+                raise UIError(
+                    message="选择的目录不存在",
+                    widget="项目选择对话框",
+                    action="选择iOS项目目录",
+                    user_message="选择的目录不存在，请重新选择",
+                    severity=ErrorSeverity.MEDIUM
+                )
+
+            if not os.path.isdir(directory):
+                raise UIError(
+                    message="选择的路径不是目录",
+                    widget="项目选择对话框",
+                    action="选择iOS项目目录",
+                    user_message="请选择一个有效的目录路径",
+                    severity=ErrorSeverity.MEDIUM
+                )
+
+            # 检查是否为iOS项目目录
+            xcodeproj_files = [f for f in os.listdir(directory) if f.endswith('.xcodeproj')]
+            workspace_files = [f for f in os.listdir(directory) if f.endswith('.xcworkspace')]
+
+            if not xcodeproj_files and not workspace_files:
+                raise UIError(
+                    message="目录中未找到Xcode项目文件(.xcodeproj或.xxcworkspace)",
+                    widget="项目选择对话框",
+                    action="选择iOS项目目录",
+                    user_message="请选择包含.xcodeproj或.xcworkspace文件的iOS项目目录",
+                    severity=ErrorSeverity.HIGH
+                )
+
+            # 检查写入权限
+            if not os.access(directory, os.R_OK):
+                raise UIError(
+                    message="没有目录读取权限",
+                    widget="项目选择对话框",
+                    action="选择iOS项目目录",
+                    user_message="没有权限读取该目录，请检查权限设置",
+                    severity=ErrorSeverity.HIGH
+                )
+
             self.project_path = directory
             self.project_path_var.set(directory)
 
             # 自动设置输出路径
             if not self.output_path:
-                output_dir = os.path.join(
-                    os.path.dirname(directory),
-                    f"{os.path.basename(directory)}_obfuscated"
-                )
+                parent_dir = os.path.dirname(directory)
+                if not parent_dir:
+                    parent_dir = directory
+
+                project_name = os.path.basename(directory)
+                output_dir = os.path.join(parent_dir, f"{project_name}_obfuscated")
+
+                # 确保输出目录的父目录存在且可写
+                try:
+                    os.makedirs(output_dir, exist_ok=True)
+                    if not os.access(output_dir, os.W_OK):
+                        raise PermissionError("输出目录不可写")
+                except (PermissionError, OSError):
+                    # 如果无法创建或写入输出目录，使用系统临时目录
+                    import tempfile
+                    temp_dir = tempfile.gettempdir()
+                    output_dir = os.path.join(temp_dir, f"{project_name}_obfuscated")
+                    self.log(f"⚠️  警告: 原输出路径不可写，使用临时目录: {output_dir}")
+
                 self.output_path = output_dir
                 self.output_path_var.set(output_dir)
 
             self.log(f"📁 已选择项目: {directory}")
+            self.log(f"✅ 项目验证通过: 找到 {len(xcodeproj_files)} 个.xcodeproj, {len(workspace_files)} 个.xcworkspace")
 
+        except UIError:
+            raise  # 重新抛出已处理的异常
+        except Exception as e:
+            raise UIError(
+                message=f"选择项目目录时发生错误: {str(e)}",
+                widget="项目选择对话框",
+                action="选择iOS项目目录",
+                user_message="选择项目目录时发生错误，请重试",
+                cause=e,
+                severity=ErrorSeverity.MEDIUM
+            )
+
+    @handle_exceptions(UIError, reraise=False, default_return=None)
     def select_output(self):
         """选择输出目录"""
         directory = filedialog.askdirectory(
             title="选择输出目录"
         )
-        if directory:
+        if not directory:
+            return
+
+        try:
+            # 验证目录路径
+            if not os.path.exists(directory):
+                raise UIError(
+                    message="选择的目录不存在",
+                    widget="输出目录选择对话框",
+                    action="选择输出目录",
+                    user_message="选择的目录不存在，请重新选择",
+                    severity=ErrorSeverity.MEDIUM
+                )
+
+            if not os.path.isdir(directory):
+                raise UIError(
+                    message="选择的路径不是目录",
+                    widget="输出目录选择对话框",
+                    action="选择输出目录",
+                    user_message="请选择一个有效的目录路径",
+                    severity=ErrorSeverity.MEDIUM
+                )
+
+            # 检查写入权限
+            if not os.access(directory, os.W_OK):
+                raise UIError(
+                    message="没有目录写入权限",
+                    widget="输出目录选择对话框",
+                    action="选择输出目录",
+                    user_message="没有权限写入该目录，请检查权限设置或选择其他目录",
+                    severity=ErrorSeverity.HIGH
+                )
+
+            # 检查可用磁盘空间（至少需要100MB）
+            try:
+                stat = os.statvfs(directory)
+                free_space = stat.f_frsize * stat.f_bavail
+                if free_space < 100 * 1024 * 1024:  # 100MB
+                    raise UIError(
+                        message=f"磁盘空间不足，剩余空间: {free_space/1024/1024:.1f}MB",
+                        widget="输出目录选择对话框",
+                        action="选择输出目录",
+                        user_message="目标目录磁盘空间不足，请选择其他位置或清理磁盘空间",
+                        severity=ErrorSeverity.MEDIUM
+                    )
+            except (AttributeError, OSError):
+                # 在某些系统上可能不支持statvfs，忽略此检查
+                pass
+
             self.output_path = directory
             self.output_path_var.set(directory)
             self.log(f"📂 输出目录: {directory}")
+            self.log(f"✅ 输出目录验证通过")
 
+        except UIError:
+            raise  # 重新抛出已处理的异常
+        except Exception as e:
+            raise UIError(
+                message=f"选择输出目录时发生错误: {str(e)}",
+                widget="输出目录选择对话框",
+                action="选择输出目录",
+                user_message="选择输出目录时发生错误，请重试",
+                cause=e,
+                severity=ErrorSeverity.MEDIUM
+            )
+
+    @handle_exceptions(ObfuscationError, reraise=False, default_return=None)
     def start_obfuscation(self):
         """开始混淆"""
         # 验证输入
         if not self.project_path:
-            messagebox.showerror("错误", "请先选择项目目录")
-            return
+            raise UIError(
+                message="未选择项目目录",
+                widget="开始混淆按钮",
+                action="开始iOS代码混淆",
+                user_message="请先选择要混淆的iOS项目目录",
+                severity=ErrorSeverity.HIGH
+            )
 
         if not self.output_path:
-            messagebox.showerror("错误", "请先选择输出目录")
-            return
+            raise UIError(
+                message="未选择输出目录",
+                widget="开始混淆按钮",
+                action="开始iOS代码混淆",
+                user_message="请先选择混淆后的输出目录",
+                severity=ErrorSeverity.HIGH
+            )
 
         if not os.path.exists(self.project_path):
-            messagebox.showerror("错误", "项目目录不存在")
-            return
+            raise UIError(
+                message="项目目录不存在",
+                widget="开始混淆按钮",
+                action="开始iOS代码混淆",
+                user_message="选择的项目目录不存在，请重新选择",
+                severity=ErrorSeverity.HIGH
+            )
 
         # 确认开始
         if not messagebox.askyesno(
@@ -645,30 +805,52 @@ class ObfuscationTab(ttk.Frame):
             f"即将对以下项目进行混淆:\n\n"
             f"输入: {self.project_path}\n"
             f"输出: {self.output_path}\n\n"
+            f"⚠️ 注意：混淆过程将修改源代码文件，建议先备份项目！\n\n"
             f"是否继续？"
         ):
             return
 
-        # 重置状态
-        self.is_running = True
-        self.start_button.config(state=tk.DISABLED)
-        self.stop_button.config(state=tk.NORMAL)
-        self.progress_var.set(0)
-        self.log_text.delete(1.0, tk.END)
+        try:
+            # 重置状态
+            self.is_running = True
+            self.start_button.config(state=tk.DISABLED)
+            self.stop_button.config(state=tk.NORMAL)
+            self.progress_var.set(0)
+            self.log_text.delete(1.0, tk.END)
 
-        self.log("="*80)
-        self.log("开始iOS代码混淆")
-        self.log("="*80)
-        self.log(f"项目路径: {self.project_path}")
-        self.log(f"输出路径: {self.output_path}")
-        self.log(f"开始时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        self.log("")
+            self.log("="*80)
+            self.log("开始iOS代码混淆")
+            self.log("="*80)
+            self.log(f"项目路径: {self.project_path}")
+            self.log(f"输出路径: {self.output_path}")
+            self.log(f"开始时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            self.log("")
 
-        # 在后台线程执行混淆
-        threading.Thread(
-            target=self._run_obfuscation,
-            daemon=True
-        ).start()
+            # 在后台线程执行混淆
+            threading.Thread(
+                target=self._run_obfuscation,
+                daemon=True
+            ).start()
+
+        except Exception as e:
+            # 恢复按钮状态
+            self.is_running = False
+            self.start_button.config(state=tk.NORMAL)
+            self.stop_button.config(state=tk.DISABLED)
+
+            # 重新抛出已处理的异常
+            if isinstance(e, ObfuscationError):
+                raise e
+
+            # 处理其他未预期的异常
+            raise ObfuscationError(
+                message=f"启动混淆过程失败: {str(e)}",
+                project_path=self.project_path,
+                output_path=self.output_path,
+                user_message="启动混淆过程时发生错误，请检查项目路径和配置",
+                cause=e,
+                severity=ErrorSeverity.HIGH
+            )
 
     def _run_obfuscation(self):
         """在后台线程执行混淆（避免阻塞UI）"""
@@ -877,21 +1059,61 @@ class ObfuscationTab(ttk.Frame):
             self.is_running = False
             self.log("\n正在停止...")
 
+    @handle_exceptions(FileOperationError, reraise=False, default_return=None)
     def view_mapping(self):
         """查看映射文件"""
         if not self.output_path:
-            messagebox.showinfo("提示", "请先执行混淆生成映射文件")
-            return
+            raise UIError(
+                message="未设置输出路径",
+                widget="查看映射按钮",
+                action="查看混淆映射",
+                user_message="请先执行混淆生成映射文件",
+                severity=ErrorSeverity.MEDIUM
+            )
 
         mapping_file = os.path.join(self.output_path, "obfuscation_mapping.json")
 
         if not os.path.exists(mapping_file):
-            messagebox.showinfo("提示", "映射文件不存在，请先执行混淆")
-            return
+            raise FileOperationError(
+                message="映射文件不存在",
+                file_path=mapping_file,
+                operation="查看混淆映射",
+                user_message="映射文件不存在，请先执行混淆操作",
+                severity=ErrorSeverity.MEDIUM
+            )
 
         try:
+            # 检查文件大小
+            file_size = os.path.getsize(mapping_file)
+            if file_size == 0:
+                raise FileOperationError(
+                    message="映射文件为空",
+                    file_path=mapping_file,
+                    operation="查看混淆映射",
+                    user_message="映射文件为空，请重新执行混淆操作",
+                    severity=ErrorSeverity.MEDIUM
+                )
+            elif file_size > 10 * 1024 * 1024:  # 10MB限制
+                raise FileOperationError(
+                    message=f"映射文件过大 ({file_size/1024/1024:.1f}MB)",
+                    file_path=mapping_file,
+                    operation="查看混淆映射",
+                    user_message="映射文件过大，无法在界面中显示",
+                    severity=ErrorSeverity.LOW
+                )
+
             with open(mapping_file, 'r', encoding='utf-8') as f:
                 mappings = json.load(f)
+
+            # 验证映射数据结构
+            if not isinstance(mappings, dict):
+                raise FileOperationError(
+                    message="映射文件格式无效，不是JSON对象",
+                    file_path=mapping_file,
+                    operation="查看混淆映射",
+                    user_message="映射文件格式已损坏",
+                    severity=ErrorSeverity.HIGH
+                )
 
             # 创建查看窗口
             view_window = tk.Toplevel(self)
@@ -931,14 +1153,28 @@ class ObfuscationTab(ttk.Frame):
             scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
             # 填充数据
+            mappings_count = 0
             if 'mappings' in mappings:
-                for mapping in mappings['mappings']:
-                    tree.insert('', tk.END, values=(
-                        mapping.get('original', ''),
-                        mapping.get('obfuscated', ''),
-                        mapping.get('type', ''),
-                        os.path.basename(mapping.get('source_file', ''))
-                    ))
+                mappings_list = mappings['mappings']
+                if isinstance(mappings_list, list):
+                    # 限制显示数量，避免界面卡顿
+                    max_display = 10000
+                    for i, mapping in enumerate(mappings_list):
+                        if i >= max_display:
+                            self.log(f"⚠️  映射数量过多，仅显示前 {max_display} 条")
+                            break
+
+                        tree.insert('', tk.END, values=(
+                            mapping.get('original', ''),
+                            mapping.get('obfuscated', ''),
+                            mapping.get('type', ''),
+                            os.path.basename(mapping.get('source_file', ''))
+                        ))
+                        mappings_count += 1
+
+            # 添加计数标签
+            count_label = ttk.Label(tree_frame, text=f"显示: {mappings_count} 条映射")
+            count_label.pack(anchor=tk.W, padx=5, pady=2)
 
             # 按钮
             button_frame = ttk.Frame(view_window)
@@ -950,20 +1186,70 @@ class ObfuscationTab(ttk.Frame):
                 command=view_window.destroy
             ).pack(side=tk.RIGHT)
 
+        except json.JSONDecodeError as e:
+            raise FileOperationError(
+                message=f"映射文件JSON解析失败: {str(e)}",
+                file_path=mapping_file,
+                operation="查看混淆映射",
+                user_message="映射文件格式已损坏，无法解析",
+                cause=e,
+                severity=ErrorSeverity.HIGH
+            )
+        except UnicodeDecodeError as e:
+            raise FileOperationError(
+                message=f"映射文件编码错误: {str(e)}",
+                file_path=mapping_file,
+                operation="查看混淆映射",
+                user_message="映射文件编码格式不支持",
+                cause=e,
+                severity=ErrorSeverity.MEDIUM
+            )
+        except PermissionError as e:
+            raise FileOperationError(
+                message="没有权限读取映射文件",
+                file_path=mapping_file,
+                operation="查看混淆映射",
+                user_message="没有权限读取映射文件，请检查文件权限",
+                cause=e,
+                severity=ErrorSeverity.HIGH
+            )
         except Exception as e:
-            messagebox.showerror("错误", f"无法读取映射文件:\n{str(e)}")
+            # 重新抛出已处理的异常
+            if isinstance(e, (FileOperationError, UIError)):
+                raise e
 
+            # 处理其他未预期的异常
+            raise FileOperationError(
+                message=f"读取映射文件时发生未知错误: {str(e)}",
+                file_path=mapping_file,
+                operation="查看混淆映射",
+                user_message="读取映射文件时发生错误，请稍后重试",
+                cause=e,
+                severity=ErrorSeverity.MEDIUM
+            )
+
+    @handle_exceptions(FileOperationError, reraise=False, default_return=None)
     def export_mapping(self):
         """导出映射文件"""
         if not self.output_path:
-            messagebox.showinfo("提示", "请先执行混淆生成映射文件")
-            return
+            raise UIError(
+                message="未设置输出路径",
+                widget="导出映射按钮",
+                action="导出混淆映射",
+                user_message="请先执行混淆生成映射文件",
+                severity=ErrorSeverity.MEDIUM
+            )
 
         mapping_file = os.path.join(self.output_path, "obfuscation_mapping.json")
 
         if not os.path.exists(mapping_file):
-            messagebox.showinfo("提示", "映射文件不存在，请先执行混淆")
-            return
+            raise FileOperationError(
+                message="映射文件不存在",
+                file_path=mapping_file,
+                operation="导出混淆映射",
+                user_message="映射文件不存在，请先执行混淆操作",
+                severity=ErrorSeverity.MEDIUM
+            )
 
         # 选择保存位置
         save_path = filedialog.asksaveasfilename(
@@ -972,13 +1258,104 @@ class ObfuscationTab(ttk.Frame):
             filetypes=[("JSON文件", "*.json"), ("所有文件", "*.*")]
         )
 
-        if save_path:
-            try:
-                import shutil
-                shutil.copy2(mapping_file, save_path)
-                messagebox.showinfo("成功", f"映射文件已导出到:\n{save_path}")
-            except Exception as e:
-                messagebox.showerror("错误", f"导出失败:\n{str(e)}")
+        if not save_path:
+            return  # 用户取消了保存
+
+        try:
+            # 检查目标路径是否有效
+            output_dir = os.path.dirname(save_path)
+            if output_dir and not os.path.exists(output_dir):
+                raise FileOperationError(
+                    message="输出目录不存在",
+                    file_path=save_path,
+                    operation="导出混淆映射",
+                    user_message="选择的保存路径不存在，请选择有效的目录",
+                    severity=ErrorSeverity.HIGH
+                )
+
+            # 检查是否有写入权限
+            if output_dir and not os.access(output_dir, os.W_OK):
+                raise FileOperationError(
+                    message="没有写入权限",
+                    file_path=save_path,
+                    operation="导出混淆映射",
+                    user_message="没有权限在该目录写入文件，请选择其他目录",
+                    severity=ErrorSeverity.HIGH
+                )
+
+            # 检查源文件是否可读
+            if not os.access(mapping_file, os.R_OK):
+                raise FileOperationError(
+                    message="无法读取源映射文件",
+                    file_path=mapping_file,
+                    operation="导出混淆映射",
+                    user_message="没有权限读取映射文件，请检查文件权限",
+                    severity=ErrorSeverity.HIGH
+                )
+
+            # 如果目标文件已存在，确认覆盖
+            if os.path.exists(save_path):
+                if not messagebox.askyesno(
+                    "确认覆盖",
+                    f"文件已存在：\n{save_path}\n\n是否覆盖？"
+                ):
+                    return
+
+            import shutil
+            shutil.copy2(mapping_file, save_path)
+
+            # 验证复制结果
+            if not os.path.exists(save_path):
+                raise FileOperationError(
+                    message="文件复制失败",
+                    file_path=save_path,
+                    operation="导出混淆映射",
+                    user_message="映射文件复制失败，请稍后重试",
+                    severity=ErrorSeverity.HIGH
+                )
+
+            messagebox.showinfo("成功", f"映射文件已导出到:\n{save_path}")
+
+        except PermissionError as e:
+            raise FileOperationError(
+                message="文件权限不足，无法写入",
+                file_path=save_path,
+                operation="导出混淆映射",
+                user_message="没有权限写入该文件，请检查文件权限或选择其他路径",
+                cause=e,
+                severity=ErrorSeverity.HIGH
+            )
+        except shutil.SameFileError:
+            raise FileOperationError(
+                message="源文件和目标文件相同",
+                file_path=save_path,
+                operation="导出混淆映射",
+                user_message="请选择不同的保存路径",
+                severity=ErrorSeverity.LOW
+            )
+        except OSError as e:
+            raise FileOperationError(
+                message=f"文件操作失败: {str(e)}",
+                file_path=save_path,
+                operation="导出混淆映射",
+                user_message="文件操作失败，请检查磁盘空间或文件权限",
+                cause=e,
+                severity=ErrorSeverity.MEDIUM
+            )
+        except Exception as e:
+            # 重新抛出已处理的异常
+            if isinstance(e, (FileOperationError, UIError)):
+                raise e
+
+            # 处理其他未预期的异常
+            raise FileOperationError(
+                message=f"导出映射文件时发生未知错误: {str(e)}",
+                file_path=save_path,
+                operation="导出混淆映射",
+                user_message="导出映射文件时发生错误，请稍后重试",
+                cause=e,
+                severity=ErrorSeverity.MEDIUM
+            )
 
     def manage_whitelist(self):
         """管理自定义白名单"""

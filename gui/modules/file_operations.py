@@ -18,6 +18,14 @@ if decoders_path not in sys.path:
     sys.path.insert(0, decoders_path)
 
 from .data_models import FileGroup, LogEntry
+from .exceptions import (
+    DecodingError,
+    FileOperationError,
+    ImportError,
+    LogParsingError,
+    handle_exceptions,
+    get_global_error_collector
+)
 
 
 class FileOperations:
@@ -117,6 +125,7 @@ class FileOperations:
         return decoded_files
 
     @staticmethod
+    @handle_exceptions(DecodingError, reraise=False, default_return=None)
     def decode_single_xlog(xlog_path: str) -> Optional[str]:
         """解码单个xlog文件"""
         try:
@@ -132,14 +141,25 @@ class FileOperations:
                 # 快速解码器失败，尝试标准解码器
                 return FileOperations.decode_with_standard(xlog_path)
 
-        except ImportError:
+        except ImportError as e:
             # 快速解码器不可用，使用标准解码器
-            return FileOperations.decode_with_standard(xlog_path)
+            raise DecodingError(
+                message=f"快速解码器不可用，将使用标准解码器",
+                decoder_type="FastMarsDecoder",
+                filepath=xlog_path,
+                cause=e
+            )
         except Exception as e:
-            print(f"快速解码器失败: {e}")
-            return FileOperations.decode_with_standard(xlog_path)
+            # 快速解码器执行失败
+            raise DecodingError(
+                message=f"快速解码器执行失败，将尝试标准解码器: {str(e)}",
+                decoder_type="FastMarsDecoder",
+                filepath=xlog_path,
+                cause=e
+            )
 
     @staticmethod
+    @handle_exceptions(DecodingError, reraise=False, default_return=None)
     def decode_with_standard(xlog_path: str) -> Optional[str]:
         """使用标准解码器"""
         try:
@@ -152,42 +172,83 @@ class FileOperations:
 
             if os.path.exists(output_path):
                 return output_path
+            else:
+                raise DecodingError(
+                    message="解码完成但未生成输出文件",
+                    decoder_type="StandardDecoder",
+                    filepath=xlog_path
+                )
         except Exception as e:
-            print(f"标准解码器失败: {e}")
-
-        return None
+            raise DecodingError(
+                message=f"标准解码器失败: {str(e)}",
+                decoder_type="StandardDecoder",
+                filepath=xlog_path,
+                cause=e
+            )
 
     @staticmethod
+    @handle_exceptions(FileOperationError, reraise=False, default_return=[])
     def load_log_file(filepath: str) -> List[str]:
         """加载日志文件内容
 
         Returns:
             日志行列表
         """
+        if not os.path.exists(filepath):
+            raise FileOperationError(
+                message=f"文件不存在: {filepath}",
+                filepath=filepath,
+                operation="文件加载",
+                user_message="指定的文件不存在，请检查文件路径"
+            )
+
+        if not os.path.isfile(filepath):
+            raise FileOperationError(
+                message=f"不是有效文件: {filepath}",
+                filepath=filepath,
+                operation="文件加载",
+                user_message="指定的路径不是有效文件"
+            )
+
+        # 自动检测编码
+        encodings = ['utf-8', 'gb2312', 'gbk', 'gb18030', 'latin-1']
+        last_error = None
+
+        for encoding in encodings:
+            try:
+                with open(filepath, 'r', encoding=encoding) as f:
+                    lines = f.readlines()
+                return lines
+            except UnicodeDecodeError as e:
+                last_error = e
+                continue
+            except Exception as e:
+                raise FileOperationError(
+                    message=f"读取文件失败 (编码: {encoding}): {str(e)}",
+                    filepath=filepath,
+                    operation="文件读取",
+                    user_message=f"读取文件失败: {os.path.basename(filepath)}",
+                    cause=e
+                )
+
+        # 如果所有编码都失败，使用二进制模式
         try:
-            # 自动检测编码
-            encodings = ['utf-8', 'gb2312', 'gbk', 'gb18030', 'latin-1']
-
-            for encoding in encodings:
-                try:
-                    with open(filepath, 'r', encoding=encoding) as f:
-                        lines = f.readlines()
-                    return lines
-                except UnicodeDecodeError:
-                    continue
-
-            # 如果所有编码都失败，使用二进制模式
             with open(filepath, 'rb') as f:
                 content = f.read()
                 # 尝试忽略错误解码
                 lines = content.decode('utf-8', errors='ignore').splitlines(keepends=True)
             return lines
-
         except Exception as e:
-            print(f"加载文件失败 {filepath}: {e}")
-            return []
+            raise FileOperationError(
+                message=f"所有编码尝试均失败，最后错误: {str(last_error)}",
+                filepath=filepath,
+                operation="编码检测",
+                user_message=f"文件编码格式不支持: {os.path.basename(filepath)}",
+                cause=last_error or e
+            )
 
     @staticmethod
+    @handle_exceptions(LogParsingError, reraise=False, default_return=[])
     def parse_log_lines(lines: List[str], source_file: str = "") -> List[LogEntry]:
         """解析日志行为LogEntry对象
 
@@ -198,19 +259,50 @@ class FileOperations:
         Returns:
             LogEntry对象列表
         """
+        if not lines:
+            return []
+
         entries = []
+        error_count = 0
+        max_errors = 100  # 限制最大错误数量，避免内存溢出
 
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
+        for line_num, line in enumerate(lines, 1):
+            try:
+                line = line.strip()
+                if not line:
+                    continue
 
-            entry = LogEntry(line, source_file)
-            entries.append(entry)
+                entry = LogEntry(line, source_file)
+                entries.append(entry)
+
+                # 重置错误计数器
+                error_count = 0
+
+            except Exception as e:
+                error_count += 1
+                if error_count <= max_errors:
+                    # 只记录前100个错误，避免日志泛滥
+                    error = LogParsingError(
+                        message=f"解析日志行失败: {str(e)}",
+                        line_number=line_num,
+                        line_content=line,
+                        parsing_format="Mars",
+                        source_file=source_file,
+                        cause=e
+                    )
+                    get_global_error_collector().add_exception(error)
+
+                if error_count > max_errors + 10:  # 超过限制后10行就停止
+                    raise LogParsingError(
+                        message=f"解析错误过多 ({error_count}个)，停止处理",
+                        line_number=line_num,
+                        source_file=source_file
+                    )
 
         return entries
 
     @staticmethod
+    @handle_exceptions(ImportError, reraise=False, default_return=False)
     def export_to_file(entries: List[LogEntry], filepath: str, format: str = 'txt') -> bool:
         """导出日志条目到文件
 
@@ -219,6 +311,34 @@ class FileOperations:
             filepath: 输出文件路径
             format: 导出格式 (txt, json, csv)
         """
+        if not entries:
+            raise ImportError(
+                message="没有可导出的数据",
+                format_type=format,
+                user_message="没有找到可导出的日志条目"
+            )
+
+        # 检查输出目录是否存在
+        output_dir = os.path.dirname(filepath)
+        if output_dir and not os.path.exists(output_dir):
+            try:
+                os.makedirs(output_dir, exist_ok=True)
+            except Exception as e:
+                raise ImportError(
+                    message=f"无法创建输出目录: {output_dir}",
+                    format_type=format,
+                    user_message="无法创建输出目录，请检查权限",
+                    cause=e
+                )
+
+        # 检查写入权限
+        if os.path.exists(filepath) and not os.access(filepath, os.W_OK):
+            raise ImportError(
+                message=f"文件不可写: {filepath}",
+                format_type=format,
+                user_message="目标文件不可写，请检查文件权限"
+            )
+
         try:
             if format == 'json':
                 FileOperations.export_to_json(entries, filepath)
@@ -228,8 +348,13 @@ class FileOperations:
                 FileOperations.export_to_txt(entries, filepath)
             return True
         except Exception as e:
-            print(f"导出失败: {e}")
-            return False
+            raise ImportError(
+                message=f"导出数据失败: {str(e)}",
+                format_type=format,
+                filepath=filepath,
+                user_message=f"导出文件失败: {os.path.basename(filepath)}",
+                cause=e
+            )
 
     @staticmethod
     def export_to_txt(entries: List[LogEntry], filepath: str) -> None:

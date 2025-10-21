@@ -11,6 +11,18 @@ import sys
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+# 导入异常处理体系
+from modules.exceptions import (
+    XinyuDevToolsError,
+    UIError,
+    setup_global_exception_handler,
+    get_global_error_collector,
+    get_global_error_reporter
+)
+
+# 设置全局异常处理器
+setup_global_exception_handler()
+
 # 添加模块路径
 current_dir = os.path.dirname(os.path.abspath(__file__))
 modules_path = os.path.join(current_dir, 'modules')
@@ -415,9 +427,16 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
             self.ai_window.protocol("WM_DELETE_WINDOW", self.ai_window.withdraw)
 
         except Exception as e:
-            messagebox.showerror("错误", f"无法打开AI助手窗口:\n{str(e)}")
-            import traceback
-            traceback.print_exc()
+            # 转换为UI异常
+            ui_error = UIError(
+                message=f"无法打开AI助手窗口: {str(e)}",
+                widget="AI助手窗口",
+                action="窗口创建",
+                user_message="无法打开AI助手，请稍后重试",
+                cause=e
+            )
+            get_global_error_collector().add_exception(ui_error)
+            messagebox.showerror("错误", ui_error.user_message)
 
     def setup_context_menu(self):
         """设置日志查看器的右键菜单"""

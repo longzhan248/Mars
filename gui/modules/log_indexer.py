@@ -21,6 +21,14 @@ import time
 from collections import defaultdict
 from typing import Callable, Dict, List, Optional, Set
 
+from .exceptions import (
+    IndexingError,
+    SearchError,
+    ErrorSeverity,
+    handle_exceptions,
+    get_global_error_collector
+)
+
 
 class LogIndexer:
     """
@@ -66,6 +74,7 @@ class LogIndexer:
         # 停止标志
         self._stop_flag = False
 
+    @handle_exceptions(IndexingError, reraise=True)
     def build_index(self, entries: List, progress_callback: Optional[Callable[[int, int], None]] = None):
         """
         构建索引（同步方法）
@@ -74,33 +83,96 @@ class LogIndexer:
             entries: LogEntry对象列表
             progress_callback: 进度回调函数 callback(current, total)
         """
+        if not entries:
+            raise IndexingError(
+                message="没有日志条目可索引",
+                entry_count=0,
+                user_message="没有可索引的日志数据"
+            )
+
         self.is_building = True
         self.is_ready = False
         self._stop_flag = False
 
-        self.total_entries = len(entries)
+        try:
+            self.total_entries = len(entries)
 
-        # 清空现有索引
-        self.word_index.clear()
-        self.trigram_index.clear()
-        self.module_index.clear()
-        self.level_index.clear()
-        self.time_index.clear()
+            # 检查内存使用
+            if len(entries) > 1000000:  # 100万条日志的阈值
+                import psutil
+                process = psutil.Process()
+                memory_percent = process.memory_percent()
+                if memory_percent > 80:  # 内存使用超过80%
+                    raise IndexingError(
+                        message=f"内存使用过高 ({memory_percent:.1f}%)，无法构建索引",
+                        entry_count=len(entries),
+                        user_message="日志数量过多，内存不足，请减少日志数量",
+                        severity=ErrorSeverity.HIGH
+                    )
 
-        # 批量构建索引
-        batch_size = 1000
-        for i in range(0, len(entries), batch_size):
-            if self._stop_flag:
-                break
+            # 清空现有索引
+            self.word_index.clear()
+            self.trigram_index.clear()
+            self.module_index.clear()
+            self.level_index.clear()
+            self.time_index.clear()
 
-            batch = entries[i:i+batch_size]
-            for idx, entry in enumerate(batch):
-                line_number = i + idx
-                self._index_entry(entry, line_number)
+            # 批量构建索引
+            batch_size = 1000
+            error_count = 0
+            max_errors = 100
 
-            # 进度回调
-            if progress_callback:
-                progress_callback(min(i + batch_size, len(entries)), len(entries))
+            for i in range(0, len(entries), batch_size):
+                if self._stop_flag:
+                    break
+
+                batch = entries[i:i+batch_size]
+                for idx, entry in enumerate(batch):
+                    try:
+                        line_number = i + idx
+                        self._index_entry(entry, line_number)
+                        # 重置错误计数器
+                        error_count = 0
+                    except Exception as e:
+                        error_count += 1
+                        if error_count <= max_errors:
+                            # 收集索引异常，但继续处理
+                            indexing_error = IndexingError(
+                                message=f"索引条目失败: {str(e)}",
+                                entry_count=line_number,
+                                cause=e
+                            )
+                            get_global_error_collector().add_exception(indexing_error)
+
+                        if error_count > max_errors + 10:
+                            raise IndexingError(
+                                message=f"索引错误过多 ({error_count}个)，停止构建",
+                                entry_count=len(entries),
+                                severity=ErrorSeverity.HIGH
+                            )
+
+                # 进度回调
+                if progress_callback:
+                    try:
+                        progress_callback(min(i + batch_size, len(entries)), len(entries))
+                    except Exception as e:
+                        # 进度回调失败，记录但不影响索引构建
+                        error = IndexingError(
+                            message=f"进度回调失败: {str(e)}",
+                            context={'progress': f"{i}/{len(entries)}"},
+                            cause=e
+                        )
+                        get_global_error_collector().add_exception(error)
+
+        except Exception as e:
+            self.is_building = False
+            self.is_ready = False
+            raise IndexingError(
+                message=f"索引构建失败: {str(e)}",
+                entry_count=len(entries) if entries else 0,
+                user_message="索引构建失败，请检查日志格式",
+                cause=e
+            )
 
         self.is_building = False
         self.is_ready = not self._stop_flag
@@ -174,6 +246,7 @@ class LogIndexer:
         words = re.findall(r'[a-zA-Z0-9_]+', text)
         return words
 
+    @handle_exceptions(SearchError, reraise=False, default_return=set())
     def search(self, keyword: str, search_mode: str = "普通") -> Set[int]:
         """
         搜索关键词
@@ -185,34 +258,58 @@ class LogIndexer:
         Returns:
             匹配的行号集合
         """
+        if not keyword or not keyword.strip():
+            raise SearchError(
+                message="搜索关键词为空",
+                search_term=keyword,
+                search_mode=search_mode,
+                user_message="请输入有效的搜索关键词"
+            )
+
         if not self.is_ready:
-            # 索引未准备好，返回空集合
-            return set()
+            raise SearchError(
+                message="索引未准备好，无法搜索",
+                search_term=keyword,
+                search_mode=search_mode,
+                user_message="索引构建中，请稍后重试"
+            )
 
-        keyword_lower = keyword.lower()
+        try:
+            keyword_lower = keyword.lower()
 
-        if search_mode == "普通":
-            # 精确词匹配
-            if keyword_lower in self.word_index:
-                return self.word_index[keyword_lower].copy()
+            if search_mode == "普通":
+                # 精确词匹配
+                if keyword_lower in self.word_index:
+                    return self.word_index[keyword_lower].copy()
 
-            # 如果没有精确匹配，尝试使用trigram模糊搜索
-            if len(keyword_lower) >= 3:
-                candidates = set()
-                for i in range(len(keyword_lower) - 2):
-                    trigram = keyword_lower[i:i+3]
-                    if trigram in self.trigram_index:
-                        if not candidates:
-                            candidates = self.trigram_index[trigram].copy()
-                        else:
-                            # 交集：所有trigram都必须匹配
-                            candidates &= self.trigram_index[trigram]
-                return candidates
+                # 如果没有精确匹配，尝试使用trigram模糊搜索
+                if len(keyword_lower) >= 3:
+                    candidates = set()
+                    for i in range(len(keyword_lower) - 2):
+                        trigram = keyword_lower[i:i+3]
+                        if trigram in self.trigram_index:
+                            if not candidates:
+                                candidates = self.trigram_index[trigram].copy()
+                            else:
+                                # 交集：所有trigram都必须匹配
+                                candidates &= self.trigram_index[trigram]
 
-            return set()
-        else:
-            # 正则模式不使用索引，返回空表示需要全量搜索
-            return set()
+                    if candidates:
+                        return candidates
+
+                return set()
+            else:
+                # 正则模式不使用索引，返回空表示需要全量搜索
+                return set()
+
+        except Exception as e:
+            raise SearchError(
+                message=f"搜索执行失败: {str(e)}",
+                search_term=keyword,
+                search_mode=search_mode,
+                user_message="搜索失败，请检查搜索关键词",
+                cause=e
+            )
 
     def search_by_module(self, module: str) -> Set[int]:
         """

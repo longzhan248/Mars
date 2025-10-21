@@ -14,6 +14,13 @@ import os
 from abc import ABC, abstractmethod
 from typing import Optional
 
+from ..exceptions import (
+    AIDiagnosisError,
+    ErrorSeverity,
+    handle_exceptions,
+    get_global_error_collector
+)
+
 
 class AIClient(ABC):
     """AI客户端抽象基类"""
@@ -51,15 +58,37 @@ class ClaudeClient(AIClient):
             >>> client = ClaudeClient(api_key="sk-ant-...")
             >>> response = client.ask("Hello!")
         """
+        if not api_key or not api_key.strip():
+            raise AIDiagnosisError(
+                message="Claude API Key不能为空",
+                ai_service="Claude",
+                request_type="初始化",
+                user_message="Claude服务需要有效的API Key",
+                severity=ErrorSeverity.HIGH
+            )
+
         try:
             import anthropic
             self.client = anthropic.Anthropic(api_key=api_key)
             self.model = model
         except ImportError:
-            raise RuntimeError(
-                "未安装anthropic库。请运行: pip install anthropic"
+            raise AIDiagnosisError(
+                message="未安装anthropic库",
+                ai_service="Claude",
+                request_type="初始化",
+                user_message="请安装anthropic库: pip install anthropic",
+                severity=ErrorSeverity.HIGH
+            )
+        except Exception as e:
+            raise AIDiagnosisError(
+                message=f"初始化Claude客户端失败: {str(e)}",
+                ai_service="Claude",
+                request_type="初始化",
+                user_message="Claude服务初始化失败，请检查API Key",
+                cause=e
             )
 
+    @handle_exceptions(AIDiagnosisError, reraise=True)
     def ask(self, prompt: str, max_tokens: int = 4096, temperature: float = 1.0) -> str:
         """
         发送请求到Claude API
@@ -72,6 +101,23 @@ class ClaudeClient(AIClient):
         Returns:
             Claude的响应文本
         """
+        if not prompt or not prompt.strip():
+            raise AIDiagnosisError(
+                message="提示词不能为空",
+                ai_service="Claude",
+                request_type="问答",
+                user_message="请输入有效的分析内容"
+            )
+
+        if len(prompt) > 100000:  # 限制提示词长度
+            raise AIDiagnosisError(
+                message=f"提示词过长 ({len(prompt)} 字符)",
+                ai_service="Claude",
+                request_type="问答",
+                user_message="分析内容过长，请减少后重试",
+                severity=ErrorSeverity.MEDIUM
+            )
+
         try:
             message = self.client.messages.create(
                 model=self.model,
@@ -81,7 +127,44 @@ class ClaudeClient(AIClient):
             )
             return message.content[0].text
         except Exception as e:
-            raise RuntimeError(f"Claude API调用失败: {str(e)}")
+            # 分析具体错误类型
+            error_msg = str(e)
+            if "rate" in error_msg.lower() or "quota" in error_msg.lower():
+                raise AIDiagnosisError(
+                    message="API调用频率限制或配额不足",
+                    ai_service="Claude",
+                    request_type="问答",
+                    user_message="API调用频率过高，请稍后重试或检查配额",
+                    cause=e,
+                    severity=ErrorSeverity.MEDIUM
+                )
+            elif "authentication" in error_msg.lower() or "unauthorized" in error_msg.lower():
+                raise AIDiagnosisError(
+                    message="API认证失败",
+                    ai_service="Claude",
+                    request_type="问答",
+                    user_message="API Key无效，请检查配置",
+                    cause=e,
+                    severity=ErrorSeverity.HIGH
+                )
+            elif "timeout" in error_msg.lower():
+                raise AIDiagnosisError(
+                    message="请求超时",
+                    ai_service="Claude",
+                    request_type="问答",
+                    user_message="AI服务响应超时，请稍后重试",
+                    cause=e,
+                    severity=ErrorSeverity.MEDIUM
+                )
+            else:
+                raise AIDiagnosisError(
+                    message=f"Claude API调用失败: {error_msg}",
+                    ai_service="Claude",
+                    request_type="问答",
+                    user_message="AI服务暂时不可用，请稍后重试",
+                    cause=e,
+                    severity=ErrorSeverity.MEDIUM
+                )
 
 
 class OpenAIClient(AIClient):
