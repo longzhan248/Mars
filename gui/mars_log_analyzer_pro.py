@@ -49,7 +49,7 @@ plt.rcParams['axes.unicode_minus'] = False
 class MarsLogAnalyzerPro:
     def __init__(self, root):
         self.root = root
-        self.root.title("Mars日志分析系统 - 专业版")
+        self.root.title("心娱开发助手 (Xinyu DevTools) - 专业版")
 
         # 获取屏幕尺寸
         screen_width = self.root.winfo_screenwidth()

@@ -1,6 +1,6 @@
-# Mars xLog Analyzer Tool Suite
+# 心娱开发助手 (Xinyu DevTools)
 
-用于解码和分析 Mars xlog 文件的完整工具套件，包含命令行工具、GUI应用、IPS崩溃分析和iOS推送测试功能。
+一站式iOS开发工具集，集成Mars日志分析、IPS崩溃解析、APNS推送测试、沙盒浏览和iOS代码混淆等功能。
 
 ## ✨ 特性
 

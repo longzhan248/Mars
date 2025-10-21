@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mars日志分析系统启动脚本 - macOS版本
+# 心娱开发助手 (Xinyu DevTools) 启动脚本 - macOS版本
 
 # 获取脚本所在目录的绝对路径
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -12,7 +12,7 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
 
 echo "========================================="
-echo "Mars日志分析系统 - 专业版"
+echo "心娱开发助手 (Xinyu DevTools) - 专业版"
 echo "========================================="
 echo "项目路径: $PROJECT_ROOT"
 
@@ -115,7 +115,7 @@ fi
 
 # 启动日志分析系统
 echo "========================================="
-echo "Mars日志分析系统 - 专业版（模块化版本）"
+echo "心娱开发助手 (Xinyu DevTools) - 专业版（模块化版本）"
 echo "========================================="
 echo "正在启动..."
 # 使用模块化版本（已修复filter_logs问题）

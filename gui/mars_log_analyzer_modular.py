@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Mars日志分析器专业版 - 模块化重构版本
-保持原有功能完全一致，但代码组织更加模块化
+心娱开发助手 (Xinyu DevTools) - 一站式iOS开发工具集
+集成Mars日志分析、IPS崩溃解析、APNS推送测试、沙盒浏览和iOS代码混淆等功能
+模块化重构版本，保持原有功能完全一致，但代码组织更加模块化
 """
 
 import os
