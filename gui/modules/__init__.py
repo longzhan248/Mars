@@ -2,7 +2,7 @@
 Mars日志分析器模块包
 """
 
-from .data_models import LogEntry, FileGroup
+from .data_models import FileGroup, LogEntry
 from .file_operations import FileOperations
 from .filter_search import FilterSearchManager
 from .ips_tab import IPSAnalysisTab

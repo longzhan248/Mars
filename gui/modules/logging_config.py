@@ -296,7 +296,7 @@ if __name__ == "__main__":
     # 示例5: 异常记录
     try:
         1 / 0
-    except Exception as e:
+    except Exception:
         logger.exception("An error occurred")
 
     print("\n日志已写入 logs/analyzer.log")

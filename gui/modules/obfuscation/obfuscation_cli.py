@@ -29,21 +29,19 @@ iOS代码混淆CLI工具 - 命令行接口
         --report /path/to/report.json
 """
 
-import sys
-import os
 import argparse
 import json
 import logging
-from pathlib import Path
+import os
+import sys
 from typing import Optional
-from datetime import datetime
 
 try:
-    from .config_manager import ObfuscationConfig, ConfigManager
+    from .config_manager import ConfigManager, ObfuscationConfig
     from .obfuscation_engine import ObfuscationEngine, ObfuscationResult
     from .project_analyzer import ProjectAnalyzer
 except ImportError:
-    from config_manager import ObfuscationConfig, ConfigManager
+    from config_manager import ConfigManager, ObfuscationConfig
     from obfuscation_engine import ObfuscationEngine, ObfuscationResult
     from project_analyzer import ProjectAnalyzer
 

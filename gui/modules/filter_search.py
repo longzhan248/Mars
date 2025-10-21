@@ -6,7 +6,7 @@
 """
 
 import re
-from datetime import datetime
+from typing import List, Optional, Pattern, Any
 
 
 class FilterSearchManager:
@@ -19,10 +19,10 @@ class FilterSearchManager:
 
     def __init__(self):
         # 正则表达式缓存 {(pattern, flags): compiled_pattern}
-        self._pattern_cache = {}
+        self._pattern_cache: dict[tuple[str, int], Pattern] = {}
         self._cache_max_size = 100  # 最多缓存100个正则表达式
 
-    def _get_compiled_pattern(self, pattern, flags=0):
+    def _get_compiled_pattern(self, pattern: str, flags: int = 0) -> Optional[Pattern]:
         """获取编译后的正则表达式（带缓存）
 
         Args:
@@ -55,7 +55,7 @@ class FilterSearchManager:
             return None
 
     @staticmethod
-    def parse_time_string(time_str):
+    def parse_time_string(time_str: str) -> Optional[str]:
         """解析多种格式的时间字符串
         支持格式：
         - YYYY-MM-DD HH:MM:SS
@@ -99,7 +99,7 @@ class FilterSearchManager:
         return None
 
     @staticmethod
-    def compare_log_time(log_timestamp, start_time, end_time):
+    def compare_log_time(log_timestamp: str, start_time: Optional[str], end_time: Optional[str]) -> bool:
         """比较日志时间戳是否在指定范围内"""
         # 从日志时间戳提取时间信息
         # 支持的格式：
@@ -156,8 +156,9 @@ class FilterSearchManager:
 
         return True
 
-    def filter_entries(self, entries, level=None, module=None, keyword=None,
-                       start_time=None, end_time=None, search_mode='普通'):
+    def filter_entries(self, entries: List[Any], level: Optional[str] = None, module: Optional[str] = None,
+                   keyword: Optional[str] = None, start_time: Optional[str] = None,
+                   end_time: Optional[str] = None, search_mode: str = '普通') -> List[Any]:
         """过滤日志条目（优化版：使用正则缓存）
 
         Args:

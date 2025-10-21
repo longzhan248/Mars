@@ -7,9 +7,9 @@
 
 import os
 import re
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
 import threading
+import tkinter as tk
+from tkinter import filedialog, messagebox, ttk
 
 
 class FilePreview:
@@ -188,8 +188,9 @@ class FilePreview:
     def _show_image_preview(self, filename, image_data):
         """显示图片预览"""
         try:
-            from PIL import Image, ImageTk
             import io
+
+            from PIL import Image, ImageTk
 
             preview_window = tk.Toplevel(self.parent.parent)
             preview_window.title(f"预览: {filename}")

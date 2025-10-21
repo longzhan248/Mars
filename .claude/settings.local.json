@@ -21,7 +21,16 @@
       "Bash(cat:*)",
       "Bash(claude:*)",
       "Bash(timeout 5 python3:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(pylint:*)",
+      "Bash(flake8:*)",
+      "Bash(autoflake --version)",
+      "Bash(autopep8:*)",
+      "Bash(git branch:*)",
+      "Bash(autoflake:*)",
+      "Bash(isort:*)",
+      "Bash(echo \"Exit code: $?\")",
+      "Bash(./scripts/run_analyzer.sh:*)"
     ],
     "deny": [],
     "ask": []

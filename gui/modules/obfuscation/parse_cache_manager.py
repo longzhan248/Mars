@@ -38,15 +38,14 @@
 版本：v1.0.0
 """
 
-import os
-import json
 import hashlib
-import time
+import json
+import os
 import pickle
+import time
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional, Any, Callable, List, Tuple
-from dataclasses import dataclass, field, asdict
-from datetime import datetime
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -237,7 +236,7 @@ class ParseCacheManager:
 
             return entry
 
-        except Exception as e:
+        except Exception:
             # 缓存文件损坏，删除它
             cache_path.unlink(missing_ok=True)
             return None
@@ -262,7 +261,7 @@ class ParseCacheManager:
 
             self.cache_save_time += time.time() - start_time
 
-        except Exception as e:
+        except Exception:
             # 保存失败，忽略错误
             pass
 
@@ -358,7 +357,7 @@ class ParseCacheManager:
 
         start_time = time.time()
         parse_result = parser.parse_file(file_path)
-        parse_time = time.time() - start_time
+        # parse_time = time.time() - start_time  # TODO: 可以用于统计总解析时间
 
         self.parse_count += 1
 

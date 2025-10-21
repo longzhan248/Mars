@@ -8,17 +8,17 @@ iOS代码混淆标签页 - GUI界面
 4. 白名单管理
 """
 
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, scrolledtext
-import os
-from pathlib import Path
-import threading
 import json
+import os
+import threading
+import tkinter as tk
 from datetime import datetime
+from tkinter import filedialog, messagebox, scrolledtext, ttk
+
+from .obfuscation_templates import get_template
 
 # 导入辅助模块
 from .parameter_help_content import PARAMETER_HELP_CONTENT
-from .obfuscation_templates import OBFUSCATION_TEMPLATES, get_template
 from .whitelist_ui_helper import WhitelistUIHelper
 
 
@@ -101,7 +101,7 @@ class ObfuscationTab(ttk.Frame):
                 width=8
             )
             btn.pack(side=tk.LEFT, padx=2)
-            # TODO: 添加tooltip支持
+            # 注意: tooltip功能可在未来版本添加（使用tkinter.Tooltip或自定义实现）
 
         # 项目路径选择 - 更紧凑的布局
         path_frame = ttk.LabelFrame(config_frame, text="📁 项目配置", padding=10)
@@ -676,9 +676,14 @@ class ObfuscationTab(ttk.Frame):
             # 延迟导入模块
             if self.config_manager is None:
                 self.log("加载混淆模块...")
-                from .obfuscation.config_manager import ObfuscationConfig, ConfigManager
-                from .obfuscation.obfuscation_engine import ObfuscationEngine, ObfuscationResult
-                from .obfuscation.xcode_project_manager import check_pbxproj_availability
+                from .obfuscation.config_manager import ConfigManager, ObfuscationConfig
+                from .obfuscation.obfuscation_engine import (
+                    ObfuscationEngine,
+                    ObfuscationResult,
+                )
+                from .obfuscation.xcode_project_manager import (
+                    check_pbxproj_availability,
+                )
 
                 self.config_manager = ConfigManager
                 self.obfuscation_engine_class = ObfuscationEngine

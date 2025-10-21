@@ -6,7 +6,8 @@
 """
 
 import tkinter as tk
-from tkinter import ttk, scrolledtext
+from tkinter import ttk
+
 
 class LazyLoadText(tk.Frame):
     """支持懒加载的文本组件"""
@@ -138,7 +139,7 @@ class LazyLoadText(tk.Frame):
 
                 # 获取可见范围
                 first_visible = self.text.index('@0,0')
-                last_visible = self.text.index(f'@0,{self.text.winfo_height()}')
+                _last_visible = self.text.index(f'@0,{self.text.winfo_height()}')  # noqa: F841
 
                 # 强制重绘：通过修改和恢复状态
                 # 插入并立即删除一个不可见字符
@@ -177,7 +178,7 @@ class LazyLoadText(tk.Frame):
         self.is_loading = True
 
         # 保存当前滚动位置
-        current_pos = self.text.yview()
+        _current_pos = self.text.yview()  # noqa: F841
 
         # 加载下一批数据
         end_index = min(self.current_index + self.batch_size, len(self.data))

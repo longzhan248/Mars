@@ -10,12 +10,12 @@ from tkinter import ttk
 
 # 导入子模块
 from .sandbox import (
-    DeviceManager,
     AppManager,
+    DeviceManager,
     FileBrowser,
     FileOperations,
     FilePreview,
-    SearchManager
+    SearchManager,
 )
 
 
@@ -48,9 +48,6 @@ class SandboxBrowserTab:
     def _check_dependency(self):
         """检查是否安装了pymobiledevice3依赖"""
         try:
-            from pymobiledevice3.lockdown import LockdownClient
-            from pymobiledevice3.services.installation_proxy import InstallationProxyService
-            from pymobiledevice3.services.afc import AfcService
             return True
         except ImportError:
             return False

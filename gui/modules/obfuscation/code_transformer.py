@@ -10,16 +10,16 @@
 """
 
 import re
-from pathlib import Path
-from typing import Dict, List, Set, Optional, Tuple
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Dict, List, Tuple
 
 try:
-    from .code_parser import Symbol, SymbolType, ParsedFile
-    from .name_generator import NameGenerator, NameMapping
+    from .code_parser import ParsedFile, Symbol, SymbolType
+    from .name_generator import NameGenerator
 except ImportError:
-    from code_parser import Symbol, SymbolType, ParsedFile
-    from name_generator import NameGenerator, NameMapping
+    from code_parser import ParsedFile, Symbol, SymbolType
+    from name_generator import NameGenerator
 
 
 @dataclass
@@ -648,11 +648,11 @@ if __name__ == "__main__":
     print("=== 代码转换器测试 ===\n")
 
     try:
-        from .name_generator import NameGenerator, NamingStrategy
         from .code_parser import CodeParser
+        from .name_generator import NameGenerator, NamingStrategy
     except ImportError:
-        from name_generator import NameGenerator, NamingStrategy
         from code_parser import CodeParser
+        from name_generator import NameGenerator, NamingStrategy
 
     # 创建测试文件
     test_code = """
@@ -696,8 +696,8 @@ if __name__ == "__main__":
 @end
 """
 
-    import tempfile
     import os
+    import tempfile
 
     with tempfile.TemporaryDirectory() as tmpdir:
         # 保存测试文件

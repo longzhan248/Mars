@@ -14,22 +14,21 @@
 """
 
 import os
-import sys
-import time
-import tempfile
 import shutil
+import sys
+import tempfile
+import time
 from pathlib import Path
 
 # 添加项目路径
 project_root = Path(__file__).parent.parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from gui.modules.obfuscation.parallel_parser import ParallelCodeParser
-from gui.modules.obfuscation.multiprocess_transformer import MultiProcessTransformer
-from gui.modules.obfuscation.performance_profiler import PerformanceProfiler
 from gui.modules.obfuscation.code_parser import CodeParser
 from gui.modules.obfuscation.code_transformer import CodeTransformer
 from gui.modules.obfuscation.name_generator import NameGenerator, NamingStrategy
+from gui.modules.obfuscation.parallel_parser import ParallelCodeParser
+from gui.modules.obfuscation.performance_profiler import PerformanceProfiler
 from gui.modules.obfuscation.whitelist_manager import WhitelistManager
 
 
@@ -260,7 +259,7 @@ class TestPerformanceOptimization:
         # 测试上下文管理器
         with profiler.measure("数据处理"):
             data = [i**2 for i in range(100000)]
-            result = sum(data)
+            _result = sum(data)  # 测试用途
 
         # 执行测试
         parse_files()

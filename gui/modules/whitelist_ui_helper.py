@@ -5,11 +5,11 @@ iOS混淆工具 - 白名单UI辅助模块
 从obfuscation_tab.py中提取以减少主文件大小。
 """
 
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-import os
 import json
+import os
+import tkinter as tk
 from datetime import datetime
+from tkinter import filedialog, messagebox, ttk
 
 
 class WhitelistUIHelper:

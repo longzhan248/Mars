@@ -17,9 +17,9 @@
 
 import random
 import string
-from typing import List, Dict, Set, Optional, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Dict, List, Optional, Set, Tuple
 
 
 class CodeLanguage(Enum):
@@ -521,7 +521,7 @@ class GarbageCodeGenerator:
 
         # 🆕 生成调用关系
         if self.enable_call_relationships and len(classes) >= 2:
-            from .call_graph_generator import CallGraphGenerator, CallDensity
+            from .call_graph_generator import CallDensity, CallGraphGenerator
 
             # 转换调用密度字符串到枚举
             density_map = {

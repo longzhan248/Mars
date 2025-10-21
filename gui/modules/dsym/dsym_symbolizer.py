@@ -5,10 +5,10 @@ dSYM符号化模块
 负责使用atos工具进行崩溃地址符号化
 """
 
-import subprocess
 import os
-import tempfile
 import plistlib
+import subprocess
+import tempfile
 
 
 class DSYMSymbolizer:
@@ -16,7 +16,6 @@ class DSYMSymbolizer:
 
     def __init__(self):
         """初始化符号化器"""
-        pass
 
     def symbolicate_address(self, dsym_path, arch, slide_address, error_address):
         """符号化崩溃地址

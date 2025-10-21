@@ -10,13 +10,13 @@
 6. 增量混淆支持
 """
 
+import hashlib
+import json
 import random
 import string
-import hashlib
-from typing import Dict, Set, Optional, List, Tuple
+from dataclasses import dataclass
 from enum import Enum
-from dataclasses import dataclass, field
-import json
+from typing import Dict, List, Optional, Set, Tuple
 
 
 class NamingStrategy(Enum):

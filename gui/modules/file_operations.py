@@ -5,22 +5,19 @@
 处理文件加载、解码、导出等操作
 """
 
+import json
 import os
 import sys
-import json
-import subprocess
-import threading
-from pathlib import Path
-from datetime import datetime
-from tkinter import messagebox
 from collections import defaultdict
+from datetime import datetime
+from typing import Callable, List, Optional
 
 # 添加解码器路径
 decoders_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'decoders')
 if decoders_path not in sys.path:
     sys.path.insert(0, decoders_path)
 
-from .data_models import LogEntry, FileGroup
+from .data_models import FileGroup, LogEntry
 
 
 class FileOperations:
@@ -30,7 +27,7 @@ class FileOperations:
         pass
 
     @staticmethod
-    def group_files(files):
+    def group_files(files: List[str]) -> List[FileGroup]:
         """将多个文件按基础名称分组"""
         groups = defaultdict(list)
 
@@ -82,7 +79,7 @@ class FileOperations:
         return file_groups
 
     @staticmethod
-    def decode_xlog_files(files, callback=None):
+    def decode_xlog_files(files: List[str], callback: Optional[Callable[[int, int, str], None]] = None) -> List[str]:
         """解码多个xlog文件
 
         Args:
@@ -120,7 +117,7 @@ class FileOperations:
         return decoded_files
 
     @staticmethod
-    def decode_single_xlog(xlog_path):
+    def decode_single_xlog(xlog_path: str) -> Optional[str]:
         """解码单个xlog文件"""
         try:
             # 优先使用快速解码器
@@ -143,7 +140,7 @@ class FileOperations:
             return FileOperations.decode_with_standard(xlog_path)
 
     @staticmethod
-    def decode_with_standard(xlog_path):
+    def decode_with_standard(xlog_path: str) -> Optional[str]:
         """使用标准解码器"""
         try:
             # 使用标准Python 3解码器
@@ -161,7 +158,7 @@ class FileOperations:
         return None
 
     @staticmethod
-    def load_log_file(filepath):
+    def load_log_file(filepath: str) -> List[str]:
         """加载日志文件内容
 
         Returns:
@@ -191,7 +188,7 @@ class FileOperations:
             return []
 
     @staticmethod
-    def parse_log_lines(lines, source_file=""):
+    def parse_log_lines(lines: List[str], source_file: str = "") -> List[LogEntry]:
         """解析日志行为LogEntry对象
 
         Args:
@@ -214,7 +211,7 @@ class FileOperations:
         return entries
 
     @staticmethod
-    def export_to_file(entries, filepath, format='txt'):
+    def export_to_file(entries: List[LogEntry], filepath: str, format: str = 'txt') -> bool:
         """导出日志条目到文件
 
         Args:
@@ -235,7 +232,7 @@ class FileOperations:
             return False
 
     @staticmethod
-    def export_to_txt(entries, filepath):
+    def export_to_txt(entries: List[LogEntry], filepath: str) -> None:
         """导出为文本格式"""
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(f"# Mars日志导出\n")
@@ -247,7 +244,7 @@ class FileOperations:
                 f.write(entry.raw_line + '\n')
 
     @staticmethod
-    def export_to_json(entries, filepath):
+    def export_to_json(entries: List[LogEntry], filepath: str) -> None:
         """导出为JSON格式"""
         data = {
             'export_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -271,7 +268,7 @@ class FileOperations:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
     @staticmethod
-    def export_to_csv(entries, filepath):
+    def export_to_csv(entries: List[LogEntry], filepath: str) -> None:
         """导出为CSV格式"""
         import csv
 

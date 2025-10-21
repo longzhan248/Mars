@@ -14,10 +14,10 @@
 """
 
 import os
-import sys
-import time
-import tempfile
 import shutil
+import sys
+import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -25,8 +25,8 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from gui.modules.obfuscation.parse_cache_manager import ParseCacheManager, CacheEntry
 from gui.modules.obfuscation.code_parser import CodeParser
+from gui.modules.obfuscation.parse_cache_manager import ParseCacheManager
 from gui.modules.obfuscation.whitelist_manager import WhitelistManager
 
 
@@ -206,7 +206,7 @@ class TestParseCacheManager(unittest.TestCase):
         parser = MockParser(parse_delay=0.01)
 
         # 首次解析
-        result1 = cache.get_or_parse(test_file, parser)
+        _result1 = cache.get_or_parse(test_file, parser)
         parse1_count = parser.parse_count
 
         # 修改文件内容
@@ -214,7 +214,7 @@ class TestParseCacheManager(unittest.TestCase):
         self._create_test_file(test_file, "modified content")
 
         # 再次解析（缓存应失效）
-        result2 = cache.get_or_parse(test_file, parser)
+        _result2 = cache.get_or_parse(test_file, parser)
 
         # 验证缓存失效
         assert parser.parse_count == parse1_count + 1, "文件修改后应重新解析"
@@ -284,7 +284,7 @@ class TestParseCacheManager(unittest.TestCase):
 
         # 第二次批量解析（应全部命中）
         print("\n第二次批量解析（缓存）:")
-        results2 = cache.batch_get_or_parse(test_files, parser, callback=progress_callback)
+        _results2 = cache.batch_get_or_parse(test_files, parser, callback=progress_callback)
 
         assert cache.cache_hits == 10, "第二次应全部命中"
         assert parser.parse_count == 10, "解析器不应再被调用"
@@ -366,7 +366,7 @@ class TestParseCacheManager(unittest.TestCase):
         parser = MockParser(parse_delay=0.01)
 
         # 解析文件
-        result1 = cache.get_or_parse(self.test_file, parser)
+        _result1 = cache.get_or_parse(self.test_file, parser)
 
         # 验证缓存存在
         assert self.test_file in cache.memory_cache, "缓存应存在"
@@ -379,7 +379,7 @@ class TestParseCacheManager(unittest.TestCase):
 
         # 重新解析（应重新调用解析器）
         parse1_count = parser.parse_count
-        result2 = cache.get_or_parse(self.test_file, parser)
+        _result2 = cache.get_or_parse(self.test_file, parser)
 
         assert parser.parse_count == parse1_count + 1, "应重新解析"
 

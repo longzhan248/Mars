@@ -4,17 +4,17 @@ dSYM文件分析标签页（重构版）
 用于解析iOS崩溃日志的符号化，根据错误地址进行代码定位
 """
 
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, scrolledtext
 import threading
+import tkinter as tk
+from tkinter import filedialog, messagebox, scrolledtext, ttk
 
 # 导入模块化组件
 try:
     # 相对导入（作为包导入时）
-    from .dsym import DSYMFileManager, DSYMUUIDParser, DSYMSymbolizer
+    from .dsym import DSYMFileManager, DSYMSymbolizer, DSYMUUIDParser
 except ImportError:
     # 绝对导入（直接导入时）
-    from dsym import DSYMFileManager, DSYMUUIDParser, DSYMSymbolizer
+    from dsym import DSYMFileManager, DSYMSymbolizer, DSYMUUIDParser
 
 class DSYMTab:
     def __init__(self, parent):

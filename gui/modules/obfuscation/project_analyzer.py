@@ -10,14 +10,12 @@
 6. 项目统计信息
 """
 
-import os
+import json
 import re
-from pathlib import Path
-from typing import Dict, List, Set, Optional, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
-import json
-import plistlib
+from pathlib import Path
+from typing import List, Optional, Set
 
 
 class ProjectType(Enum):

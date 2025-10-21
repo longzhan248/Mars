@@ -17,9 +17,9 @@
 
 import re
 import threading
-from collections import defaultdict
-from typing import Set, List, Dict, Optional, Callable
 import time
+from collections import defaultdict
+from typing import Callable, Dict, List, Optional, Set
 
 
 class LogIndexer:
@@ -459,8 +459,9 @@ class IndexedFilterSearchManager:
 # 性能测试辅助函数
 def benchmark_indexer():
     """索引器性能基准测试"""
-    from data_models import LogEntry
     import random
+
+    from data_models import LogEntry
 
     # 生成测试数据
     print("生成测试数据...")

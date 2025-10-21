@@ -33,9 +33,9 @@
 import multiprocessing
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pathlib import Path
-from typing import Dict, List, Optional, Callable, Any
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
 
 
 @dataclass
@@ -342,6 +342,7 @@ def benchmark_parallel_parsing():
     比较串行解析和并行解析的性能差异。
     """
     import os
+
     from code_parser import CodeParser
     from whitelist_manager import WhitelistManager
 
@@ -382,7 +383,7 @@ def benchmark_parallel_parsing():
     for file_path in test_files:
         try:
             serial_results[file_path] = parser.parse_file(file_path)
-        except Exception as e:
+        except Exception:
             pass
 
     serial_time = time.time() - start_time
@@ -396,7 +397,8 @@ def benchmark_parallel_parsing():
         parallel_parser = ParallelCodeParser(max_workers=workers)
         start_time = time.time()
 
-        parallel_results = parallel_parser.parse_files_parallel(
+        # 执行并行解析测试
+        parallel_parser.parse_files_parallel(
             test_files,
             parser
         )

@@ -10,12 +10,11 @@
 """
 
 import json
-import os
 import re
-from pathlib import Path
-from typing import Set, Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
+from typing import Dict, List, Optional, Set
 
 
 class WhitelistType(Enum):

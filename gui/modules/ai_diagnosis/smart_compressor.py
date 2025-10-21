@@ -5,10 +5,9 @@
 目标：将任意大小的日志压缩到2000-4000 tokens以内。
 """
 
-import re
-from typing import List, Dict, Tuple
-from collections import Counter, defaultdict
+from collections import Counter
 from dataclasses import dataclass
+from typing import Dict, List
 
 try:
     from data_models import LogEntry

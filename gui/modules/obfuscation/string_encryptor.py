@@ -16,21 +16,20 @@
 - 白名单机制，跳过系统API字符串
 """
 
-import re
 import base64
 import hashlib
-import os
-from typing import List, Dict, Set, Optional, Tuple
-from dataclasses import dataclass, field
-from enum import Enum
 import random
+import re
 import string
+from dataclasses import dataclass
+from enum import Enum
+from typing import Dict, List, Optional, Set, Tuple
 
 # 导入AES加密库
 try:
     from Crypto.Cipher import AES
-    from Crypto.Util.Padding import pad, unpad
     from Crypto.Random import get_random_bytes
+    from Crypto.Util.Padding import pad
     AES_AVAILABLE = True
 except ImportError:
     AES_AVAILABLE = False

@@ -9,8 +9,8 @@
     >>> manager = import_custom_prompt_manager()
 """
 
-import sys
 import os
+import sys
 
 
 def _add_gui_path():
@@ -73,7 +73,9 @@ def import_custom_prompt_manager():
             return get_custom_prompt_manager
         except ImportError:
             _add_gui_path()
-            from modules.ai_diagnosis.custom_prompt_manager import get_custom_prompt_manager
+            from modules.ai_diagnosis.custom_prompt_manager import (
+                get_custom_prompt_manager,
+            )
             return get_custom_prompt_manager
 
 

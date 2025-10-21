@@ -4,18 +4,18 @@ LinkMap文件分析标签页（重构版）
 用于分析iOS应用的二进制大小，统计代码使用情况
 """
 
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, scrolledtext
 import os
 import threading
+import tkinter as tk
+from tkinter import filedialog, messagebox, scrolledtext, ttk
 
 # 导入模块化组件
 try:
     # 相对导入（作为包导入时）
-    from .linkmap import LinkMapParser, LinkMapAnalyzer, LinkMapFormatter
+    from .linkmap import LinkMapAnalyzer, LinkMapFormatter, LinkMapParser
 except ImportError:
     # 绝对导入（直接导入时）
-    from linkmap import LinkMapParser, LinkMapAnalyzer, LinkMapFormatter
+    from linkmap import LinkMapAnalyzer, LinkMapFormatter, LinkMapParser
 
 
 class LinkMapTab:

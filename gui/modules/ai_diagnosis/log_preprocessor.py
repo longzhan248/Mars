@@ -10,10 +10,9 @@
 """
 
 import re
-from datetime import datetime, timedelta
-from typing import List, Dict, Optional, Tuple
 from collections import Counter
 from dataclasses import dataclass
+from typing import Dict, List, Optional
 
 # 导入LogEntry数据模型
 try:

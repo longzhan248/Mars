@@ -5,8 +5,8 @@ dSYM UUID解析模块
 负责使用dwarfdump提取UUID和架构信息
 """
 
-import subprocess
 import re
+import subprocess
 
 
 class DSYMUUIDParser:
@@ -14,7 +14,6 @@ class DSYMUUIDParser:
 
     def __init__(self):
         """初始化UUID解析器"""
-        pass
 
     def get_uuid_info(self, dsym_path):
         """获取dSYM文件的UUID信息

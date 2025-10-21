@@ -3,10 +3,9 @@ Xcode项目管理器
 用于自动修改.xcodeproj文件，将混淆生成的文件添加到项目中
 """
 
-import os
-from pathlib import Path
-from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
 try:
     from pbxproj import XcodeProject

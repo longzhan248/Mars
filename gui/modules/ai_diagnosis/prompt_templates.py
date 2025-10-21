@@ -10,7 +10,7 @@
 - 相关日志查找
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
 
 
 class PromptTemplates:

@@ -4,25 +4,24 @@ iOS代码混淆模块集成测试
 测试整个混淆流程，确保所有组件协同工作正常。
 """
 
-import unittest
-import tempfile
-import shutil
-import os
-from pathlib import Path
 import json
+import os
+import shutil
 
 # 导入需要测试的模块
 import sys
+import tempfile
+import unittest
+from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from config_manager import ObfuscationConfig, ConfigManager
-from whitelist_manager import WhitelistManager, SystemAPIWhitelist
-from name_generator import NameGenerator, NamingStrategy
-from project_analyzer import ProjectAnalyzer
 from code_parser import CodeParser, SymbolType
 from code_transformer import CodeTransformer
-from resource_handler import ResourceHandler
+from config_manager import ConfigManager, ObfuscationConfig
+from name_generator import NameGenerator, NamingStrategy
 from obfuscation_engine import ObfuscationEngine
+from whitelist_manager import SystemAPIWhitelist, WhitelistManager
 
 
 class TestCodeParserIntegration(unittest.TestCase):

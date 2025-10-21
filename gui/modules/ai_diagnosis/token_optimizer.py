@@ -4,8 +4,8 @@ Token优化器 - 统一的Token管理和优化
 整合智能压缩器和精简提示词，提供统一的token优化接口。
 """
 
-from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
+from typing import Dict, List, Tuple
 
 try:
     from data_models import LogEntry
@@ -16,11 +16,11 @@ except ImportError:
         from gui.modules.data_models import LogEntry
 
 try:
-    from .smart_compressor import SmartLogCompressor, FocusedCompressor, estimate_tokens
     from .compact_prompts import CompactPromptTemplates
+    from .smart_compressor import FocusedCompressor, SmartLogCompressor, estimate_tokens
 except ImportError:
-    from smart_compressor import SmartLogCompressor, FocusedCompressor, estimate_tokens
     from compact_prompts import CompactPromptTemplates
+    from smart_compressor import FocusedCompressor, SmartLogCompressor, estimate_tokens
 
 
 @dataclass

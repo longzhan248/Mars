@@ -9,8 +9,8 @@ __version__ = '1.0.0'
 __author__ = 'Mars Log Analyzer Team'
 
 from .config_manager import ConfigManager, ObfuscationConfig
-from .whitelist_manager import WhitelistManager, SystemAPIWhitelist
 from .name_generator import NameGenerator, NamingStrategy
+from .whitelist_manager import SystemAPIWhitelist, WhitelistManager
 
 __all__ = [
     'ConfigManager',

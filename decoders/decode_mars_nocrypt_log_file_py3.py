@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 
-import sys
-import os
 import glob
-import zlib
+import os
 import struct
-import binascii
+import sys
 import traceback
-
+import zlib
 
 MAGIC_NO_COMPRESS_START = 0x03
 MAGIC_NO_COMPRESS_START1 = 0x06
@@ -83,8 +81,8 @@ def DecodeBuffer(_buffer, _offset, _outbuffer):
     tmpbuffer = bytearray(length)
 
     seq=struct.unpack_from("H", memoryview(_buffer[_offset+headerLen-4-crypt_key_len-2-2:_offset+headerLen-4-crypt_key_len-2]))[0]
-    begin_hour=struct.unpack_from("b", memoryview(_buffer[_offset+headerLen-4-crypt_key_len-1-1:_offset+headerLen-4-crypt_key_len-1]))[0]
-    end_hour=struct.unpack_from("b", memoryview(_buffer[_offset+headerLen-4-crypt_key_len-1:_offset+headerLen-4-crypt_key_len]))[0]
+    _begin_hour=struct.unpack_from("b", memoryview(_buffer[_offset+headerLen-4-crypt_key_len-1-1:_offset+headerLen-4-crypt_key_len-1]))[0]  # Header field, not used in this decoder
+    _end_hour=struct.unpack_from("b", memoryview(_buffer[_offset+headerLen-4-crypt_key_len-1:_offset+headerLen-4-crypt_key_len]))[0]  # Header field, not used in this decoder
 
     global lastseq
     if seq != 0 and seq != 1 and lastseq != 0 and seq != (lastseq+1):

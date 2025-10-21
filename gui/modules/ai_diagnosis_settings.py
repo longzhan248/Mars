@@ -6,8 +6,7 @@ AI诊断设置对话框
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox
-import os
+from tkinter import messagebox, ttk
 
 
 def safe_import_ai_diagnosis():
@@ -306,10 +305,9 @@ class AISettingsDialog:
 
     def on_auto_detect_changed(self):
         """自动检测选项改变"""
-        auto_detect = self.auto_detect_var.get()
         # 如果启用自动检测,禁用手动选择
-        state = 'disabled' if auto_detect else 'readonly'
         # 注意: ttk.Combobox不能直接用config设置state,需要重新配置
+        # TODO: 实现自动检测时禁用手动服务选择的逻辑
 
     def on_service_changed(self, event=None):
         """服务类型改变"""

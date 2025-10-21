@@ -13,7 +13,6 @@ class LinkMapFormatter:
 
     def __init__(self):
         """初始化格式化器"""
-        pass
 
     def format_size(self, size):
         """格式化文件大小

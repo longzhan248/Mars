@@ -9,43 +9,50 @@
 5. 详细的日志记录
 """
 
+import json
 import os
-import shutil
-from pathlib import Path
-from typing import Dict, List, Optional, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-import json
+from pathlib import Path
+from typing import Callable, Dict, List, Optional
 
 try:
-    from .config_manager import ObfuscationConfig, ConfigManager
-    from .whitelist_manager import WhitelistManager
-    from .name_generator import NameGenerator, NamingStrategy
-    from .project_analyzer import ProjectAnalyzer, ProjectStructure
+    from .advanced_resource_handler import AdvancedResourceHandler
     from .code_parser import CodeParser, ParsedFile
     from .code_transformer import CodeTransformer, TransformResult
+    from .config_manager import ConfigManager, ObfuscationConfig
+    from .garbage_generator import (
+        CodeLanguage as GarbageCodeLanguage,  # 垃圾代码的CodeLanguage
+    )
+    from .garbage_generator import ComplexityLevel, GarbageCodeGenerator
+    from .incremental_manager import FileChangeType, IncrementalManager
+    from .name_generator import NameGenerator, NamingStrategy
+    from .project_analyzer import ProjectAnalyzer, ProjectStructure
     from .resource_handler import ResourceHandler
-    from .incremental_manager import IncrementalManager, FileChangeType
-    from .advanced_resource_handler import AdvancedResourceHandler
-    from .garbage_generator import GarbageCodeGenerator, ComplexityLevel
-    from .garbage_generator import CodeLanguage as GarbageCodeLanguage  # 垃圾代码的CodeLanguage
-    from .string_encryptor import StringEncryptor, EncryptionAlgorithm
-    from .string_encryptor import CodeLanguage as StringCodeLanguage  # 字符串加密的CodeLanguage
+    from .string_encryptor import (
+        CodeLanguage as StringCodeLanguage,  # 字符串加密的CodeLanguage
+    )
+    from .string_encryptor import EncryptionAlgorithm, StringEncryptor
+    from .whitelist_manager import WhitelistManager
     from .xcode_project_manager import XcodeProjectManager, check_pbxproj_availability
 except ImportError:
-    from config_manager import ObfuscationConfig, ConfigManager
-    from whitelist_manager import WhitelistManager
-    from name_generator import NameGenerator, NamingStrategy
-    from project_analyzer import ProjectAnalyzer, ProjectStructure
+    from advanced_resource_handler import AdvancedResourceHandler
     from code_parser import CodeParser, ParsedFile
     from code_transformer import CodeTransformer, TransformResult
+    from config_manager import ConfigManager, ObfuscationConfig
+    from garbage_generator import (
+        CodeLanguage as GarbageCodeLanguage,  # 垃圾代码的CodeLanguage
+    )
+    from garbage_generator import ComplexityLevel, GarbageCodeGenerator
+    from incremental_manager import FileChangeType, IncrementalManager
+    from name_generator import NameGenerator, NamingStrategy
+    from project_analyzer import ProjectAnalyzer, ProjectStructure
     from resource_handler import ResourceHandler
-    from incremental_manager import IncrementalManager, FileChangeType
-    from advanced_resource_handler import AdvancedResourceHandler
-    from garbage_generator import GarbageCodeGenerator, ComplexityLevel
-    from garbage_generator import CodeLanguage as GarbageCodeLanguage  # 垃圾代码的CodeLanguage
-    from string_encryptor import StringEncryptor, EncryptionAlgorithm
-    from string_encryptor import CodeLanguage as StringCodeLanguage  # 字符串加密的CodeLanguage
+    from string_encryptor import (
+        CodeLanguage as StringCodeLanguage,  # 字符串加密的CodeLanguage
+    )
+    from string_encryptor import EncryptionAlgorithm, StringEncryptor
+    from whitelist_manager import WhitelistManager
     from xcode_project_manager import XcodeProjectManager, check_pbxproj_availability
 
 
@@ -308,8 +315,9 @@ class ObfuscationEngine:
             cache_manager = None
             if self.config.enable_parse_cache:
                 try:
-                    from .parse_cache_manager import ParseCacheManager
                     import os
+
+                    from .parse_cache_manager import ParseCacheManager
 
                     # 确定缓存目录（使用输出目录下的缓存子目录）
                     if hasattr(self.config, 'output_dir') and self.config.output_dir:
@@ -721,7 +729,9 @@ class ObfuscationEngine:
                     for resource_file in resource_files:
                         try:
                             print(f"  处理: {Path(resource_file).name}")
-                            # TODO: 实际XIB/Storyboard处理逻辑
+                            # 注意: XIB/Storyboard类名同步更新功能待完善
+                            # 当前resource_handler.py已有基础实现，需要集成到此处
+                            # 参考: gui/modules/obfuscation/resource_handler.py
                             processed_count += 1
                         except Exception as e:
                             print(f"  ❌ 处理失败 {resource_file}: {e}")

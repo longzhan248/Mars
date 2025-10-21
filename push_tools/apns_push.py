@@ -6,25 +6,18 @@ iOS APNS推送工具
 """
 
 import json
-import ssl
-import socket
-import struct
-import binascii
-import time
 import os
 import pickle
+import ssl
+import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, List, Tuple
-import hashlib
-import subprocess
+from typing import Dict, List, Optional, Tuple
+
+import httpx
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.x509.oid import NameOID, ExtensionOID
-import jwt
-import httpx
+from cryptography.x509.oid import ExtensionOID, NameOID
 
 
 class APNSCertificate:

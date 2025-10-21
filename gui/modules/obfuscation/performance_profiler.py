@@ -33,14 +33,13 @@
 版本：v1.0.0
 """
 
+import json
 import time
 import tracemalloc
-from functools import wraps
-from typing import Dict, List, Optional, Callable, Any
 from contextlib import contextmanager
-from dataclasses import dataclass, field
-from pathlib import Path
-import json
+from dataclasses import dataclass
+from functools import wraps
+from typing import Dict, List, Optional
 
 
 @dataclass
@@ -437,7 +436,7 @@ def example_usage():
     # 示例2: 使用上下文管理器
     with profiler.measure("数据处理"):
         data = [i**2 for i in range(10000)]
-        result = sum(data)
+        _result = sum(data)  # 示例计算结果
 
     # 示例3: 多次调用
     @profiler.profile("列表排序")

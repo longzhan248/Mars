@@ -3,15 +3,15 @@
 iOS推送功能测试脚本
 """
 
-import sys
-import os
 import json
+import os
+import sys
 from pathlib import Path
 
 # 添加父目录到路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from apns_push import APNSManager, APNSCertificate
+from apns_push import APNSManager
 
 
 def test_certificate_loading():
@@ -136,7 +136,7 @@ def test_mock_push():
     """模拟推送发送（不实际发送）"""
     print("\n=== 模拟推送发送 ===")
 
-    manager = APNSManager()
+    _manager = APNSManager()  # 模拟创建，未实际使用
 
     # 模拟设备Token
     mock_token = "a" * 64  # 64个字符的假Token

@@ -5,11 +5,11 @@ AI助手侧边栏面板
 为Mars日志分析器提供AI辅助分析功能
 """
 
-import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext
 import threading
-from typing import Callable, Optional, List
+import tkinter as tk
 from datetime import datetime
+from tkinter import messagebox, scrolledtext, ttk
+from typing import Optional
 
 
 def safe_import_ai_diagnosis():
@@ -192,7 +192,7 @@ class AIAssistantPanel:
 
                                 code_content.append(code_section)
                                 char_count += len(code_section)
-                        except Exception as e:
+                        except Exception:
                             continue
 
                 if char_count >= max_chars:
@@ -402,12 +402,14 @@ class AIAssistantPanel:
                 manager = get_custom_prompt_manager()
             except ImportError:
                 try:
-                    import sys
                     import os
+                    import sys
                     gui_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                     if gui_dir not in sys.path:
                         sys.path.insert(0, gui_dir)
-                    from modules.ai_diagnosis.custom_prompt_manager import get_custom_prompt_manager
+                    from modules.ai_diagnosis.custom_prompt_manager import (
+                        get_custom_prompt_manager,
+                    )
                     manager = get_custom_prompt_manager()
                 except ImportError:
                     # 无法加载管理器，显示提示
@@ -454,6 +456,13 @@ class AIAssistantPanel:
     def _create_tooltip(self, widget, text):
         """为widget创建工具提示"""
         def on_enter(event):
+            """鼠标进入事件处理函数
+
+            Args:
+                event: Tkinter鼠标事件对象
+
+            当鼠标悬停在widget上时，显示工具提示窗口。
+            """
             # 创建提示窗口
             tooltip = tk.Toplevel()
             tooltip.wm_overrideredirect(True)
@@ -481,6 +490,13 @@ class AIAssistantPanel:
             widget._tooltip = tooltip
 
         def on_leave(event):
+            """鼠标离开事件处理函数
+
+            Args:
+                event: Tkinter鼠标事件对象
+
+            当鼠标离开widget时，销毁工具提示窗口。
+            """
             # 销毁提示窗口
             if hasattr(widget, '_tooltip'):
                 try:
@@ -930,6 +946,13 @@ class AIAssistantPanel:
         interval = duration // len(colors)
 
         def apply_color(index):
+            """应用渐变高亮颜色的递归函数
+
+            Args:
+                index: 当前颜色索引
+
+            递归调用自身实现渐变动画效果，从亮黄色渐变到透明。
+            """
             if index < len(colors):
                 # 配置当前颜色
                 text_widget.tag_config("ai_highlight",
@@ -1182,6 +1205,17 @@ class AIAssistantPanel:
         search_entry.focus()
 
         def do_search():
+            """执行智能搜索操作
+
+            获取用户输入的搜索描述，使用AI进行智能搜索分析，
+            并在后台线程中处理搜索请求以避免阻塞UI。
+
+            处理流程：
+            1. 验证输入和前置条件
+            2. 使用Token优化器优化搜索提示词
+            3. 调用AI服务进行智能搜索
+            4. 显示搜索结果
+            """
             description = search_var.get().strip()
             if not description:
                 return
@@ -1690,8 +1724,9 @@ class AIAssistantPanel:
                     from modules.custom_prompt_dialog import show_custom_prompt_dialog
                 except ImportError:
                     # 最后尝试完整路径
-                    import sys
                     import os
+                    import sys
+
                     # 添加gui目录到路径
                     gui_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                     if gui_dir not in sys.path:
@@ -1711,8 +1746,8 @@ class AIAssistantPanel:
                 try:
                     from modules.custom_prompt_selector import create_prompt_selector
                 except ImportError:
-                    import sys
                     import os
+                    import sys
                     gui_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                     if gui_dir not in sys.path:
                         sys.path.insert(0, gui_dir)
@@ -1750,12 +1785,14 @@ class AIAssistantPanel:
             except ImportError:
                 try:
                     # 添加路径后导入
-                    import sys
                     import os
+                    import sys
                     gui_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                     if gui_dir not in sys.path:
                         sys.path.insert(0, gui_dir)
-                    from modules.ai_diagnosis.custom_prompt_manager import get_custom_prompt_manager
+                    from modules.ai_diagnosis.custom_prompt_manager import (
+                        get_custom_prompt_manager,
+                    )
                     manager = get_custom_prompt_manager()
                 except ImportError as e:
                     messagebox.showerror("错误", f"无法加载自定义Prompt管理器: {e}")
@@ -1825,6 +1862,17 @@ class AIAssistantPanel:
         btn_frame.pack(fill=tk.X, padx=10, pady=10)
 
         def on_submit():
+            """提交自定义Prompt变量配置
+
+            处理用户在变量配置对话框中输入的变量值，
+            验证完整性并执行自定义Prompt分析。
+
+            处理流程：
+            1. 收集并验证所有必需变量
+            2. 自动填充日志摘要（如需要）
+            3. 格式化Prompt模板
+            4. 关闭对话框并执行分析
+            """
             # 收集变量值
             values = {}
             for var_name, text_widget in var_entries.items():

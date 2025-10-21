@@ -5,10 +5,9 @@ iOS应用管理模块
 负责应用列表的加载、过滤和选择
 """
 
-from tkinter import messagebox
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import time
+from tkinter import messagebox
 
 
 class AppManager:
@@ -73,7 +72,9 @@ class AppManager:
         """异步加载应用列表，并使用多线程并发检测访问权限"""
         try:
             from pymobiledevice3.lockdown import create_using_usbmux
-            from pymobiledevice3.services.installation_proxy import InstallationProxyService
+            from pymobiledevice3.services.installation_proxy import (
+                InstallationProxyService,
+            )
 
             device_id = self.parent.device_id
             if not device_id:

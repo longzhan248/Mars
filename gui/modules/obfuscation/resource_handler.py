@@ -8,13 +8,12 @@
 4. Plist文件处理
 """
 
-import os
 import hashlib
 import json
 import plistlib
-from pathlib import Path
-from typing import Dict, List, Set, Optional
 import xml.etree.ElementTree as ET
+from pathlib import Path
+from typing import Dict, List
 
 
 class ResourceHandler:

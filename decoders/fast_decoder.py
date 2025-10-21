@@ -6,12 +6,11 @@
 """
 
 import os
-import struct
-import zlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import threading
-from typing import List, Tuple, Optional
-from decode_mars_nocrypt_log_file_py3 import ParseFile, GetLogStartPos, DecodeBuffer
+from typing import List, Optional, Tuple
+
+from decode_mars_nocrypt_log_file_py3 import ParseFile
+
 
 class FastXLogDecoder:
     """快速xlog解码器 - 使用多文件并行处理"""

@@ -7,7 +7,6 @@ dSYM文件管理模块
 
 import os
 import subprocess
-from pathlib import Path
 
 
 class DSYMFileManager:

@@ -7,13 +7,8 @@ Mars日志分析器专业版 - 模块化重构版本
 
 import os
 import sys
-import re
-import threading
-import queue
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-from datetime import datetime
-from collections import Counter, defaultdict
+from tkinter import filedialog, messagebox, ttk
 
 # 添加模块路径
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -31,42 +26,47 @@ for path in [modules_path, components_path, decoders_path, tools_path, push_tool
 # 导入模块化组件
 try:
     # 尝试相对导入（从gui目录运行时）
-    from modules.data_models import LogEntry, FileGroup
+    from modules.data_models import FileGroup, LogEntry
     from modules.file_operations import FileOperations
     from modules.filter_search import FilterSearchManager
     from modules.ips_tab import IPSAnalysisTab
+
+    # 阶段二优化模块
+    from modules.log_indexer import IndexedFilterSearchManager, LogIndexer
     from modules.push_tab import PushTestTab
     from modules.sandbox_tab import SandboxBrowserTab
-    # 阶段二优化模块
-    from modules.log_indexer import LogIndexer, IndexedFilterSearchManager
-    from modules.stream_loader import StreamLoader, EnhancedFileOperations
+    from modules.stream_loader import EnhancedFileOperations, StreamLoader
 except ImportError:
     # 绝对导入（从项目根目录运行时）
-    from gui.modules.data_models import LogEntry, FileGroup
     from gui.modules.file_operations import FileOperations
-    from gui.modules.filter_search import FilterSearchManager
     from gui.modules.ips_tab import IPSAnalysisTab
+
+    # 阶段二优化模块
+    from gui.modules.log_indexer import IndexedFilterSearchManager, LogIndexer
     from gui.modules.push_tab import PushTestTab
     from gui.modules.sandbox_tab import SandboxBrowserTab
-    # 阶段二优化模块
-    from gui.modules.log_indexer import LogIndexer, IndexedFilterSearchManager
-    from gui.modules.stream_loader import StreamLoader, EnhancedFileOperations
+    from gui.modules.stream_loader import EnhancedFileOperations, StreamLoader
 
 # 导入原有组件
 try:
     from components.improved_lazy_text import ImprovedLazyText
 except ImportError:
     try:
-        from improved_lazy_text import ImprovedLazyText
+        from scrolled_text_with_lazy_load import (
+            ScrolledTextWithLazyLoad as ImprovedLazyText,
+        )
     except ImportError:
-        from scrolled_text_with_lazy_load import ScrolledTextWithLazyLoad as ImprovedLazyText
+        # 如果都导入失败，使用备用方案
+        ImprovedLazyText = None
 
 # 导入原mars_log_analyzer_pro.py中的MarsLogAnalyzerPro类
 # 使用原始文件作为基类，保证功能完全一致
 try:
     from mars_log_analyzer_pro import MarsLogAnalyzerPro as OriginalMarsLogAnalyzerPro
 except ImportError:
-    from gui.mars_log_analyzer_pro import MarsLogAnalyzerPro as OriginalMarsLogAnalyzerPro
+    from gui.mars_log_analyzer_pro import (
+        MarsLogAnalyzerPro as OriginalMarsLogAnalyzerPro,
+    )
 
 
 class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):

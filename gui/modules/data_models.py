@@ -122,7 +122,7 @@ class LogEntry:
                     self.module = module_name
                     break  # 匹配到第一个规则后停止
 
-            except Exception as e:
+            except Exception:
                 # 忽略错误
                 continue
 
@@ -138,7 +138,7 @@ class LogEntry:
             self.level = self.LEVEL_MAP.get(crash_match.group(1), crash_match.group(1))
             self.timestamp = crash_match.group(2)
             self.thread_id = crash_match.group(3)
-            tag1 = crash_match.group(4)  # ERROR
+            _tag1 = crash_match.group(4)  # ERROR (unused, kept for documentation)
             tag2 = crash_match.group(5)  # HY-Default
             location = crash_match.group(6)  # CrashReportManager.m, attachmentForException, 204
             content = crash_match.group(7)  # *** Terminating app...

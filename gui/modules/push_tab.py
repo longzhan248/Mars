@@ -7,7 +7,7 @@ iOS推送测试标签页模块
 import os
 import sys
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox, ttk
 
 # 添加push_tools路径
 push_tools_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'push_tools')

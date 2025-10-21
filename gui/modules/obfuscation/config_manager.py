@@ -10,10 +10,10 @@
 
 import json
 import os
-from pathlib import Path
-from typing import Dict, Any, Optional, List
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 
 class ObfuscationLevel(Enum):

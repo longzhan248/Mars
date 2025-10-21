@@ -8,7 +8,7 @@
 
 import tkinter as tk
 from tkinter import ttk
-from typing import List, Union, Dict, Tuple, Any, Optional
+from typing import Any, List, Optional
 
 
 class ImprovedLazyText(tk.Frame):

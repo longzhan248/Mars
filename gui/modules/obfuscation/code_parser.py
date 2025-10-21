@@ -10,10 +10,10 @@
 """
 
 import re
-from pathlib import Path
-from typing import Dict, List, Set, Optional, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
+from typing import Dict, List, Optional, Set
 
 
 class StringLiteralProtector:
@@ -381,7 +381,7 @@ class ObjCParser:
                 return None
 
             parent_class = match.group(2) if match.group(2) else None
-            protocols = match.group(3) if match.group(3) else None
+            # protocols = match.group(3) if match.group(3) else None  # TODO: 支持协议信息
 
             return Symbol(
                 name=class_name,
@@ -1194,8 +1194,8 @@ struct User {
 """
 
     # 保存测试文件
-    import tempfile
     import os
+    import tempfile
 
     with tempfile.TemporaryDirectory() as tmpdir:
         objc_path = os.path.join(tmpdir, "test.h")

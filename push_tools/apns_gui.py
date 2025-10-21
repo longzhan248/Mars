@@ -4,20 +4,20 @@ iOS APNS推送GUI界面
 集成到mars_log_analyzer项目的推送测试工具
 """
 
-import tkinter as tk
-from tkinter import ttk, messagebox, filedialog, scrolledtext
 import json
+import os
+import sys
 import threading
+import tkinter as tk
 from datetime import datetime
 from pathlib import Path
+from tkinter import filedialog, messagebox, scrolledtext, ttk
 from typing import Optional
-import sys
-import os
 
 # 添加父目录到路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from apns_push import APNSManager, APNSCertificate
+from apns_push import APNSManager
 
 
 class APNSPushGUI(ttk.Frame):
@@ -511,12 +511,9 @@ class APNSPushGUI(ttk.Frame):
             messagebox.showwarning("警告", "请选择要重新发送的记录")
             return
 
-        # 获取选中记录的数据
-        item = self.history_tree.item(selected[0])
-        values = item['values']
-
-        # 这里需要从历史记录中获取完整数据
-        # 简化处理，提示用户
+        # TODO: 实现从历史记录重新发送功能
+        # 需要从历史记录中获取完整数据（device_token, payload, environment等）
+        # 简化处理，提示用户手动复制
         messagebox.showinfo("提示", "请手动复制历史记录中的数据到输入框")
 
     def clear_history(self):
@@ -597,8 +594,8 @@ def create_standalone_window():
     style = ttk.Style()
     style.theme_use('clam')
 
-    # 创建GUI
-    app = APNSPushGUI(root)
+    # 创建GUI（必须保留引用以防止垃圾回收）
+    _app = APNSPushGUI(root)
 
     # 居中窗口
     root.update_idletasks()

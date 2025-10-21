@@ -1,13 +1,12 @@
 #!/usr/local/bin/python2
 
-import sys
-import os
-import glob
-import zlib
-import struct
 import binascii
+import glob
+import os
+import struct
+import sys
 import traceback
-
+import zlib
 
 MAGIC_NO_COMPRESS_START = 0x03
 MAGIC_NO_COMPRESS_START1 = 0x06

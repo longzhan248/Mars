@@ -39,10 +39,9 @@
 import multiprocessing
 import time
 from concurrent.futures import ProcessPoolExecutor
-from pathlib import Path
-from typing import Dict, List, Optional, Callable, Any, Tuple
 from dataclasses import dataclass
-import pickle
+from pathlib import Path
+from typing import Any, Callable, Dict, Optional
 
 
 @dataclass
@@ -84,8 +83,8 @@ def transform_file_worker(task: TransformTask) -> TransformResult:
 
     try:
         # 导入必要的模块（在子进程中）
-        import sys
         import os
+        import sys
 
         # 添加项目路径
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -353,8 +352,10 @@ def benchmark_multiprocess_transformation():
     print("多进程转换性能基准测试")
     print("="*60)
 
-    # TODO: 实现基准测试
-    print("基准测试待实现")
+    # 注意: 性能基准测试功能可在未来版本添加
+    # 用于对比单进程和多进程转换器的性能差异
+    # 测试内容: 不同文件大小、不同文件数量下的耗时对比
+    print("基准测试功能待实现（可选的性能分析工具）")
     print("="*60 + "\n")
 
 

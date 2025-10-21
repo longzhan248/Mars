@@ -5,13 +5,12 @@ Based on MacSymbolicator's approach for parsing and symbolicating iOS crash repo
 """
 
 import json
+import os
 import re
 import subprocess
-import tempfile
-import os
-from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
-from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 
 @dataclass
 class BinaryImage:

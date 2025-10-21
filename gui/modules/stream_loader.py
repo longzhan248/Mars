@@ -15,9 +15,9 @@
 - 支持GB级文件加载
 """
 
-import os
 import itertools
-from typing import Iterator, List, Optional, Callable, Tuple
+import os
+from typing import Callable, Iterator, List, Optional, Tuple
 
 # chardet是可选依赖，如果不可用则使用备用方案
 try:
@@ -354,8 +354,8 @@ class EnhancedFileOperations:
 # 性能测试
 def benchmark_stream_loader():
     """流式加载器性能测试"""
-    import time
     import tempfile
+    import time
 
     # 生成测试文件
     print("生成测试文件...")

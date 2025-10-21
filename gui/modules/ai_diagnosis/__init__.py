@@ -23,11 +23,10 @@ from .ai_client import (
     AIClient,
     AIClientFactory,
     ClaudeClient,
-    OpenAIClient,
+    ClaudeCodeClient,
     OllamaClient,
-    ClaudeCodeClient
+    OpenAIClient,
 )
-
 from .config import AIConfig
 
 __all__ = [

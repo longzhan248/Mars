@@ -14,9 +14,8 @@
 """
 
 import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox, filedialog
-from typing import Optional
 import uuid
+from tkinter import filedialog, messagebox, scrolledtext, ttk
 
 # 使用统一的导入辅助模块
 try:
@@ -370,7 +369,6 @@ class CustomPromptDialog:
     def _on_edit(self):
         """编辑当前选中的模板"""
         # 已经通过_on_select加载了数据，无需额外操作
-        pass
 
     def _on_duplicate(self):
         """复制当前选中的模板"""

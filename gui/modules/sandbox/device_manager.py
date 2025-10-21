@@ -26,8 +26,8 @@ class DeviceManager:
             return
 
         try:
-            from pymobiledevice3.usbmux import list_devices
             from pymobiledevice3.lockdown import create_using_usbmux
+            from pymobiledevice3.usbmux import list_devices
 
             devices = list_devices()
             if not devices:

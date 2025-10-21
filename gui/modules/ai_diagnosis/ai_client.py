@@ -34,7 +34,6 @@ class AIClient(ABC):
             RuntimeError: 当调用失败时
             TimeoutError: 当请求超时时
         """
-        pass
 
 
 class ClaudeClient(AIClient):

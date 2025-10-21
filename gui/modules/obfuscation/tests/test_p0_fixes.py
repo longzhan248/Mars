@@ -6,17 +6,18 @@ P0修复验证测试
 2. resource_handler.py - XIB/Storyboard完整属性支持
 """
 
-import unittest
-import tempfile
 import os
-from pathlib import Path
 
 # 导入需要测试的模块
 import sys
+import tempfile
+import unittest
+from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
+from gui.modules.obfuscation.code_parser import CodeParser
 from gui.modules.obfuscation.code_transformer import CodeTransformer
-from gui.modules.obfuscation.code_parser import CodeParser, Symbol, SymbolType
 from gui.modules.obfuscation.name_generator import NameGenerator, NamingStrategy
 from gui.modules.obfuscation.resource_handler import ResourceHandler
 

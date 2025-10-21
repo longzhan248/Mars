@@ -7,10 +7,10 @@
 
 import os
 import struct
-import zlib
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
-from typing import List, Tuple, Optional
+import zlib
+from concurrent.futures import ThreadPoolExecutor
+from typing import List
 
 # 从原始解码器导入常量
 MAGIC_NO_COMPRESS_START = 0x03

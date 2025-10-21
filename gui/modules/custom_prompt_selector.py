@@ -5,8 +5,8 @@
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox
-from typing import Callable, List, Optional
+from tkinter import messagebox, ttk
+from typing import Callable, List
 
 
 class CustomPromptSelector:
@@ -38,12 +38,14 @@ class CustomPromptSelector:
                 self.manager = get_custom_prompt_manager()
             except ImportError:
                 try:
-                    import sys
                     import os
+                    import sys
                     gui_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                     if gui_dir not in sys.path:
                         sys.path.insert(0, gui_dir)
-                    from modules.ai_diagnosis.custom_prompt_manager import get_custom_prompt_manager
+                    from modules.ai_diagnosis.custom_prompt_manager import (
+                        get_custom_prompt_manager,
+                    )
                     self.manager = get_custom_prompt_manager()
                 except ImportError as e:
                     print(f"无法加载自定义Prompt管理器: {e}")
@@ -234,8 +236,8 @@ class CustomPromptSelector:
                 try:
                     from modules.custom_prompt_dialog import show_custom_prompt_dialog
                 except ImportError:
-                    import sys
                     import os
+                    import sys
                     gui_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                     if gui_dir not in sys.path:
                         sys.path.insert(0, gui_dir)
@@ -273,12 +275,14 @@ class MultiPromptSelector:
                 self.manager = get_custom_prompt_manager()
             except ImportError:
                 try:
-                    import sys
                     import os
+                    import sys
                     gui_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                     if gui_dir not in sys.path:
                         sys.path.insert(0, gui_dir)
-                    from modules.ai_diagnosis.custom_prompt_manager import get_custom_prompt_manager
+                    from modules.ai_diagnosis.custom_prompt_manager import (
+                        get_custom_prompt_manager,
+                    )
                     self.manager = get_custom_prompt_manager()
                 except ImportError as e:
                     print(f"无法加载自定义Prompt管理器: {e}")

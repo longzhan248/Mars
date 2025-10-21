@@ -6,8 +6,8 @@ Provides dSYM file management, UUID parsing and crash symbolication functionalit
 """
 
 from .dsym_file_manager import DSYMFileManager
-from .dsym_uuid_parser import DSYMUUIDParser
 from .dsym_symbolizer import DSYMSymbolizer
+from .dsym_uuid_parser import DSYMUUIDParser
 
 __all__ = [
     'DSYMFileManager',

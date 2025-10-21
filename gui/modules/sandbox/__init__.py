@@ -5,8 +5,8 @@ iOS Sandbox Browser Module
 Device management, app management, file browsing, file operations, file preview and search functionality
 """
 
-from .device_manager import DeviceManager
 from .app_manager import AppManager
+from .device_manager import DeviceManager
 from .file_browser import FileBrowser
 from .file_operations import FileOperations
 from .file_preview import FilePreview

@@ -6,8 +6,8 @@
 """
 
 import os
-import re
 import platform
+import re
 import subprocess
 import threading
 from tkinter import filedialog, messagebox

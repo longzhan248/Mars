@@ -4,11 +4,9 @@
 IPS崩溃日志解析标签页模块
 """
 
-import os
-import sys
 import json
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, scrolledtext
+from tkinter import filedialog, messagebox, scrolledtext, ttk
 
 
 class IPSAnalysisTab:

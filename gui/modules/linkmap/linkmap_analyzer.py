@@ -15,7 +15,6 @@ class LinkMapAnalyzer:
 
     def __init__(self):
         """初始化分析器"""
-        pass
 
     def filter_by_keyword(self, symbol_map, keyword):
         """按关键词过滤符号

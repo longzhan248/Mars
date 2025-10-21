@@ -1,23 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, scrolledtext
-import os
-import sys
 import glob
-import threading
+import json
+import os
 import queue
 import re
-from datetime import datetime
-import json
+import sys
+import threading
+import tkinter as tk
 from collections import Counter, defaultdict
+from datetime import datetime
+from tkinter import filedialog, messagebox, scrolledtext, ttk
+
 import matplotlib
+
 matplotlib.use('TkAgg')
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
-from matplotlib import font_manager
 
 # 配置模块搜索路径
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'decoders'))
@@ -25,8 +24,10 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'components'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'push_tools'))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'modules'))
 
-from decode_mars_nocrypt_log_file_py3 import ParseFile, GetLogStartPos, DecodeBuffer
+# 导入将在需要时进行
+# from decode_mars_nocrypt_log_file_py3 import DecodeBuffer, GetLogStartPos, ParseFile
 from fast_decoder import FastXLogDecoder
+
 try:
     from improved_lazy_text import ImprovedLazyText as LazyLoadText
 except ImportError:
@@ -34,9 +35,9 @@ except ImportError:
 
 # 导入模块化的数据模型（统一使用，避免重复定义）
 try:
-    from modules.data_models import LogEntry, FileGroup
+    from modules.data_models import FileGroup, LogEntry
 except ImportError:
-    from gui.modules.data_models import LogEntry, FileGroup
+    from gui.modules.data_models import FileGroup, LogEntry
 
 
 # 设置中文字体
@@ -839,6 +840,7 @@ class MarsLogAnalyzerPro:
                 else:
                     # 如果没有timestamp，尝试从raw_line提取
                     import re
+
                     # 支持格式：[I][2025-09-21 +8.0 13:09:49.038]
                     time_pattern = r'\[(\d{4}-\d{2}-\d{2}\s+[+\-]?\d+\.?\d*\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\]'
                     match = re.search(time_pattern, entry.raw_line)
@@ -2002,7 +2004,6 @@ class MarsLogAnalyzerPro:
     def select_dsym_file(self):
         """选择dSYM文件"""
         import platform
-        import os
 
         # 在macOS上使用特殊的文件选择方式
         if platform.system() == 'Darwin':  # macOS
@@ -2079,6 +2080,7 @@ class MarsLogAnalyzerPro:
 
         if parent_dir:
             import os
+
             # 列出目录中的所有.dSYM文件
             dsym_files = []
             for item in os.listdir(parent_dir):
@@ -2093,7 +2095,7 @@ class MarsLogAnalyzerPro:
                     return os.path.join(parent_dir, dsym_files[0])
                 else:
                     # 多个dSYM文件，让用户选择
-                    from tkinter import Toplevel, Listbox, Button, Label, SINGLE
+                    from tkinter import SINGLE, Button, Label, Listbox, Toplevel
 
                     select_window = Toplevel(self.root)
                     select_window.title("选择dSYM文件")
@@ -2138,6 +2140,7 @@ class MarsLogAnalyzerPro:
     def validate_dsym(self, dsym_path):
         """验证dSYM文件的有效性"""
         import os
+
         # 检查是否是有效的dSYM目录结构
         if os.path.isdir(dsym_path):
             dwarf_path = os.path.join(dsym_path, "Contents", "Resources", "DWARF")
@@ -2310,8 +2313,8 @@ class MarsLogAnalyzerPro:
         """在后台线程中解析IPS崩溃日志"""
         try:
             # 使用新的IPS解析器
-            import sys
             import os
+            import sys
             sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tools'))
             from ips_parser import IPSParser, IPSSymbolicator
 
@@ -3262,7 +3265,6 @@ except Exception as e:
 
     def symbolicate_crash(self, ips_file, dsym_file):
         """符号化崩溃报告（使用MacSymbolicator的方法）"""
-        import subprocess
 
         try:
             # 读取IPS文件内容
@@ -3494,8 +3496,8 @@ except Exception as e:
 
     def symbolicate_system_library(self, library_path, arch, load_address, addresses):
         """符号化系统库地址"""
-        import subprocess
         import os
+        import subprocess
 
         try:
             # 系统库符号通常在符号缓存中
@@ -3714,6 +3716,7 @@ except Exception as e:
         # 延迟导入，避免启动时依赖检查
         try:
             from apns_gui import APNSPushGUI
+
             # 创建推送GUI实例（嵌入到标签页中）
             self.push_gui = APNSPushGUI(push_frame)
             self.push_gui.pack(fill=tk.BOTH, expand=True)

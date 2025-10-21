@@ -9,17 +9,17 @@ P1缓存机制集成测试
 5. 完整流程端到端测试
 """
 
-import unittest
 import os
-import tempfile
 import shutil
-from pathlib import Path
 
 # 添加项目根目录到路径
 import sys
+import tempfile
+import unittest
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..')))
 
-from gui.modules.obfuscation.config_manager import ObfuscationConfig, ConfigManager
+from gui.modules.obfuscation.config_manager import ConfigManager, ObfuscationConfig
 from gui.modules.obfuscation.obfuscation_engine import ObfuscationEngine
 from gui.modules.obfuscation.parse_cache_manager import ParseCacheManager
 

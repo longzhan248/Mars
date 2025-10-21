@@ -11,11 +11,10 @@ Claude Code代理客户端
 优先级：HTTP API > CLI调用 > MCP
 """
 
+import os
 import subprocess
 import tempfile
-import os
-import time
-from typing import Optional, List
+from typing import List, Optional
 
 
 class ClaudeCodeProxyClient:
