@@ -6,6 +6,7 @@
 """
 
 import re
+from typing import List, Dict, Optional, Any, ClassVar, Pattern, Match
 
 
 class LogEntry:
@@ -31,7 +32,7 @@ class LogEntry:
     ]
 
     # 级别映射表
-    LEVEL_MAP = {
+    LEVEL_MAP: ClassVar[Dict[str, str]] = {
         'I': 'INFO',
         'W': 'WARNING',
         'E': 'ERROR',
@@ -41,31 +42,31 @@ class LogEntry:
     }
 
     # 崩溃关键词 - 必须是确定的崩溃标识
-    CRASH_KEYWORDS = [
+    CRASH_KEYWORDS: ClassVar[List[str]] = [
         '*** Terminating app due to uncaught exception'  # 只有这个才是真正的崩溃
     ]
 
     # 类变量：存储自定义模块规则
-    custom_module_rules = []
+    custom_module_rules: ClassVar[List[Dict[str, Any]]] = []
 
     @classmethod
-    def set_custom_rules(cls, rules):
+    def set_custom_rules(cls, rules: List[Dict[str, Any]]) -> None:
         """设置自定义模块规则"""
         cls.custom_module_rules = rules
 
-    def __init__(self, raw_line, source_file=""):
-        self.raw_line = raw_line
-        self.source_file = source_file  # 来源文件
-        self.level = None
-        self.timestamp = None
-        self.module = None
-        self.content = None
-        self.thread_id = None
-        self.is_crash = False  # 是否为崩溃日志
-        self.is_stacktrace = False  # 是否为堆栈信息
+    def __init__(self, raw_line: str, source_file: str = "") -> None:
+        self.raw_line: str = raw_line
+        self.source_file: str = source_file  # 来源文件
+        self.level: Optional[str] = None
+        self.timestamp: Optional[str] = None
+        self.module: Optional[str] = None
+        self.content: Optional[str] = None
+        self.thread_id: Optional[str] = None
+        self.is_crash: bool = False  # 是否为崩溃日志
+        self.is_stacktrace: bool = False  # 是否为堆栈信息
         self.parse()
 
-    def _is_crash_content(self, content, location=""):
+    def _is_crash_content(self, content: Optional[str], location: str = "") -> bool:
         """检测内容是否包含崩溃信息"""
         if not content:
             return False
@@ -77,7 +78,7 @@ class LogEntry:
 
         return False
 
-    def _mark_as_crash(self, location=None):
+    def _mark_as_crash(self, location: Optional[str] = None) -> None:
         """标记为崩溃日志"""
         self.is_crash = True
         self.level = 'CRASH'
@@ -87,16 +88,16 @@ class LogEntry:
             if not self.content.startswith(f"[{location}]"):
                 self.content = f"[{location}] {self.content}"
 
-    def _apply_custom_rules(self, content):
+    def _apply_custom_rules(self, content: Optional[str]) -> None:
         """应用自定义模块规则"""
         if not content or not self.custom_module_rules:
             return
 
         for rule in self.custom_module_rules:
             try:
-                pattern = rule.get('pattern')
-                module_name = rule.get('module')
-                rule_type = rule.get('type', '正则')  # 默认为正则，兼容旧数据
+                pattern: str = rule.get('pattern', '')
+                module_name: str = rule.get('module', '')
+                rule_type: str = rule.get('type', '正则')  # 默认为正则，兼容旧数据
 
                 if not pattern or not module_name:
                     continue
@@ -110,7 +111,7 @@ class LogEntry:
                         # 字符串匹配不修改content
                 else:
                     # 正则模式：使用正则表达式匹配
-                    match = re.match(pattern, content)
+                    match: Optional[Match] = re.match(pattern, content)
                     if match:
                         matched = True
                         # 如果规则有捕获组，提取清理后的内容
@@ -126,7 +127,7 @@ class LogEntry:
                 # 忽略错误
                 continue
 
-    def parse(self):
+    def parse(self) -> None:
         """解析日志行"""
         # 尝试匹配带有两个模块标签的格式（崩溃日志特殊格式）
         # 格式: [级别][时间][线程ID][<标签1><标签2>][位置信息][内容]
@@ -274,16 +275,16 @@ class FileGroup:
 
     __slots__ = ['base_name', 'files', 'entries']
 
-    def __init__(self, base_name):
-        self.base_name = base_name
-        self.files = []  # 文件路径列表
-        self.entries = []  # 合并后的日志条目
+    def __init__(self, base_name: str) -> None:
+        self.base_name: str = base_name
+        self.files: List[str] = []  # 文件路径列表
+        self.entries: List[LogEntry] = []  # 合并后的日志条目
 
-    def add_file(self, filepath):
+    def add_file(self, filepath: str) -> None:
         """添加文件到组"""
         self.files.append(filepath)
 
-    def get_display_name(self):
+    def get_display_name(self) -> str:
         """获取显示名称"""
         import os
         file_count = len(self.files)

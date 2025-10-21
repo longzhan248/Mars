@@ -10,7 +10,7 @@ import os
 import sys
 from collections import defaultdict
 from datetime import datetime
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Dict, Any, Generator, Tuple, Union
 
 # 添加解码器路径
 decoders_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'decoders')
@@ -31,7 +31,7 @@ from .exceptions import (
 class FileOperations:
     """文件操作类"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     @staticmethod
