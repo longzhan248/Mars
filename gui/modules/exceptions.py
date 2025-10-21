@@ -79,6 +79,10 @@ class XinyuDevToolsError(Exception):
         self.cause = cause
         self.timestamp = datetime.now()
 
+        # 设置异常链
+        if cause:
+            self.__cause__ = cause
+
     def _generate_user_message(self) -> str:
         """生成用户友好的错误提示"""
         return f"操作失败：{self.message}"
@@ -504,7 +508,7 @@ class ExceptionCollector:
     def get_summary(self) -> Dict[str, Any]:
         """获取异常汇总信息"""
         if not self.exceptions:
-            return {'total': 0, 'by_severity': {}, 'by_type': {}}
+            return {'total': 0, 'by_severity': {}, 'by_type': {}, 'latest': None}
 
         by_severity = {}
         by_type = {}
