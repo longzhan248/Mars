@@ -30,7 +30,11 @@
       "Bash(autoflake:*)",
       "Bash(isort:*)",
       "Bash(echo \"Exit code: $?\")",
-      "Bash(./scripts/run_analyzer.sh:*)"
+      "Bash(./scripts/run_analyzer.sh:*)",
+      "Bash(for:*)",
+      "Bash(do echo:*)",
+      "Bash(wc:*)",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []
