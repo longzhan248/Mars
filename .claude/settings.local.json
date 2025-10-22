@@ -37,7 +37,10 @@
       "Bash(done)",
       "Bash(tree:*)",
       "Bash(while read f)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(git fsck:*)",
+      "Bash(git gc:*)",
+      "Bash(git reflog:*)"
     ],
     "deny": [],
     "ask": []
