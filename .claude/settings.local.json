@@ -35,7 +35,9 @@
       "Bash(do echo:*)",
       "Bash(wc:*)",
       "Bash(done)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(while read f)",
+      "Bash(rm:*)"
     ],
     "deny": [],
     "ask": []

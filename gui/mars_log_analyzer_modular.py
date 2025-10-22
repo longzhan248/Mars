@@ -277,12 +277,13 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
 
     def create_obfuscation_tab(self):
         """创建iOS代码混淆标签页"""
-        from modules.obfuscation_tab import ObfuscationTab
+        # 修改导入：使用重构后的ObfuscationTab
+        from modules.obfuscation import ObfuscationTab
 
         obfuscation_frame = ttk.Frame(self.main_notebook, padding="10")
         self.main_notebook.add(obfuscation_frame, text="iOS混淆")
 
-        # 使用模块化的混淆标签页
+        # 使用重构后的模块化混淆标签页
         self.obfuscation_tab = ObfuscationTab(obfuscation_frame, self)
         self.obfuscation_tab.pack(fill=tk.BOTH, expand=True)
 
@@ -404,9 +405,9 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
 
             # 导入AI助手面板
             try:
-                from modules.ai_assistant_panel import AIAssistantPanel
+                from modules.ai_assistant import AIAssistantPanel
             except ImportError:
-                from gui.modules.ai_assistant_panel import AIAssistantPanel
+                from gui.modules.ai_assistant import AIAssistantPanel
 
             # 创建新窗口
             self.ai_window = tk.Toplevel(self.root)
@@ -555,7 +556,7 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
         if log_text is not None:
             # 直接分析提供的文本
             question = f"分析以下日志的问题和原因：\n\n{log_text[:500]}"
-            self.ai_assistant.question_var.set(question)
+            self.ai_assistant.chat_panel.question_var.set(question)
             self.ai_assistant.ask_question()
             return
 
@@ -587,7 +588,7 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
                 question += context_info
 
         # 设置AI助手的输入框并触发提问
-        self.ai_assistant.question_var.set(question)
+        self.ai_assistant.chat_panel.question_var.set(question)
         self.ai_assistant.ask_question()
 
     def ai_explain_error(self, log_text=None):
@@ -614,7 +615,7 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
         # 如果提供了log_text参数，使用简化逻辑
         if log_text is not None:
             question = f"解释以下错误的原因、影响和解决方案：\n\n{log_text[:500]}"
-            self.ai_assistant.question_var.set(question)
+            self.ai_assistant.chat_panel.question_var.set(question)
             self.ai_assistant.ask_question()
             return
 
@@ -651,7 +652,7 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
             if context_info:
                 question += context_info
 
-        self.ai_assistant.question_var.set(question)
+        self.ai_assistant.chat_panel.question_var.set(question)
         self.ai_assistant.ask_question()
 
     def ai_find_related_logs(self):
@@ -722,7 +723,7 @@ class MarsLogAnalyzerPro(OriginalMarsLogAnalyzerPro):
             else:
                 question += "\n\n请在当前加载的所有日志中搜索。"
 
-        self.ai_assistant.question_var.set(question)
+        self.ai_assistant.chat_panel.question_var.set(question)
         self.ai_assistant.ask_question()
 
     def copy_selected_text(self):
