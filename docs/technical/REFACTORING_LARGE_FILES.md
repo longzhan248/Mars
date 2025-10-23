@@ -16,7 +16,8 @@
 | **Phase 2** | AIAssistantPanel | 1955行 | 5个UI模块 (1798行) | ✅ 完成 | 2小时 |
 | **Phase 3.1** | AdvancedResourceHandler | 1322行 | 6个模块 (1374行) | ✅ 完成 | 70分钟 |
 | **Phase 4** | CodeParser | 1242行 | 6个模块 (1159行) | ✅ 完成 | 50分钟 |
-| **总计** | **4个超大文件** | **6849行** | **27个模块 (5653行)** | ✅ **100%** | **~6.4小时** |
+| **Phase 5** | ObfuscationEngine | 1218行 | 8个模块 (1632行) | ✅ 完成 | 90分钟 |
+| **总计** | **5个超大文件** | **8067行** | **35个模块 (7285行)** | ✅ **100%** | **~7.9小时** |
 
 ---
 
@@ -144,6 +145,57 @@ gui/modules/obfuscation/parsers/
 
 ---
 
+## Phase 5: ObfuscationEngine (混淆引擎核心)
+
+### 重构成果
+- **原始**: 1218行单文件
+- **重构**: 8个模块文件，总计1632行
+- **重构率**: 从1文件→9文件 (800%模块化提升)
+
+### 最终架构
+```
+gui/modules/obfuscation/engine/
+├── common.py (23行)              # ObfuscationResult数据模型
+├── project_init.py (120行)       # 项目初始化（分析/白名单/名称生成器）
+├── source_processor.py (280行)   # 源文件处理（解析/转换/增量/缓存）
+├── feature_processor.py (277行)  # P2功能（字符串加密/垃圾代码）
+├── resource_processor.py (227行) # 资源处理（Assets/图片/音频/字体）
+├── result_export.py (403行)      # 结果导出（保存/P2后处理/映射导出）
+├── engine_coordinator.py (270行) # 主协调器（ObfuscationEngine）
+├── __init__.py (32行)            # 模块导出
+└── obfuscation_engine.py (81行)  # 向后兼容接口
+```
+
+### 关键成果
+- ✅ 8个独立模块，职责清晰
+- ✅ 主协调器统一流程编排
+- ✅ 100%向后兼容（obfuscation_engine.py作为重定向）
+- ✅ 最大单文件403行（result_export.py）
+- ✅ 平均单文件204行（-83%）
+- ✅ 高效完成（90分钟，13.5行/分钟）
+
+### 技术亮点
+1. **清晰分层**: 初始化→源处理→功能增强→资源处理→结果导出
+2. **职责分离**: 每个处理器专注单一领域
+3. **协调器模式**: 主引擎编排整个流程
+4. **可扩展性**: 易于添加新处理器
+5. **测试友好**: 每个模块可独立测试
+
+### 功能验证
+```python
+✅ ObfuscationEngine 导入成功
+✅ ObfuscationResult 创建成功
+✅ ProjectInitializer 实例化成功
+✅ SourceProcessor 实例化成功
+✅ FeatureProcessor 实例化成功
+✅ ResourceProcessor 实例化成功
+✅ ResultExporter 实例化成功
+✅ 向后兼容接口正常
+✅ 配置加载和引擎初始化成功
+```
+
+---
+
 ## 📈 量化指标总结
 
 ### 模块化程度
@@ -153,7 +205,8 @@ gui/modules/obfuscation/parsers/
 | AIAssistantPanel | 1个文件 | 5个文件 | **+400%** |
 | AdvancedResourceHandler | 1个文件 | 7个文件 | **+600%** |
 | CodeParser | 1个文件 | 7个文件 | **+600%** |
-| **平均** | **1个** | **7.25个** | **+625%** |
+| ObfuscationEngine | 1个文件 | 9个文件 | **+800%** |
+| **平均** | **1个** | **7.6个** | **+660%** |
 
 ### 文件大小优化
 | 项目 | 最大文件 | 优化后 | 降低 |
@@ -162,6 +215,7 @@ gui/modules/obfuscation/parsers/
 | AIAssistantPanel | 1955行 | 440行 | **-77%** |
 | AdvancedResourceHandler | 1322行 | 367行 | **-72%** |
 | CodeParser | 1242行 | 508行 | **-59%** |
+| ObfuscationEngine | 1218行 | 403行 | **-67%** |
 | **平均降低** | - | - | **-69%** |
 
 ### 效率提升
@@ -171,8 +225,9 @@ gui/modules/obfuscation/parsers/
 | Phase 2 | 2h | 1955行 | 978行/h |
 | Phase 3.1 | 1.17h | 1322行 | 1129行/h |
 | Phase 4 | 0.83h | 1242行 | **1496行/h** ⚡ |
+| Phase 5 | 1.5h | 1218行 | 812行/h |
 
-**总效率**: 6849行 / 6.4小时 = **1070行/小时** (+8.7%)
+**总效率**: 8067行 / 7.9小时 = **1021行/小时**
 
 ---
 
@@ -202,22 +257,22 @@ gui/modules/obfuscation/parsers/
 ## 🎯 后续建议
 
 ### 已完成目标
-- ✅ 四个超大文件 (>1200行) 全部拆分完成
-- ✅ 模块化程度提升625%
+- ✅ 五个超大文件 (>1200行) 全部拆分完成
+- ✅ 模块化程度提升660%
 - ✅ 文件大小平均降低69%
 - ✅ 建立了可复用的重构模式
-- ✅ 总效率持续提升 (1070行/小时)
+- ✅ 总效率稳定在1021行/小时
 
 ### 其余文件评估
 | 文件 | 行数 | 建议 | 状态 |
 |------|------|------|------|
 | `mars_log_analyzer_pro.py` | 4562行 | 保持现状 (作为基类) | ⏸️ 暂不拆分 |
 | ~~`code_parser.py`~~ | ~~1242行~~ | ~~单一职责~~ | ✅ **已完成** |
-| `obfuscation_engine.py` | 1218行 | 高内聚，待评估 | 📋 可选 |
+| ~~`obfuscation_engine.py`~~ | ~~1218行~~ | ~~高内聚，待评估~~ | ✅ **已完成** |
 | `string_encryptor.py` | 946行 | 功能完整，保持现状 | ⏸️ 暂不拆分 |
 | `code_transformer.py` | 751行 | 复杂度可控，保持现状 | ⏸️ 暂不拆分 |
 
-**结论**: Phase 4已完成! obfuscation_engine.py可按需拆分，其余文件复杂度可控。
+**结论**: Phase 5已完成！所有超大文件重构完毕，其余文件复杂度可控。
 
 ---
 
@@ -226,6 +281,8 @@ gui/modules/obfuscation/parsers/
 ### 模块文档
 - `gui/modules/obfuscation/CLAUDE.md` - 混淆模块总览
 - `gui/modules/obfuscation/resource_handlers/CLAUDE.md` - 资源处理器详细文档 ✨
+- `gui/modules/obfuscation/engine/` - 混淆引擎模块 ✨
+- `gui/modules/obfuscation/parsers/` - 代码解析器模块 ✨
 - `gui/modules/ai_assistant/CLAUDE.md` - AI助手模块 (待创建)
 
 ### 技术文档
@@ -237,14 +294,14 @@ gui/modules/obfuscation/parsers/
 ## 📊 最终统计
 
 ### 代码质量
-- **总文件数**: 4个 → 31个 (+675%)
-- **总代码行**: 6849行 → 5653行 (-17%, 更精简)
+- **总文件数**: 5个 → 40个 (+700%)
+- **总代码行**: 8067行 → 7285行 (-9.7%, 更精简)
 - **最大文件**: 2330行 → 755行 (-68%)
-- **平均文件**: 1712行 → 182行 (-89%)
+- **平均文件**: 1613行 → 182行 (-89%)
 
 ### 时间投入
-- **总耗时**: ~6.4小时
-- **平均效率**: 1070行/小时
+- **总耗时**: ~7.9小时
+- **平均效率**: 1021行/小时
 - **最快案例**: Phase 4 (50分钟, 1242行) ⚡
 - **复杂案例**: Phase 2 (2小时, 1955行)
 
@@ -256,9 +313,9 @@ gui/modules/obfuscation/parsers/
 
 ---
 
-**文档版本**: v4.0
+**文档版本**: v5.0
 **最后更新**: 2025-10-23
-**重构状态**: ✅ Phase 1, 1.5, 1.6, 2, 3.1, 4 全部完成
+**重构状态**: ✅ Phase 1, 1.5, 1.6, 2, 3.1, 4, 5 全部完成
 
 ---
 

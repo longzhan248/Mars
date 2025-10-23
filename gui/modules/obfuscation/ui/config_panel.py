@@ -34,41 +34,27 @@ class ConfigPanel(ttk.Frame):
         self.create_widgets()
 
     def init_variables(self):
-        """初始化配置变量"""
-        # 路径变量
-        self.tab.project_path_var = tk.StringVar()
-        self.tab.output_path_var = tk.StringVar()
+        """验证配置变量已初始化"""
+        # 验证变量是否已在tab中初始化
+        required_vars = [
+            'project_path_var', 'output_path_var',
+            'obfuscate_classes', 'obfuscate_methods', 'obfuscate_properties', 'obfuscate_protocols',
+            'modify_resources', 'modify_images', 'modify_audio', 'modify_fonts', 'auto_add_to_xcode',
+            'auto_detect_third_party', 'use_fixed_seed', 'insert_garbage_code', 'string_encryption',
+            'enable_call_relationships', 'enable_parse_cache',
+            'garbage_count', 'garbage_complexity', 'call_density', 'encryption_algorithm',
+            'string_min_length', 'naming_strategy', 'name_prefix', 'image_intensity'
+        ]
 
-        # 基本混淆选项
-        self.tab.obfuscate_classes = tk.BooleanVar(value=True)
-        self.tab.obfuscate_methods = tk.BooleanVar(value=True)
-        self.tab.obfuscate_properties = tk.BooleanVar(value=True)
-        self.tab.obfuscate_protocols = tk.BooleanVar(value=True)
+        missing_vars = []
+        for var_name in required_vars:
+            if not hasattr(self.tab, var_name):
+                missing_vars.append(var_name)
 
-        # 资源处理选项
-        self.tab.modify_resources = tk.BooleanVar(value=False)
-        self.tab.modify_images = tk.BooleanVar(value=False)
-        self.tab.modify_audio = tk.BooleanVar(value=False)
-        self.tab.modify_fonts = tk.BooleanVar(value=False)
-        self.tab.auto_add_to_xcode = tk.BooleanVar(value=True)
+        if missing_vars:
+            raise AttributeError(f"缺少必要的配置变量: {missing_vars}")
 
-        # 高级选项
-        self.tab.auto_detect_third_party = tk.BooleanVar(value=True)
-        self.tab.use_fixed_seed = tk.BooleanVar(value=False)
-        self.tab.insert_garbage_code = tk.BooleanVar(value=False)
-        self.tab.string_encryption = tk.BooleanVar(value=False)
-        self.tab.enable_call_relationships = tk.BooleanVar(value=True)
-        self.tab.enable_parse_cache = tk.BooleanVar(value=True)
-
-        # 配置参数
-        self.tab.garbage_count = tk.IntVar(value=20)
-        self.tab.garbage_complexity = tk.StringVar(value="moderate")
-        self.tab.call_density = tk.StringVar(value="medium")
-        self.tab.encryption_algorithm = tk.StringVar(value="xor")
-        self.tab.string_min_length = tk.IntVar(value=4)
-        self.tab.naming_strategy = tk.StringVar(value="random")
-        self.tab.name_prefix = tk.StringVar(value="WHC")
-        self.tab.image_intensity = tk.DoubleVar(value=0.02)
+        # 变量已验证存在，无需重复初始化
 
     def create_widgets(self):
         """创建配置面板UI"""

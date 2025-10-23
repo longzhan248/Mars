@@ -37,8 +37,50 @@ class ObfuscationTab(ttk.Frame):
         self.current_config = None
         self.is_running = False
 
+        # 初始化UI变量（确保在create_widgets之前设置）
+        self.init_ui_variables()
+
         # 创建UI
         self.create_widgets()
+
+    def init_ui_variables(self):
+        """初始化UI变量"""
+        import tkinter as tk
+
+        # 路径变量
+        self.project_path_var = tk.StringVar()
+        self.output_path_var = tk.StringVar()
+
+        # 基本混淆选项
+        self.obfuscate_classes = tk.BooleanVar(value=True)
+        self.obfuscate_methods = tk.BooleanVar(value=True)
+        self.obfuscate_properties = tk.BooleanVar(value=True)
+        self.obfuscate_protocols = tk.BooleanVar(value=True)
+
+        # 资源处理选项
+        self.modify_resources = tk.BooleanVar(value=False)
+        self.modify_images = tk.BooleanVar(value=False)
+        self.modify_audio = tk.BooleanVar(value=False)
+        self.modify_fonts = tk.BooleanVar(value=False)
+        self.auto_add_to_xcode = tk.BooleanVar(value=True)
+
+        # 高级选项
+        self.auto_detect_third_party = tk.BooleanVar(value=True)
+        self.use_fixed_seed = tk.BooleanVar(value=False)
+        self.insert_garbage_code = tk.BooleanVar(value=False)
+        self.string_encryption = tk.BooleanVar(value=False)
+        self.enable_call_relationships = tk.BooleanVar(value=True)
+        self.enable_parse_cache = tk.BooleanVar(value=True)
+
+        # 配置参数
+        self.garbage_count = tk.IntVar(value=20)
+        self.garbage_complexity = tk.StringVar(value="moderate")
+        self.call_density = tk.StringVar(value="medium")
+        self.encryption_algorithm = tk.StringVar(value="xor")
+        self.string_min_length = tk.IntVar(value=4)
+        self.naming_strategy = tk.StringVar(value="random")
+        self.name_prefix = tk.StringVar(value="WHC")
+        self.image_intensity = tk.DoubleVar(value=0.02)
 
     def create_widgets(self):
         """创建主UI结构"""
@@ -158,7 +200,10 @@ class ObfuscationTab(ttk.Frame):
         if directory:
             self.output_path = directory
             self.output_path_var.set(directory)
-            self.progress_panel.log(f"📁 已选择输出目录: {directory}", "info")
+
+            if hasattr(self, 'progress_panel'):
+                self.progress_panel.log(f"📁 已选择输出目录: {directory}", "info")
+                self.progress_panel.log("💡 现在可以执行混淆生成映射文件，然后查看或导出映射", "info")
 
     def start_obfuscation(self):
         """开始混淆（主入口）"""
@@ -300,15 +345,16 @@ class ObfuscationTab(ttk.Frame):
         except ImportError:
             from modules.exceptions import FileOperationError, UIError, handle_exceptions
 
-        if not self.output_path:
+        output_path = self.output_path_var.get()
+        if not output_path:
             raise UIError(
                 message="未设置输出路径",
                 widget="查看映射按钮",
                 action="查看混淆映射",
-                user_message="请先执行混淆生成映射文件"
+                user_message="请先点击界面上方的'选择输出目录'按钮，设置一个输出路径后才能查看混淆映射文件。\n\n使用步骤：\n1. 点击'选择输出目录'按钮\n2. 选择一个文件夹作为输出路径\n3. 执行混淆生成映射文件\n4. 再点击'查看映射'"
             )
 
-        mapping_file = os.path.join(self.output_path, "obfuscation_mapping.json")
+        mapping_file = os.path.join(output_path, "obfuscation_mapping.json")
 
         try:
             viewer = MappingViewer(self, mapping_file)
@@ -325,15 +371,16 @@ class ObfuscationTab(ttk.Frame):
         except ImportError:
             from modules.exceptions import FileOperationError, UIError
 
-        if not self.output_path:
+        output_path = self.output_path_var.get()
+        if not output_path:
             raise UIError(
                 message="未设置输出路径",
                 widget="导出映射按钮",
                 action="导出混淆映射",
-                user_message="请先执行混淆生成映射文件"
+                user_message="请先点击界面上方的'选择输出目录'按钮，设置一个输出路径后才能导出混淆映射文件。\n\n使用步骤：\n1. 点击'选择输出目录'按钮\n2. 选择一个文件夹作为输出路径\n3. 执行混淆生成映射文件\n4. 再点击'导出映射'"
             )
 
-        mapping_file = os.path.join(self.output_path, "obfuscation_mapping.json")
+        mapping_file = os.path.join(output_path, "obfuscation_mapping.json")
 
         try:
             exporter = MappingExporter(self, mapping_file)

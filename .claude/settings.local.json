@@ -40,7 +40,10 @@
       "Bash(rm:*)",
       "Bash(git fsck:*)",
       "Bash(git gc:*)",
-      "Bash(git reflog:*)"
+      "Bash(git reflog:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(timeout 10s python3:*)"
     ],
     "deny": [],
     "ask": []
