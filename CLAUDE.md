@@ -1,95 +1,144 @@
 # CLAUDE.md
 
-此文件为 Claude Code (claude.ai/code) 在此代码库中工作时提供指导。
+此文件为 Claude Code 在此代码库中工作时提供指导。
 
 ## 项目用途
-此代码库是**心娱开发助手 (Xinyu DevTools)** - 一站式iOS开发工具集，集成日志分析、崩溃解析、推送测试、沙盒浏览和代码混淆等功能。
-核心包含用于解码和分析 Mars xlog 文件的完整工具套件 - Mars 是腾讯的日志框架，xlog 是其使用的压缩和加密日志文件格式。
+
+**心娱开发助手 (Xinyu DevTools)** - 一站式iOS开发工具集，集成日志分析、崩溃解析、推送测试、沙盒浏览和代码混淆等功能。核心包含用于解码和分析 Mars xlog 文件的完整工具套件。
 
 ## 快速开始
 
-### 一键启动（macOS）
 ```bash
-# 1. 下载或克隆项目到任意目录
-# 2. 进入项目目录
-cd /path/to/project
-
-# 3. 运行启动脚本（自动处理所有环境配置）
+# 一键启动（自动处理所有环境配置）
 ./scripts/run_analyzer.sh
 ```
 
-首次运行会自动：
-- ✅ 创建Python虚拟环境
-- ✅ 安装所有必要依赖
-- ✅ 启动主程序
+首次运行会自动创建虚拟环境并安装依赖。
 
-## 核心功能概览
+## 核心功能
 
-### 📊 Mars日志分析 + AI智能诊断 🤖
+### 📊 Mars日志分析 + AI智能诊断
 - xlog文件解码和分析
-- AI驱动的崩溃分析、性能诊断、问题总结
-- 自定义Prompt模板支持
+- AI驱动的崩溃分析、性能诊断
 - 智能搜索和跳转功能
 
 ### 🔧 iOS开发工具集
-- **IPS崩溃解析** - iOS崩溃报告符号化
-- **APNS推送测试** - 完整的推送测试工具
-- **iOS沙盒浏览** - 设备文件系统浏览
-- **dSYM分析** - 崩溃地址符号化
-- **LinkMap分析** - 二进制大小分析
-- **iOS代码混淆** - App Store审核应对方案
+- IPS崩溃解析、APNS推送测试
+- iOS沙盒浏览、dSYM分析
+- LinkMap分析、代码混淆
 
 ### ⚡ 性能优化
-- 倒排索引搜索系统 (搜索性能提升93%)
+- 倒排索引搜索 (性能提升93%)
 - 流式文件加载 (支持GB级文件)
-- 内存优化 (内存占用减少70%)
-- 懒加载UI渲染 (支持百万级日志)
+- 内存优化 (占用减少70%)
 
 ## 近期重要更新
 
-- **2025-10-23**: 超大文件重构完成 ✅ - 5个超大文件全部拆分为35个模块，代码质量大幅提升
-- **2025-10-20**: 自定义Prompt功能 📝 - 用户可创建和管理AI提示词模板
-- **2025-10-17**: AI助手跳转功能增强 🎯 - 完整的交互式日志导航体验
-- **2025-10-16**: AI智能诊断功能完成 🤖 - 多AI服务支持的完整日志分析系统
-- **2025-10-14**: iOS代码混淆功能完成 🔐 - 应对App Store审核的完整解决方案
-- **2025-10-11**: 性能优化集成完成 🚀 - 搜索和加载性能大幅提升
+**2025-10-23**: 🏆 代码质量优化完成
+- ✅ 5个超大文件重构为16个模块
+- ✅ 所有文件符合500行限制
+- ✅ 应用工厂、策略、委托等设计模式
+- 📄 详见: [代码质量重构报告](docs/CODE_QUALITY_REFACTORING_2025.md)
 
 *详细更新历史请参考 [CHANGELOG.md](CHANGELOG.md)*
 
-## 使用命令
+## 项目结构
 
-### 启动GUI分析系统（推荐）：
-```bash
-# 使用启动脚本（推荐，自动处理依赖和环境）
-./scripts/run_analyzer.sh
+```
+.
+├── gui/
+│   ├── mars_log_analyzer_modular.py    # 主程序入口
+│   ├── modules/                        # 模块化组件
+│   │   ├── ai_interaction_manager.py   # AI交互管理 🆕
+│   │   ├── data_models.py              # 数据模型
+│   │   ├── file_operations.py          # 文件操作
+│   │   └── obfuscation/                # iOS混淆模块
+│   │       ├── code_transformer.py     # 代码转换
+│   │       ├── symbol_replacer.py 🆕   # 符号替换
+│   │       ├── encryption_algorithms.py 🆕  # 加密算法
+│   │       ├── third_party_detector.py 🆕   # 第三方检测
+│   │       └── ui/                     # UI组件
+│   │           ├── symbol_whitelist_manager.py 🆕
+│   │           └── string_whitelist_manager.py 🆕
+│   └── components/                     # UI组件
+├── decoders/                           # 解码器
+├── push_tools/                         # iOS推送工具
+├── tools/                              # 辅助工具
+├── scripts/                            # 启动脚本
+└── docs/                               # 文档
 
-# 或手动启动（需要先激活虚拟环境）
-source venv/bin/activate
-python3 gui/mars_log_analyzer_modular.py
+🆕 = 2025-10-23 代码质量优化新增
 ```
 
-### 独立启动iOS推送工具：
-```bash
-# 独立启动推送工具GUI
-./scripts/run_push_tool.sh
+## 开发规范 🚨
 
-# 或直接运行
-python3 push_tools/apns_gui.py
+### 1. 模块化开发原则 📦
+
+**所有新增代码必须遵循模块化设计：**
+- **单一职责原则**: 每个模块只负责一个特定功能
+- **高内聚低耦合**: 模块内部紧密相关，模块间依赖最小化
+- **清晰的接口定义**: 每个模块提供明确的公共API
+- **独立可测试**: 每个模块应该能够独立进行单元测试
+
+### 2. 代码行数限制 📏
+
+**每个文件不得超过 500 行代码（不含注释和空行）**
+
+```bash
+# 检查文件代码行数
+grep -v '^\s*#' file.py | grep -v '^\s*$' | wc -l
 ```
 
-### 命令行解码：
+**当文件超过限制时：**
+1. 识别可独立的功能模块
+2. 创建新的子模块文件
+3. 提取相关代码到新模块
+4. 更新导入和调用关系
+
+**参考案例：**
+- `gui/modules/obfuscation/` - 从1500行拆分为11个模块
+- `gui/modules/ai_diagnosis/` - 从1200行拆分为8个模块
+
+### 3. 代码质量要求 ✨
+
+- **类型注解**: 所有公共函数必须有类型注解
+- **文档字符串**: 所有模块、类和公共函数必须有docstring
+- **错误处理**: 必须有适当的异常处理
+- **单元测试**: 核心功能模块需要配套测试
+
+### 4. 命名规范 📝
+
+- 文件名: `module_name.py`
+- 类名: `ClassName`
+- 函数名: `function_name()`
+- 常量: `CONSTANT_NAME`
+- 私有成员: `_private_method()`
+
+### 5. 违规处理 ⚠️
+
+**Claude Code 将拒绝执行以下操作：**
+- 创建超过 500 行的新文件
+- 向已超过 500 行的文件添加非修复性代码
+- 创建缺乏明确职责的"大杂烩"模块
+
+**正确做法**: 先进行模块化重构，再实现新功能。
+
+---
+
+## 常用命令
+
+### 启动程序
 ```bash
-# Python 3版本解码单个文件
-python3 decoders/decode_mars_nocrypt_log_file_py3.py mizhua_20250915.xlog
-
-# 批量解码当前目录所有xlog文件
-python3 decoders/decode_mars_nocrypt_log_file_py3.py
-
-# 解码指定目录
-python3 decoders/decode_mars_nocrypt_log_file_py3.py /path/to/xlog/directory/
+./scripts/run_analyzer.sh              # GUI程序（推荐）
+./scripts/run_push_tool.sh             # iOS推送工具
 ```
 
-### iOS代码混淆：
+### 命令行解码
+```bash
+python3 decoders/decode_mars_nocrypt_log_file_py3.py file.xlog
+```
+
+### iOS代码混淆
 ```bash
 # GUI使用
 ./scripts/run_analyzer.sh  # 选择"iOS代码混淆"标签页
@@ -101,163 +150,42 @@ python -m gui.modules.obfuscation.obfuscation_cli \
     --template standard
 ```
 
-## 项目结构概览
+## 常见问题
 
-```
-.
-├── decoders/              # 解码器核心模块
-├── gui/                   # GUI应用程序
-│   ├── modules/           # 模块化组件
-│   └── components/        # UI组件
-├── push_tools/            # iOS推送测试工具
-├── tools/                 # 辅助工具
-├── scripts/               # 启动和打包脚本
-├── docs/                  # 文档目录
-│   ├── technical/         # 技术文档
-│   ├── CHANGELOG.md       # 详细更新历史
-│   ├── FEATURES.md        # 功能详细说明
-│   └── DEVELOPMENT.md     # 开发指南
-└── venv/                  # Python虚拟环境
-```
-
-## 开发规范 🚨
-
-### 强制性规则
-
-#### 1. 模块化开发原则 📦
-**所有新增代码必须遵循模块化设计原则：**
-
-- **单一职责原则**: 每个模块只负责一个特定功能
-- **高内聚低耦合**: 模块内部紧密相关，模块间依赖最小化
-- **清晰的接口定义**: 每个模块提供明确的公共API
-- **独立可测试**: 每个模块应该能够独立进行单元测试
-
-**模块化示例：**
-```python
-# ❌ 错误：所有功能混在一个文件
-# massive_module.py (1500行)
-
-# ✅ 正确：按职责拆分
-# core/data_models.py (200行) - 数据模型定义
-# core/file_handler.py (180行) - 文件操作
-# core/parser.py (250行) - 解析逻辑
-# core/validator.py (150行) - 数据验证
-# core/__init__.py (20行) - 模块导出
-```
-
-#### 2. 代码行数限制 📏
-**每个新增文件不得超过 500 行代码（不含注释和空行）**
-
-**强制执行规则：**
-- 新建文件：严格限制 ≤ 500 行
-- 修改现有文件：
-  - 如文件已超过 500 行，必须先重构再添加功能
-  - 不允许向超大文件添加新功能（除非是紧急Bug修复）
-
-**检查命令：**
+**Q: 缺少依赖模块？**
 ```bash
-# 检查文件实际代码行数（排除空行和注释）
-grep -v '^\s*#' file.py | grep -v '^\s*$' | wc -l
-```
-
-**当文件接近或超过限制时：**
-1. 识别可独立的功能模块
-2. 创建新的子模块文件
-3. 提取相关代码到新模块
-4. 更新导入和调用关系
-5. 确保原有功能不受影响
-
-**参考成功案例：**
-- `gui/modules/obfuscation/` - 混淆引擎从1500行拆分为11个模块
-- `gui/modules/ai_diagnosis/` - AI诊断从1200行拆分为8个模块
-- `gui/modules/search_engine/` - 搜索引擎从800行拆分为6个模块
-
-详细重构指南请参考：[超大文件重构总结](docs/technical/REFACTORING_LARGE_FILES.md)
-
-#### 3. 代码质量要求 ✨
-- **类型注解**: 所有公共函数必须有类型注解
-- **文档字符串**: 所有模块、类和公共函数必须有docstring
-- **错误处理**: 必须有适当的异常处理和错误信息
-- **日志记录**: 关键操作必须有日志记录
-- **单元测试**: 核心功能模块需要配套测试
-
-#### 4. 命名规范 📝
-- **文件名**: 使用小写下划线 `module_name.py`
-- **类名**: 使用大驼峰 `ClassName`
-- **函数名**: 使用小写下划线 `function_name()`
-- **常量**: 使用大写下划线 `CONSTANT_NAME`
-- **私有成员**: 使用前导下划线 `_private_method()`
-
-#### 5. 违规处理 ⚠️
-如果发现以下情况，Claude Code 将拒绝执行：
-- 创建超过 500 行的新文件
-- 向已超过 500 行的文件添加非修复性代码
-- 创建缺乏明确职责的"大杂烩"模块
-- 违反单一职责原则的代码设计
-
-**正确做法：** 先进行模块化重构，再实现新功能。
-
----
-
-## 重要说明
-
-### 系统要求
-- Python 3.6+ （推荐3.8+）
-- macOS、Linux、Windows
-- GUI系统需要 tkinter 和 matplotlib 库
-
-### 环境管理
-项目完全可移植，可放置在任何路径下运行：
-- 自动创建Python虚拟环境
-- 智能依赖检测和安装
-- 无硬编码路径设计
-
-### 常见问题
-
-**Q: 提示"No module named 'cryptography'"？**
-```bash
-# 确保在项目根目录，激活虚拟环境并重新安装依赖
 source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-**Q: GUI程序打不开怎么办？**
-使用 `./scripts/run_analyzer.sh` 启动，它会自动处理所有依赖。
+**Q: GUI打不开？**
+使用 `./scripts/run_analyzer.sh` 启动，它会自动处理依赖。
 
-**Q: 详细功能说明在哪里？**
-请参考 [FEATURES.md](FEATURES.md) 获取完整的功能使用说明。
+**Q: 详细功能说明？**
+参考 [FEATURES.md](FEATURES.md)
 
 **Q: 如何参与开发？**
-请参考 [DEVELOPMENT.md](DEVELOPMENT.md) 获取开发指南。
+参考 [DEVELOPMENT.md](DEVELOPMENT.md)
 
-## 技术文档目录
+## 技术文档
 
-详细的技术文档存放在 `docs/technical/` 目录下，包含：
-- 性能优化分析报告
-- AI集成技术文档
-- iOS工具开发文档
-- Bug修复记录和重构总结
-- [超大文件重构总结](docs/technical/REFACTORING_LARGE_FILES.md) - 完整的代码重构记录
+- **代码质量重构**: `docs/CODE_QUALITY_REFACTORING_2025.md`
+- **性能优化**: `docs/technical/`
+- **AI集成**: `docs/technical/`
+- **更新历史**: `CHANGELOG.md`
 
 ## 快速参考
 
-### 主要功能入口
-- **主程序**: `gui/mars_log_analyzer_modular.py`
-- **启动脚本**: `./scripts/run_analyzer.sh`
-- **打包脚本**: `./scripts/build_app.sh`
+**主要入口**:
+- 主程序: `gui/mars_log_analyzer_modular.py`
+- 启动脚本: `./scripts/run_analyzer.sh`
 
-### 关键配置文件
-- **依赖**: `requirements.txt`
-- **虚拟环境**: `venv/`
-- **自定义规则**: `gui/custom_module_rules.json`
-- **AI配置**: `gui/modules/ai_diagnosis/`
-
-### 重要模块
-- **数据模型**: `gui/modules/data_models.py`
-- **文件操作**: `gui/modules/file_operations.py`
-- **AI诊断**: `gui/modules/ai_diagnosis/`
-- **iOS混淆**: `gui/modules/obfuscation/`
+**关键模块**:
+- 数据模型: `gui/modules/data_models.py`
+- 文件操作: `gui/modules/file_operations.py`
+- AI诊断: `gui/modules/ai_diagnosis/`
+- iOS混淆: `gui/modules/obfuscation/`
 
 ---
 
-*此文档为项目核心指南，详细说明请参考对应的专门文档。*
+*详细说明请参考对应的专门文档*
