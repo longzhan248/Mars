@@ -78,57 +78,18 @@ class AISettingsDialog:
         service_frame = ttk.LabelFrame(main_frame, text="AI服务配置", padding="10")
         service_frame.pack(fill=tk.X, pady=(0, 10))
 
-        # 自动检测
-        self.auto_detect_var = tk.BooleanVar(value=self.config.get('auto_detect', True))
-        auto_detect_check = ttk.Checkbutton(
+        # Claude Code说明
+        info_label = ttk.Label(
             service_frame,
-            text="自动检测最佳服务（推荐）",
-            variable=self.auto_detect_var,
-            command=self.on_auto_detect_changed
+            text="✓ 使用 Claude Code (无需API Key)\n"
+                 "✓ 完全免费\n"
+                 "✓ 利用现有Claude Code连接\n"
+                 "• 需要Claude Code正在运行",
+            font=("Arial", 10),
+            foreground="#2E7D32",
+            justify=tk.LEFT
         )
-        auto_detect_check.grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=5)
-
-        # 服务类型
-        ttk.Label(service_frame, text="AI服务:").grid(row=1, column=0, sticky=tk.W, pady=5)
-        self.service_var = tk.StringVar(value=self.config.get('ai_service', 'ClaudeCode'))
-        service_combo = ttk.Combobox(
-            service_frame,
-            textvariable=self.service_var,
-            values=['ClaudeCode', 'Claude', 'OpenAI', 'Ollama'],
-            state='readonly',
-            width=30
-        )
-        service_combo.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=5, padx=(5, 0))
-        service_combo.bind('<<ComboboxSelected>>', self.on_service_changed)
-
-        # API Key
-        ttk.Label(service_frame, text="API Key:").grid(row=2, column=0, sticky=tk.W, pady=5)
-        self.api_key_var = tk.StringVar(value=self.config.get('api_key', ''))
-        self.api_key_entry = ttk.Entry(service_frame, textvariable=self.api_key_var, width=32, show="*")
-        self.api_key_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=5, padx=(5, 0))
-
-        # 显示/隐藏API Key按钮
-        self.show_key_btn = ttk.Button(
-            service_frame,
-            text="👁",
-            width=3,
-            command=self.toggle_api_key_visibility
-        )
-        self.show_key_btn.grid(row=2, column=2, padx=5)
-
-        # 模型
-        ttk.Label(service_frame, text="模型:").grid(row=3, column=0, sticky=tk.W, pady=5)
-        self.model_var = tk.StringVar(value=self.config.get('model', 'claude-3-5-sonnet-20241022'))
-        self.model_entry = ttk.Entry(service_frame, textvariable=self.model_var, width=32)
-        self.model_entry.grid(row=3, column=1, sticky=(tk.W, tk.E), pady=5, padx=(5, 0))
-
-        service_frame.columnconfigure(1, weight=1)
-
-        # 服务说明
-        info_text = tk.Text(service_frame, height=6, width=50, wrap=tk.WORD, font=("Arial", 9))
-        info_text.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
-        info_text.insert('1.0', self.get_service_info())
-        info_text.config(state=tk.DISABLED, background="#f0f0f0")
+        info_label.pack(fill=tk.X, pady=5)
 
         # ========== 功能配置 ==========
         feature_frame = ttk.LabelFrame(main_frame, text="功能配置", padding="10")
@@ -244,32 +205,6 @@ class AISettingsDialog:
             command=self.remove_project_dir
         ).pack(side=tk.LEFT, padx=2)
 
-        # ========== 环境变量提示 ==========
-        env_frame = ttk.LabelFrame(main_frame, text="环境变量（可选）", padding="10")
-        env_frame.pack(fill=tk.X, pady=(0, 10))
-
-        env_text = (
-            "您可以通过环境变量设置API Key:\n"
-            "• Claude: export ANTHROPIC_API_KEY=sk-xxx\n"
-            "• OpenAI: export OPENAI_API_KEY=sk-xxx\n\n"
-            "环境变量优先级高于配置文件。"
-        )
-
-        # 使用Text组件代替Label，支持自动换行
-        env_text_widget = tk.Text(
-            env_frame,
-            height=5,
-            width=50,
-            wrap=tk.WORD,
-            font=("Arial", 9),
-            background="#f0f0f0",
-            foreground="#666666",
-            relief=tk.FLAT,
-            borderwidth=0
-        )
-        env_text_widget.insert('1.0', env_text)
-        env_text_widget.config(state=tk.DISABLED)
-        env_text_widget.pack(fill=tk.X)
 
         # ========== 按钮区域 ==========
         btn_frame = ttk.Frame(main_frame)
@@ -299,47 +234,6 @@ class AISettingsDialog:
             command=self.save_settings
         ).pack(side=tk.RIGHT, padx=5)
 
-        # 初始化状态
-        self.on_auto_detect_changed()
-        self.on_service_changed()
-
-    def on_auto_detect_changed(self):
-        """自动检测选项改变"""
-        # 如果启用自动检测,禁用手动选择
-        # 注意: ttk.Combobox不能直接用config设置state,需要重新配置
-        # TODO: 实现自动检测时禁用手动服务选择的逻辑
-
-    def on_service_changed(self, event=None):
-        """服务类型改变"""
-        service = self.service_var.get()
-
-        # 根据服务类型启用/禁用API Key输入
-        if service in ['Claude', 'OpenAI']:
-            self.api_key_entry.config(state='normal')
-            self.show_key_btn.config(state='normal')
-        else:
-            self.api_key_entry.config(state='disabled')
-            self.show_key_btn.config(state='disabled')
-
-        # 根据服务类型提供默认模型
-        default_models = {
-            'Claude': 'claude-3-5-sonnet-20241022',
-            'OpenAI': 'gpt-4',
-            'Ollama': 'llama3',
-            'ClaudeCode': 'claude-3-5-sonnet-20241022'
-        }
-        if not self.model_var.get():
-            self.model_var.set(default_models.get(service, ''))
-
-    def toggle_api_key_visibility(self):
-        """切换API Key显示/隐藏"""
-        current_show = self.api_key_entry.cget('show')
-        if current_show == '*':
-            self.api_key_entry.config(show='')
-            self.show_key_btn.config(text='🙈')
-        else:
-            self.api_key_entry.config(show='*')
-            self.show_key_btn.config(text='👁')
 
     def add_project_dir(self):
         """添加项目目录"""
@@ -366,71 +260,29 @@ class AISettingsDialog:
         else:
             messagebox.showinfo("提示", "请先选择要删除的目录")
 
-    def get_service_info(self) -> str:
-        """获取服务说明文本"""
-        service = self.service_var.get()
-
-        info_map = {
-            'ClaudeCode': (
-                "✓ 推荐使用\n"
-                "✓ 无需API Key\n"
-                "✓ 利用现有Claude Code连接\n"
-                "✓ 完全免费\n"
-                "• 需要Claude Code正在运行"
-            ),
-            'Claude': (
-                "• 需要Anthropic API Key\n"
-                "• 支持Claude 3.5 Sonnet等模型\n"
-                "• 按Token计费\n"
-                "• 响应速度快，质量高"
-            ),
-            'OpenAI': (
-                "• 需要OpenAI API Key\n"
-                "• 支持GPT-4/GPT-3.5等模型\n"
-                "• 按Token计费\n"
-                "• 广泛使用，功能强大"
-            ),
-            'Ollama': (
-                "✓ 完全免费\n"
-                "✓ 本地运行，数据不出机器\n"
-                "• 需要先安装Ollama\n"
-                "• 命令: brew install ollama\n"
-                "• 启动: ollama serve"
-            )
-        }
-
-        return info_map.get(service, "")
 
     def test_connection(self):
         """测试AI连接"""
         AIClientFactory, _ = safe_import_ai_diagnosis()
 
-        service = self.service_var.get()
-        api_key = self.api_key_var.get()
-        model = self.model_var.get()
-
         try:
-            # 创建客户端
-            if self.auto_detect_var.get():
-                client = AIClientFactory.auto_detect()
-                service_name = "自动检测"
-            else:
-                client = AIClientFactory.create(service, api_key, model)
-                service_name = service
+            # 创建Claude Code客户端
+            client = AIClientFactory.create("ClaudeCode")
 
             # 简单测试
             response = client.ask("你好")
 
             messagebox.showinfo(
                 "测试成功",
-                f"✓ {service_name}连接成功\n\n"
+                f"✓ Claude Code连接成功\n\n"
                 f"响应: {response[:100]}..."
             )
 
         except Exception as e:
             messagebox.showerror(
                 "测试失败",
-                f"无法连接到AI服务:\n\n{str(e)}"
+                f"无法连接到Claude Code:\n\n{str(e)}\n\n"
+                f"请确保Claude Code正在运行。"
             )
 
     def reset_to_default(self):
@@ -440,44 +292,26 @@ class AISettingsDialog:
 
             default_config = AIConfig.DEFAULT_CONFIG
 
-            self.auto_detect_var.set(default_config['auto_detect'])
-            self.service_var.set(default_config['ai_service'])
-            self.api_key_var.set(default_config['api_key'])
-            self.model_var.set(default_config['model'])
             self.auto_summary_var.set(default_config['auto_summary'])
             self.privacy_filter_var.set(default_config['privacy_filter'])
             self.max_tokens_var.set(default_config['max_tokens'])
             self.timeout_var.set(default_config['timeout'])
-
-            self.on_service_changed()
+            self.context_size_var.set(default_config['context_size'])
 
     def save_settings(self):
         """保存设置"""
-        # 验证输入
-        if not self.auto_detect_var.get():
-            service = self.service_var.get()
-            if service in ['Claude', 'OpenAI']:
-                if not self.api_key_var.get():
-                    messagebox.showwarning(
-                        "警告",
-                        f"{service}服务需要API Key"
-                    )
-                    return
-
         # 获取项目目录列表
         project_dirs = list(self.project_listbox.get(0, tk.END))
 
-        # 构建配置
+        # 构建配置（固定使用Claude Code）
         new_config = {
-            'ai_service': self.service_var.get(),
-            'api_key': self.api_key_var.get(),
-            'model': self.model_var.get(),
-            'auto_detect': self.auto_detect_var.get(),
+            'ai_service': 'ClaudeCode',
+            'auto_detect': False,
             'auto_summary': self.auto_summary_var.get(),
             'privacy_filter': self.privacy_filter_var.get(),
             'max_tokens': self.max_tokens_var.get(),
             'timeout': self.timeout_var.get(),
-            'context_size': self.context_size_var.get(),  # 新增
+            'context_size': self.context_size_var.get(),
             'project_dirs': project_dirs
         }
 

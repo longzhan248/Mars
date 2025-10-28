@@ -86,27 +86,18 @@ class AIAssistantPanel:
 
     @property
     def ai_client(self):
-        """延迟初始化AI客户端"""
+        """延迟初始化AI客户端（仅使用Claude Code）"""
         if self._ai_client is None:
             try:
                 AIClientFactory, AIConfig, _, _, _ = safe_import_ai_diagnosis()
-                config = AIConfig.load()
 
-                # 如果启用自动检测,使用auto_detect
-                if config.get('auto_detect', True):
-                    self._ai_client = AIClientFactory.auto_detect()
-                else:
-                    # 否则使用配置中的服务
-                    self._ai_client = AIClientFactory.create(
-                        service=config.get('ai_service', 'ClaudeCode'),
-                        api_key=config.get('api_key'),
-                        model=config.get('model')
-                    )
+                # 固定使用Claude Code
+                self._ai_client = AIClientFactory.create(service='ClaudeCode')
             except Exception as e:
                 messagebox.showerror(
-                    "AI服务初始化失败",
-                    f"无法初始化AI服务:\n{str(e)}\n\n"
-                    f"请在设置中配置AI服务或确保Claude Code正在运行。"
+                    "Claude Code初始化失败",
+                    f"无法连接到Claude Code:\n{str(e)}\n\n"
+                    f"请确保Claude Code正在运行。"
                 )
                 return None
         return self._ai_client

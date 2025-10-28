@@ -19,15 +19,13 @@ class AIConfig:
     # 配置文件路径（相对于项目根目录）
     CONFIG_FILE = "gui/ai_config.json"
 
-    # 默认配置
+    # 默认配置（仅支持Claude Code）
     DEFAULT_CONFIG = {
-        # AI服务配置
-        "ai_service": "ClaudeCode",  # ClaudeCode/Claude/OpenAI/Ollama
-        "api_key": "",
-        "model": "claude-3-5-sonnet-20241022",
+        # AI服务配置 - 固定使用Claude Code
+        "ai_service": "ClaudeCode",  # 仅支持ClaudeCode
 
         # 功能开关
-        "auto_detect": True,          # 加载日志后自动检测问题
+        "auto_detect": False,         # 关闭自动检测（只有一个选项）
         "auto_summary": False,        # 加载日志后自动生成摘要
         "privacy_filter": True,       # 启用隐私信息过滤
 
@@ -45,11 +43,8 @@ class AIConfig:
         "project_dirs": [],           # 项目代码目录列表
     }
 
-    # 环境变量映射
-    ENV_VARS = {
-        "Claude": "ANTHROPIC_API_KEY",
-        "OpenAI": "OPENAI_API_KEY",
-    }
+    # Claude Code不需要环境变量
+    ENV_VARS = {}
 
     @classmethod
     def load(cls) -> Dict:
@@ -167,10 +162,9 @@ class AIConfig:
             if field not in config:
                 return False, f"缺少必需字段: {field}"
 
-        # 检查ai_service值
-        valid_services = ['ClaudeCode', 'Claude', 'OpenAI', 'Ollama']
-        if config['ai_service'] not in valid_services:
-            return False, f"无效的AI服务: {config['ai_service']}"
+        # 只支持ClaudeCode
+        if config['ai_service'] != 'ClaudeCode':
+            return False, f"仅支持Claude Code服务"
 
         # 检查timeout范围
         timeout = config.get('timeout', 60)
@@ -182,12 +176,7 @@ class AIConfig:
         if not isinstance(max_tokens, int) or max_tokens <= 0:
             return False, "max_tokens必须为正整数"
 
-        # 对于需要API Key的服务，检查是否配置
-        if config['ai_service'] in ['Claude', 'OpenAI']:
-            api_key = cls.get_api_key(config['ai_service'], config)
-            if not api_key:
-                return False, f"{config['ai_service']}服务需要配置API Key"
-
+        # Claude Code不需要API Key
         return True, ""
 
     @classmethod
@@ -232,37 +221,9 @@ class AIConfig:
 
         Returns:
             模型名称列表
-
-        Example:
-            >>> models = AIConfig.get_model_list("Claude")
-            >>> print(models)
-            ['claude-3-5-sonnet-20241022', 'claude-3-opus-20240229']
         """
-        models = {
-            "Claude": [
-                "claude-3-5-sonnet-20241022",
-                "claude-3-opus-20240229",
-                "claude-3-sonnet-20240229",
-                "claude-3-haiku-20240307",
-            ],
-            "OpenAI": [
-                "gpt-4",
-                "gpt-4-turbo-preview",
-                "gpt-3.5-turbo",
-            ],
-            "Ollama": [
-                "llama3",
-                "llama3:70b",
-                "qwen2:7b",
-                "mistral",
-                "codellama",
-            ],
-            "ClaudeCode": [
-                "claude-3-5-sonnet-20241022",  # 默认使用Claude Code的模型
-            ]
-        }
-
-        return models.get(service, [])
+        # 只支持Claude Code
+        return ["claude-3-5-sonnet-20241022"]
 
     @classmethod
     def get_display_name(cls, service: str) -> str:
@@ -275,14 +236,7 @@ class AIConfig:
         Returns:
             显示名称
         """
-        display_names = {
-            "ClaudeCode": "Claude Code（推荐，无需API Key）",
-            "Claude": "Claude API",
-            "OpenAI": "OpenAI API",
-            "Ollama": "Ollama本地模型（免费）",
-        }
-
-        return display_names.get(service, service)
+        return "Claude Code"
 
 
 # 便捷函数
