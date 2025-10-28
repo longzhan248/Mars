@@ -23,6 +23,7 @@ class AIConfig:
     DEFAULT_CONFIG = {
         # AI服务配置 - 固定使用Claude Code
         "ai_service": "ClaudeCode",  # 仅支持ClaudeCode
+        "claude_path": "",            # claude命令路径（可选，留空自动检测）
 
         # 功能开关
         "auto_detect": False,         # 关闭自动检测（只有一个选项）

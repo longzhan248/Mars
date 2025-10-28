@@ -91,13 +91,20 @@ class AIAssistantPanel:
             try:
                 AIClientFactory, AIConfig, _, _, _ = safe_import_ai_diagnosis()
 
-                # 固定使用Claude Code
-                self._ai_client = AIClientFactory.create(service='ClaudeCode')
+                # 加载配置获取claude路径
+                config = AIConfig.load()
+                claude_path = config.get('claude_path', '')
+
+                # 固定使用Claude Code,传递claude_path
+                self._ai_client = AIClientFactory.create(
+                    service='ClaudeCode',
+                    claude_path=claude_path
+                )
             except Exception as e:
                 messagebox.showerror(
                     "Claude Code初始化失败",
                     f"无法连接到Claude Code:\n{str(e)}\n\n"
-                    f"请确保Claude Code正在运行。"
+                    f"请在设置中检查claude命令路径配置。"
                 )
                 return None
         return self._ai_client

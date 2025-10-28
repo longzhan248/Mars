@@ -59,7 +59,7 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=['runtime_hook_subprocess.py'],  # 添加runtime hook
     excludes=[
         'pytest',
         'black',
@@ -81,7 +81,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=False,  # 不显示控制台窗口
+    console=True,  # 改为True以支持subprocess调用
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

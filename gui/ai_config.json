@@ -10,5 +10,6 @@
   "context_size": "标准",
   "project_dirs": [
     "/Volumes/long/心娱/项目/oxygen_1"
-  ]
+  ],
+  "claude_path": "/Users/zhanlong/.nvm/versions/node/v20.18.1/bin/claude"
 }

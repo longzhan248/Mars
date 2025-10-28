@@ -292,19 +292,25 @@ class ClaudeCodeClient(AIClient):
     利用现有的Claude Code连接，无需额外API Key。
     """
 
-    def __init__(self):
-        """初始化并检测可用的连接方式"""
+    def __init__(self, claude_path: str = ""):
+        """
+        初始化并检测可用的连接方式
+
+        Args:
+            claude_path: claude命令的完整路径（可选，留空自动检测）
+        """
         # 延迟导入，避免循环依赖
         from .claude_code_client import ClaudeCodeProxyClient
 
-        self.proxy_client = ClaudeCodeProxyClient()
+        self.proxy_client = ClaudeCodeProxyClient(claude_path=claude_path)
 
         # 检测可用性
         if not self.proxy_client.is_available():
             raise RuntimeError(
                 "Claude Code不可用。请确保：\n"
                 "1. Claude Code正在运行\n"
-                "2. 您当前在Claude Code会话中"
+                "2. 您当前在Claude Code会话中\n"
+                "3. 或在设置中手动指定claude命令路径"
             )
 
     def ask(self, prompt: str, **kwargs) -> str:
@@ -330,34 +336,33 @@ class AIClientFactory:
     @staticmethod
     def create(service: str = "ClaudeCode",
                api_key: Optional[str] = None,
-               model: Optional[str] = None) -> AIClient:
+               model: Optional[str] = None,
+               claude_path: str = "") -> AIClient:
         """
         创建AI客户端实例
 
         Args:
-            service: 服务类型（"ClaudeCode", "Claude", "OpenAI", "Ollama"）
-            api_key: API密钥（部分服务需要）
-            model: 模型名称
+            service: 服务类型（仅支持"ClaudeCode"）
+            api_key: API密钥（Claude Code不需要）
+            model: 模型名称（Claude Code不需要）
+            claude_path: claude命令的完整路径（可选）
 
         Returns:
             AIClient实例
 
         Raises:
-            ValueError: 当服务类型未知或缺少必要参数时
+            ValueError: 当服务类型未知时
             RuntimeError: 当服务不可用时
 
         Example:
             >>> # 使用Claude Code（推荐）
             >>> client = AIClientFactory.create("ClaudeCode")
             >>>
-            >>> # 使用Claude API
-            >>> client = AIClientFactory.create("Claude", api_key="sk-xxx")
-            >>>
-            >>> # 使用Ollama本地模型
-            >>> client = AIClientFactory.create("Ollama", model="llama3")
+            >>> # 指定claude命令路径
+            >>> client = AIClientFactory.create("ClaudeCode", claude_path="/path/to/claude")
         """
         if service == "ClaudeCode":
-            return ClaudeCodeClient()
+            return ClaudeCodeClient(claude_path=claude_path)
 
         elif service == "Claude":
             # 尝试从环境变量获取API Key

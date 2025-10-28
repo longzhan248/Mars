@@ -91,6 +91,36 @@ class AISettingsDialog:
         )
         info_label.pack(fill=tk.X, pady=5)
 
+        # Claude命令路径配置（可选）
+        path_frame = ttk.Frame(service_frame)
+        path_frame.pack(fill=tk.X, pady=(10, 0))
+
+        ttk.Label(
+            path_frame,
+            text="Claude命令路径（可选）:",
+            font=("Arial", 9)
+        ).pack(side=tk.LEFT)
+
+        self.claude_path_var = tk.StringVar(value=self.config.get('claude_path', ''))
+        claude_path_entry = ttk.Entry(path_frame, textvariable=self.claude_path_var, width=35)
+        claude_path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 5))
+
+        ttk.Button(
+            path_frame,
+            text="浏览",
+            width=6,
+            command=self.browse_claude_path
+        ).pack(side=tk.LEFT)
+
+        # 路径说明
+        path_info = ttk.Label(
+            service_frame,
+            text="留空则自动检测。如果打包后的app无法连接Claude Code，请手动指定路径",
+            font=("Arial", 8),
+            foreground="#666666"
+        )
+        path_info.pack(fill=tk.X, pady=(2, 0))
+
         # ========== 功能配置 ==========
         feature_frame = ttk.LabelFrame(main_frame, text="功能配置", padding="10")
         feature_frame.pack(fill=tk.X, pady=(0, 10))
@@ -235,6 +265,22 @@ class AISettingsDialog:
         ).pack(side=tk.RIGHT, padx=5)
 
 
+    def browse_claude_path(self):
+        """浏览选择claude命令路径"""
+        from tkinter import filedialog
+
+        file_path = filedialog.askopenfilename(
+            title="选择claude命令",
+            initialdir=os.path.expanduser("~"),
+            filetypes=[
+                ("可执行文件", "*"),
+                ("所有文件", "*.*")
+            ]
+        )
+
+        if file_path:
+            self.claude_path_var.set(file_path)
+
     def add_project_dir(self):
         """添加项目目录"""
         from tkinter import filedialog
@@ -293,6 +339,7 @@ class AISettingsDialog:
             default_config = AIConfig.DEFAULT_CONFIG
 
             self.auto_summary_var.set(default_config['auto_summary'])
+            self.claude_path_var.set(default_config['claude_path'])
             self.privacy_filter_var.set(default_config['privacy_filter'])
             self.max_tokens_var.set(default_config['max_tokens'])
             self.timeout_var.set(default_config['timeout'])
@@ -306,6 +353,7 @@ class AISettingsDialog:
         # 构建配置（固定使用Claude Code）
         new_config = {
             'ai_service': 'ClaudeCode',
+            'claude_path': self.claude_path_var.get().strip(),
             'auto_detect': False,
             'auto_summary': self.auto_summary_var.get(),
             'privacy_filter': self.privacy_filter_var.get(),

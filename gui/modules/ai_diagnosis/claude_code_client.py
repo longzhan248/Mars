@@ -25,12 +25,13 @@ class ClaudeCodeProxyClient:
     通过现有的Claude Code会话进行AI交互，无需额外API Key。
     """
 
-    def __init__(self, timeout: int = 60):
+    def __init__(self, timeout: int = 60, claude_path: str = ""):
         """
         初始化Claude Code代理客户端
 
         Args:
             timeout: 请求超时时间（秒）
+            claude_path: claude命令的完整路径（可选，留空自动检测）
 
         Example:
             >>> client = ClaudeCodeProxyClient()
@@ -40,6 +41,7 @@ class ClaudeCodeProxyClient:
         self.timeout = timeout
         self.temp_files = []  # 跟踪临时文件，用于清理
         self._claude_cmd = None  # 存储检测到的命令名
+        self.custom_claude_path = claude_path  # 用户指定的路径
 
     def is_available(self) -> bool:
         """
@@ -53,16 +55,33 @@ class ClaudeCodeProxyClient:
             >>> if client.is_available():
             ...     print("Claude Code可用")
         """
-        # 尝试多个可能的命令名
-        commands_to_try = ['claude', 'claude-code']
+        # 尝试多个可能的路径（用于打包后的app）
+        home = os.path.expanduser("~")
+        possible_paths = [
+            # 用户配置的路径（最高优先级）
+            self.custom_claude_path,
+            # 用户自定义路径
+            os.path.join(home, '.local/bin/claude'),
+            os.path.join(home, '.npm/bin/claude'),
+            # nvm路径（常见node版本）
+            os.path.join(home, '.nvm/versions/node/v20.18.1/bin/claude'),
+            os.path.join(home, '.nvm/versions/node/v20.18.0/bin/claude'),
+            os.path.join(home, '.nvm/versions/node/v22.0.0/bin/claude'),
+            os.path.join(home, '.nvm/versions/node/v21.0.0/bin/claude'),
+            os.path.join(home, '.nvm/versions/node/v18.0.0/bin/claude'),
+            # 通过which查找（仅在terminal环境有效）
+            shutil.which('claude'),
+            shutil.which('claude-code'),
+            # 系统路径
+            '/usr/local/bin/claude',
+            '/opt/homebrew/bin/claude',
+        ]
 
-        for cmd_name in commands_to_try:
+        for cmd_path in possible_paths:
+            if not cmd_path or not os.path.exists(cmd_path):
+                continue
+
             try:
-                # 使用shutil.which查找命令的完整路径
-                cmd_path = shutil.which(cmd_name)
-                if not cmd_path:
-                    continue
-
                 # 检查命令是否可用
                 result = subprocess.run(
                     [cmd_path, '--version'],
@@ -73,10 +92,28 @@ class ClaudeCodeProxyClient:
                 if result.returncode == 0:
                     # 找到可用命令，保存完整路径
                     self._claude_cmd = cmd_path
+                    print(f"✓ 找到Claude Code: {cmd_path}")
                     return True
 
-            except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
+            except (FileNotFoundError, subprocess.TimeoutExpired, Exception) as e:
                 continue
+
+        # 最后尝试通过shell执行（会使用完整的PATH）
+        try:
+            result = subprocess.run(
+                ['bash', '-l', '-c', 'which claude'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                cmd_path = result.stdout.strip()
+                if os.path.exists(cmd_path):
+                    self._claude_cmd = cmd_path
+                    print(f"✓ 通过shell找到Claude Code: {cmd_path}")
+                    return True
+        except Exception:
+            pass
 
         return False
 
@@ -147,13 +184,25 @@ class ClaudeCodeProxyClient:
             # 构建命令 - 使用 -p/--print 模式
             cmd = [self._claude_cmd, '-p']
 
+            # 获取环境变量（关键:传递完整的PATH）
+            env = os.environ.copy()
+
+            # 如果通过nvm安装,确保NODE路径在PATH中
+            if '.nvm' in self._claude_cmd:
+                nvm_bin = os.path.dirname(self._claude_cmd)
+                if 'PATH' in env:
+                    env['PATH'] = f"{nvm_bin}:{env['PATH']}"
+                else:
+                    env['PATH'] = nvm_bin
+
             # 执行命令，通过stdin传递提示词
             result = subprocess.run(
                 cmd,
                 input=full_prompt,
                 capture_output=True,
                 text=True,
-                timeout=self.timeout
+                timeout=self.timeout,
+                env=env  # 传递环境变量
             )
 
             if result.returncode == 0:

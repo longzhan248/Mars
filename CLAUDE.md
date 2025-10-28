@@ -15,6 +15,17 @@
 
 首次运行会自动创建虚拟环境并安装依赖。
 
+### AI功能配置
+
+如果遇到"无法连接到Claude Code"错误,运行以下命令自动修复:
+
+```bash
+# 自动修复Claude Code配置
+./scripts/fix_claude_config.sh
+```
+
+详细配置说明: [Claude Code配置指南](docs/CLAUDE_CODE_SETUP.md)
+
 ## 核心功能
 
 ### 📊 Mars日志分析 + AI智能诊断
