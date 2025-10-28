@@ -12,6 +12,7 @@ Claude Code代理客户端
 """
 
 import os
+import shutil
 import subprocess
 import tempfile
 from typing import List, Optional
@@ -55,20 +56,26 @@ class ClaudeCodeProxyClient:
         # 尝试多个可能的命令名
         commands_to_try = ['claude', 'claude-code']
 
-        for cmd in commands_to_try:
+        for cmd_name in commands_to_try:
             try:
-                # 尝试运行命令
+                # 使用shutil.which查找命令的完整路径
+                cmd_path = shutil.which(cmd_name)
+                if not cmd_path:
+                    continue
+
+                # 检查命令是否可用
                 result = subprocess.run(
-                    [cmd, '--version'],
+                    [cmd_path, '--version'],
                     capture_output=True,
                     text=True,
-                    timeout=2
+                    timeout=5
                 )
                 if result.returncode == 0:
-                    # 找到可用命令，保存它
-                    self._claude_cmd = cmd
+                    # 找到可用命令，保存完整路径
+                    self._claude_cmd = cmd_path
                     return True
-            except (FileNotFoundError, subprocess.TimeoutExpired):
+
+            except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
                 continue
 
         return False
@@ -120,8 +127,6 @@ class ClaudeCodeProxyClient:
                     "3. 您正在Claude Code会话中运行"
                 )
 
-        # 创建临时文件存储提示词
-        prompt_file = None
         try:
             # 构建完整提示词
             full_prompt = prompt
@@ -139,21 +144,13 @@ class ClaudeCodeProxyClient:
                 if context_content:
                     full_prompt = '\n'.join(context_content) + '\n\n' + prompt
 
-            # 将提示词写入临时文件（避免命令行参数长度限制）
-            prompt_file = self._create_temp_file(full_prompt, suffix='.txt')
-
-            # 构建命令 - 使用 -p/--print 模式和文件输入
-            # 通过stdin传递提示词，避免shell参数限制
+            # 构建命令 - 使用 -p/--print 模式
             cmd = [self._claude_cmd, '-p']
 
-            # 通过stdin传递提示词
-            with open(prompt_file, 'r', encoding='utf-8') as f:
-                prompt_content = f.read()
-
-            # 执行命令
+            # 执行命令，通过stdin传递提示词
             result = subprocess.run(
                 cmd,
-                input=prompt_content,
+                input=full_prompt,
                 capture_output=True,
                 text=True,
                 timeout=self.timeout
@@ -183,10 +180,6 @@ class ClaudeCodeProxyClient:
                 "2. {self._claude_cmd}在系统PATH中\n"
                 "3. 您正在Claude Code会话中运行"
             )
-        finally:
-            # 清理临时文件
-            if prompt_file:
-                self._cleanup_temp_file(prompt_file)
 
     def _create_temp_file(self, content: str, suffix: str = '.txt') -> str:
         """

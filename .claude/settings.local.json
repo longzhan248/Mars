@@ -43,7 +43,9 @@
       "Bash(git reflog:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(timeout 10s python3:*)"
+      "Bash(timeout 10s python3:*)",
+      "Bash(echo:*)",
+      "Bash(timeout 15s python3:*)"
     ],
     "deny": [],
     "ask": []

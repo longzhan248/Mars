@@ -10,6 +10,7 @@ AI客户端抽象层
 所有客户端实现统一的ask()接口，便于切换。
 """
 
+import logging
 import os
 from abc import ABC, abstractmethod
 from typing import Optional
@@ -20,6 +21,9 @@ from ..exceptions import (
     handle_exceptions,
     get_global_error_collector
 )
+
+# 配置日志
+logger = logging.getLogger(__name__)
 
 
 class AIClient(ABC):
@@ -414,37 +418,37 @@ class AIClientFactory:
         # 1. 尝试Claude Code
         try:
             client = ClaudeCodeClient()
-            print("✓ 使用Claude Code代理")
+            logger.info("✓ 使用Claude Code代理")
             return client
         except Exception as e:
-            print(f"  Claude Code不可用: {str(e)}")
+            logger.debug(f"Claude Code不可用: {str(e)}")
 
         # 2. 尝试Ollama
         try:
             client = OllamaClient()
             if client.is_available():
-                print("✓ 使用Ollama本地模型")
+                logger.info("✓ 使用Ollama本地模型")
                 return client
             else:
-                print("  Ollama服务未运行")
+                logger.debug("Ollama服务未运行")
         except Exception as e:
-            print(f"  Ollama不可用: {str(e)}")
+            logger.debug(f"Ollama不可用: {str(e)}")
 
         # 3. 检查Claude API Key
         api_key = os.getenv('ANTHROPIC_API_KEY')
         if api_key:
-            print("✓ 使用Claude API")
+            logger.info("✓ 使用Claude API")
             return ClaudeClient(api_key)
         else:
-            print("  未配置ANTHROPIC_API_KEY环境变量")
+            logger.debug("未配置ANTHROPIC_API_KEY环境变量")
 
         # 4. 检查OpenAI API Key
         api_key = os.getenv('OPENAI_API_KEY')
         if api_key:
-            print("✓ 使用OpenAI API")
+            logger.info("✓ 使用OpenAI API")
             return OpenAIClient(api_key)
         else:
-            print("  未配置OPENAI_API_KEY环境变量")
+            logger.debug("未配置OPENAI_API_KEY环境变量")
 
         # 都不可用
         raise RuntimeError(
@@ -471,6 +475,9 @@ def auto_detect_client() -> AIClient:
 
 # 示例用法
 if __name__ == "__main__":
+    # 配置日志输出到控制台
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
+
     print("=== AI客户端测试 ===\n")
 
     # 测试自动检测
